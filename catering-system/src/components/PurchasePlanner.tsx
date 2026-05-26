@@ -60,11 +60,6 @@ function resolveQty(item: PurchaseLineItem, editedQtys: EditedQtyMap): number {
   return editedQtys[item.ingredientId] ?? item.suggestedQtyKg;
 }
 
-/** Recalculates a single item's cost after user edits. */
-function resolveCost(item: PurchaseLineItem, editedQtys: EditedQtyMap): number {
-  return r3(resolveQty(item, editedQtys) * item.unitCost);
-}
-
 /**
  * Produces a save-ready PurchaseDraft with user-adjusted quantities baked in.
  * Rebuilds supplierGroups and totalEstimatedCost from scratch so the
@@ -386,7 +381,7 @@ export function PurchasePlanner({ db, orderIds }: PurchasePlannerProps) {
                             min={0}
                             step={0.1}
                             value={item.effectiveQty}
-                            onChange={(e) =>
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                               handleQtyChange(item.ingredientId, e.target.valueAsNumber)
                             }
                             className="h-8 w-full text-right tabular-nums"

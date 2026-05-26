@@ -135,7 +135,7 @@ export async function restockIngredient(
       ? (snap.data() as InventoryDoc).currentStock
       : 0;
 
-    const payload: Partial<InventoryDoc> & { lastUpdated: ReturnType<typeof serverTimestamp> } = {
+    const payload = {
       ingredientId,
       ingredientName,
       currentStock: r3(currentStock + quantityKg),

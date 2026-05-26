@@ -16,7 +16,7 @@ const navItems = [
 
 export default function AppLayout() {
   const { pathname } = useLocation();
-  const pageTitle = navItems.findLast(({ to, end }) =>
+  const pageTitle = [...navItems].reverse().find(({ to, end }) =>
     end ? pathname === to : pathname.startsWith(to),
   )?.label ?? '';
 

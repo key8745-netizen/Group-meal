@@ -218,7 +218,7 @@ export async function markPurchaseOrdered(
     status: 'ordered',
     orderedAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-  } satisfies Partial<Purchase>);
+  });
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────

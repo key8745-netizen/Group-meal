@@ -4,6 +4,7 @@ import {
   ClipboardList,
   PackageSearch,
   ShoppingCart,
+  BarChart2,
   ChefHat,
   ChevronRight,
 } from 'lucide-react';
@@ -13,6 +14,7 @@ const navItems = [
   { to: '/orders',    label: '訂單管理', icon: ClipboardList },
   { to: '/inventory', label: '庫存管理', icon: PackageSearch },
   { to: '/purchase',  label: '採購計畫', icon: ShoppingCart },
+  { to: '/analytics', label: '報表分析', icon: BarChart2 },
 ];
 
 export default function AppLayout() {

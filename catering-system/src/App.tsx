@@ -4,6 +4,7 @@ import Dashboard from '@/pages/Dashboard';
 import OrderEntry from '@/pages/OrderEntry';
 import InventoryStatus from '@/pages/InventoryStatus';
 import PurchasePage from '@/pages/PurchasePage';
+import Analytics from '@/pages/Analytics';
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
           <Route path="orders" element={<OrderEntry />} />
           <Route path="inventory" element={<InventoryStatus />} />
           <Route path="purchase" element={<PurchasePage />} />
+          <Route path="analytics" element={<Analytics />} />
         </Route>
       </Routes>
     </BrowserRouter>

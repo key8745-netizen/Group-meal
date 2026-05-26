@@ -98,7 +98,7 @@ export async function analyzePerformance(
 
   const [result, settings] = await Promise.all([
     getPeriodPerformance(db, period.startDate, period.endDate),
-    tenantId ? configService.getSettings(db, tenantId) : Promise.resolve(null),
+    tenantId ? configService.getSettings(tenantId) : Promise.resolve(null),
   ]);
 
   const lowMargin  = settings?.profitMarginThreshold ?? THRESHOLDS.lowMargin;
@@ -153,7 +153,7 @@ export async function suggestOptimization(
 
   const [menuSnap, settings] = await Promise.all([
     getDoc(doc(db, 'menus', menuId)),
-    tenantId ? configService.getSettings(db, tenantId) : Promise.resolve(null),
+    tenantId ? configService.getSettings(tenantId) : Promise.resolve(null),
   ]);
 
   if (!menuSnap.exists()) return insights;

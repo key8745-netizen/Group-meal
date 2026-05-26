@@ -1,4 +1,5 @@
-import { doc, getDoc, setDoc, type Firestore } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 export interface SystemSettings {
   /** Gross margin below this triggers a low-margin alert (decimal, e.g. 0.2 = 20%) */
@@ -18,18 +19,14 @@ const DEFAULT_SETTINGS: SystemSettings = {
 };
 
 export const configService = {
-  async getSettings(db: Firestore, tenantId: string): Promise<SystemSettings> {
+  async getSettings(tenantId: string): Promise<SystemSettings> {
     const snap = await getDoc(doc(db, 'settings', tenantId));
     if (!snap.exists()) return { ...DEFAULT_SETTINGS };
     // Merge with defaults so new fields added in future don't break old tenants
     return { ...DEFAULT_SETTINGS, ...(snap.data() as Partial<SystemSettings>) };
   },
 
-  async updateSettings(
-    db:       Firestore,
-    tenantId: string,
-    settings: SystemSettings,
-  ): Promise<void> {
+  async updateSettings(tenantId: string, settings: SystemSettings): Promise<void> {
     await setDoc(doc(db, 'settings', tenantId), settings);
   },
 };

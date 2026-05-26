@@ -342,11 +342,11 @@ export function PurchasePlanner({ db, orderIds }: PurchasePlannerProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {items.map((item) => {
+                  {items.map((item, idx) => {
                     const isEdited = item.ingredientId in editedQtys;
 
                     return (
-                      <TableRow key={item.ingredientId}>
+                      <TableRow key={item.ingredientId} className={idx % 2 !== 0 ? 'bg-muted/30' : ''}>
                         <TableCell className="font-medium">{item.ingredientName}</TableCell>
 
                         <TableCell className="text-right text-muted-foreground">

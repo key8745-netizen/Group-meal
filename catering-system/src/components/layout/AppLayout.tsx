@@ -1,0 +1,80 @@
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import {
+  LayoutDashboard,
+  ClipboardList,
+  PackageSearch,
+  ShoppingCart,
+  ChefHat,
+} from 'lucide-react';
+
+const navItems = [
+  { to: '/',          label: '儀表板',   icon: LayoutDashboard, end: true },
+  { to: '/orders',    label: '訂單管理', icon: ClipboardList },
+  { to: '/inventory', label: '庫存管理', icon: PackageSearch },
+  { to: '/purchase',  label: '採購計畫', icon: ShoppingCart },
+];
+
+export default function AppLayout() {
+  const { pathname } = useLocation();
+  const pageTitle = navItems.findLast(({ to, end }) =>
+    end ? pathname === to : pathname.startsWith(to),
+  )?.label ?? '';
+
+  return (
+    <div className="flex h-screen overflow-hidden bg-background">
+
+      {/* ── Sidebar ── */}
+      <aside className="flex w-56 shrink-0 flex-col border-r bg-muted/30">
+
+        {/* Logo */}
+        <div className="flex h-14 items-center gap-2 border-b px-4">
+          <ChefHat size={20} className="text-primary" />
+          <span className="font-semibold tracking-tight">餐飲管理系統</span>
+        </div>
+
+        {/* Nav links */}
+        <nav className="flex-1 space-y-0.5 p-2 pt-3">
+          {navItems.map(({ to, label, icon: Icon, end }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
+              className={({ isActive }) =>
+                [
+                  'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                ].join(' ')
+              }
+            >
+              <Icon size={16} />
+              {label}
+            </NavLink>
+          ))}
+        </nav>
+
+        {/* Footer */}
+        <div className="border-t p-3">
+          <p className="text-xs text-muted-foreground">v0.1.0</p>
+        </div>
+      </aside>
+
+      {/* ── Main content ── */}
+      <div className="flex flex-1 flex-col overflow-hidden">
+
+        {/* Top navbar */}
+        <header className="flex h-14 shrink-0 items-center border-b px-6">
+          <h2 className="text-sm font-medium text-muted-foreground">
+            {pageTitle}
+          </h2>
+        </header>
+
+        {/* Page content */}
+        <main className="flex-1 overflow-y-auto">
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  );
+}

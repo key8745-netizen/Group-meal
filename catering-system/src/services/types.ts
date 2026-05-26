@@ -71,6 +71,8 @@ export interface Ingredient {
   category: string;
   minStockLevel: number;
   supplierIds: string[];
+  /** Fraction lost during prep, e.g. 0.1 = 10% trim loss. Stored at ingredient level. */
+  wasteFactor?: number;
 }
 
 export interface InventoryDoc {

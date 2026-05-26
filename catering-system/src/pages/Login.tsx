@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithRedirect, getRedirectResult } from 'firebase/auth';
+import { useState } from 'react';
+import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { ChefHat, LogIn } from 'lucide-react';
 import { auth } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
@@ -24,12 +24,6 @@ export default function Login() {
   const [loading, setLoading]   = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  useEffect(() => {
-    getRedirectResult(auth).catch(() => {
-      setError('Google 登入失敗，請再試一次。');
-    });
-  }, []);
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
@@ -47,9 +41,10 @@ export default function Login() {
     setError('');
     setGoogleLoading(true);
     try {
-      await signInWithRedirect(auth, googleProvider);
+      await signInWithPopup(auth, googleProvider);
     } catch {
       setError('Google 登入失敗，請再試一次。');
+    } finally {
       setGoogleLoading(false);
     }
   }

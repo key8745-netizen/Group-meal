@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { addDoc, collection, getDocs, Timestamp } from 'firebase/firestore';
+import { getDocs, collection, Timestamp } from 'firebase/firestore';
 import { PlusCircle, Search, ShoppingBag, Trash2 } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import type { Ingredient, Menu, Order, OrderItem } from '@/services/types';
+import type { Ingredient, Menu, OrderItem } from '@/services/types';
 import { UnitConverter } from '@/services/unitConverter';
+import { placeOrder } from '@/services/orderService';
+import { InsufficientStockError } from '@/services/inventoryService';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
 
@@ -225,7 +227,6 @@ export default function OrderEntry() {
               subtotal: r3(item.unitPrice * item.servings),
             }
           : {
-              // Custom ingredients: menuId empty; ingredientId encoded in specialRequests
               menuId: '',
               menuName: item.ingredientName,
               quantity: item.quantity,
@@ -235,28 +236,36 @@ export default function OrderEntry() {
             },
       );
 
-      const order: Omit<Order, 'id'> = {
-        orderDate: Timestamp.now(),
-        deliveryDate: Timestamp.fromDate(new Date(deliveryDate)),
-        clientId: '',
-        clientName: clientName.trim(),
-        status: 'pending',
-        items: orderItems,
-        totalAmount,
-        notes: notes.trim() || undefined,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-      };
+      const orderId = await placeOrder(
+        db,
+        {
+          orderDate:    Timestamp.now(),
+          deliveryDate: Timestamp.fromDate(new Date(deliveryDate)),
+          clientId:     '',
+          clientName:   clientName.trim(),
+          status:       'pending',
+          items:        orderItems,
+          totalAmount,
+          notes:        notes.trim() || undefined,
+        },
+        '', // performedBy: fill in when Auth is integrated
+      );
 
-      await addDoc(collection(db, 'orders'), order);
-
-      toast({ title: '訂單已送出', description: `客戶：${clientName}，共 ${items.length} 項` });
+      toast({ title: '訂單已送出', description: `訂單 #${orderId}，客戶：${clientName}，共 ${items.length} 項` });
       setItems([]);
       setClientName('');
       setDeliveryDate('');
       setNotes('');
     } catch (err) {
-      toast({ variant: 'destructive', title: '送出失敗', description: err instanceof Error ? err.message : '請稍後再試' });
+      if (err instanceof InsufficientStockError) {
+        toast({
+          variant: 'destructive',
+          title: '庫存不足，訂單無法送出',
+          description: err.shortages.join('\n'),
+        });
+      } else {
+        toast({ variant: 'destructive', title: '送出失敗', description: err instanceof Error ? err.message : '請稍後再試' });
+      }
     } finally {
       setSaving(false);
     }

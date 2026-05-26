@@ -246,7 +246,7 @@ export default function OrderEntry() {
           status:       'pending',
           items:        orderItems,
           totalAmount,
-          notes:        notes.trim() || undefined,
+          ...(notes.trim() ? { notes: notes.trim() } : {}),
         },
         '', // performedBy: fill in when Auth is integrated
       );

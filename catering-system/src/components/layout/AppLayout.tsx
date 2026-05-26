@@ -7,7 +7,10 @@ import {
   BarChart2,
   ChefHat,
   ChevronRight,
+  LogOut,
 } from 'lucide-react';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
 const navItems = [
   { to: '/',          label: '儀表板',   icon: LayoutDashboard, end: true },
@@ -58,8 +61,15 @@ export default function AppLayout() {
         </nav>
 
         {/* Footer */}
-        <div className="border-t p-3">
-          <p className="text-xs text-muted-foreground">v0.1.0</p>
+        <div className="border-t p-3 space-y-1">
+          <button
+            onClick={() => signOut(auth)}
+            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+          >
+            <LogOut size={13} />
+            登出
+          </button>
+          <p className="px-3 text-xs text-muted-foreground/60">v0.1.0</p>
         </div>
       </aside>
 

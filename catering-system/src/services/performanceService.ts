@@ -39,6 +39,8 @@ export interface PeriodPerformance {
   orderCount: number;
   /** True when any ingredient's unitCost was absent — cost figure is understated */
   hasIncompleteData: boolean;
+  /** Names of ingredients whose unitCost was absent (empty when hasIncompleteData is false) */
+  missingIngredientNames: string[];
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -155,6 +157,7 @@ export async function getPeriodPerformance(
     profitMargin: 0,
     orderCount: 0,
     hasIncompleteData: false,
+    missingIngredientNames: [],
   };
 
   // Firestore range query on orderDate; cancelled orders are filtered in memory
@@ -195,14 +198,16 @@ export async function getPeriodPerformance(
     }
   });
 
-  let totalCost       = 0;
-  let hasIncompleteData = false;
+  let totalCost             = 0;
+  let hasIncompleteData     = false;
+  const missingIngredientNames: string[] = [];
 
   for (const [id, req] of requirements) {
     const ingredient = ingredientMap.get(id);
 
     if (!ingredient || ingredient.unitCost == null) {
       hasIncompleteData = true;
+      missingIngredientNames.push(req.ingredientName);
       continue; // count as 0 — flagged above
     }
 
@@ -224,5 +229,6 @@ export async function getPeriodPerformance(
     profitMargin,
     orderCount: orders.length,
     hasIncompleteData,
+    missingIngredientNames,
   };
 }

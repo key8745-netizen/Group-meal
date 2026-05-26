@@ -28,6 +28,7 @@ import {
 } from 'firebase/firestore';
 import type { Menu } from './types';
 import { getPeriodPerformance } from './performanceService';
+import { configService } from './configService';
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -81,18 +82,27 @@ function pct(ratio: number): string {
 
 /**
  * Analyses overall profitability for the given period.
+ * Thresholds are read from Firestore settings when tenantId is provided,
+ * falling back to THRESHOLDS for direct/test calls.
  *
  * Generates:
  *  - DATA_WARNING  when ingredient cost data is incomplete
- *  - ALERT         when gross margin falls below the 20 % threshold
+ *  - ALERT         when gross margin falls below the configured threshold
  */
 export async function analyzePerformance(
-  db:     Firestore,
-  period: AnalysisPeriod,
+  db:        Firestore,
+  period:    AnalysisPeriod,
+  tenantId?: string,
 ): Promise<Insight[]> {
   const insights: Insight[] = [];
 
-  const result = await getPeriodPerformance(db, period.startDate, period.endDate);
+  const [result, settings] = await Promise.all([
+    getPeriodPerformance(db, period.startDate, period.endDate),
+    tenantId ? configService.getSettings(db, tenantId) : Promise.resolve(null),
+  ]);
+
+  const lowMargin  = settings?.profitMarginThreshold ?? THRESHOLDS.lowMargin;
+  const criticalMargin = lowMargin / 2;
 
   // ── Data completeness warning ────────────────────────────────────────────
   if (result.hasIncompleteData) {
@@ -112,12 +122,12 @@ export async function analyzePerformance(
   }
 
   // ── Profit margin threshold detection ────────────────────────────────────
-  if (result.profitMargin < THRESHOLDS.lowMargin) {
-    const isCritical = result.profitMargin < THRESHOLDS.criticalMargin;
+  if (result.profitMargin < lowMargin) {
+    const isCritical = result.profitMargin < criticalMargin;
     insights.push(insight(
       'ALERT',
       `整體毛利率偏低：${pct(result.profitMargin)}，` +
-      `低於警示門檻 ${pct(THRESHOLDS.lowMargin)}。` +
+      `低於警示門檻 ${pct(lowMargin)}。` +
       `（期間營收 NT$${result.totalRevenue.toLocaleString('zh-TW')}，` +
       `食材成本 NT$${result.totalCost.toLocaleString('zh-TW')}）`,
       isCritical ? 'HIGH' : 'MEDIUM',
@@ -131,28 +141,32 @@ export async function analyzePerformance(
 
 /**
  * Inspects a single menu's BOM for high-waste ingredients and returns
- * improvement suggestions.
- *
- * A wasteFactor above THRESHOLDS.highWasteFactor (default 30 %) is considered
- * excessive and triggers an OPTIMIZATION insight.
+ * improvement suggestions.  Uses the tenant's wasteFactorWarning setting
+ * when tenantId is provided.
  */
 export async function suggestOptimization(
-  db:     Firestore,
-  menuId: string,
+  db:        Firestore,
+  menuId:    string,
+  tenantId?: string,
 ): Promise<Insight[]> {
   const insights: Insight[] = [];
 
-  const menuSnap = await getDoc(doc(db, 'menus', menuId));
+  const [menuSnap, settings] = await Promise.all([
+    getDoc(doc(db, 'menus', menuId)),
+    tenantId ? configService.getSettings(db, tenantId) : Promise.resolve(null),
+  ]);
+
   if (!menuSnap.exists()) return insights;
 
-  const menu = { id: menuSnap.id, ...menuSnap.data() } as Menu;
+  const menu            = { id: menuSnap.id, ...menuSnap.data() } as Menu;
+  const wasteThreshold  = settings?.wasteFactorWarning ?? THRESHOLDS.highWasteFactor;
 
   for (const bom of menu.ingredients) {
-    if (bom.wasteFactor > THRESHOLDS.highWasteFactor) {
+    if (bom.wasteFactor > wasteThreshold) {
       insights.push(insight(
         'OPTIMIZATION',
         `【${menu.name}】${bom.ingredientName} 的損耗率為 ${pct(bom.wasteFactor)}，` +
-        `超過建議上限 ${pct(THRESHOLDS.highWasteFactor)}。` +
+        `超過建議上限 ${pct(wasteThreshold)}。` +
         `建議檢視備料流程或調整食材規格，可降低每份成本。`,
         bom.wasteFactor >= 0.5 ? 'HIGH' : 'MEDIUM',
       ));
@@ -169,12 +183,15 @@ export async function suggestOptimization(
  * scheduled trigger every morning.
  *
  * Runs:
- *  1. Period analysis for the previous calendar day
+ *  1. Period analysis for the previous calendar day (thresholds from Firestore)
  *  2. Waste optimisation scan over every active menu
  *
  * Returns all insights sorted by priority (HIGH → MEDIUM → LOW).
  */
-export async function runDailyAnalysis(db: Firestore): Promise<Insight[]> {
+export async function runDailyAnalysis(
+  db:        Firestore,
+  tenantId?: string,
+): Promise<Insight[]> {
   // ── Build yesterday's date range (local midnight → 23:59:59.999) ─────────
   const now       = new Date();
   const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0,  0,  0,   0);
@@ -182,16 +199,16 @@ export async function runDailyAnalysis(db: Firestore): Promise<Insight[]> {
 
   const period: AnalysisPeriod = { startDate, endDate };
 
-  // ── Run all analyses concurrently ────────────────────────────────────────
+  // ── Run performance analysis + fetch menus concurrently ─────────────────
   const [performanceInsights, menuSnaps] = await Promise.all([
-    analyzePerformance(db, period),
+    analyzePerformance(db, period, tenantId),
     getDocs(collection(db, 'menus')),
   ]);
 
   const menuIds = menuSnaps.docs.map((d) => d.id);
 
   const optimizationInsights = (
-    await Promise.all(menuIds.map((id) => suggestOptimization(db, id)))
+    await Promise.all(menuIds.map((id) => suggestOptimization(db, id, tenantId)))
   ).flat();
 
   return [...performanceInsights, ...optimizationInsights].sort(byPriority);

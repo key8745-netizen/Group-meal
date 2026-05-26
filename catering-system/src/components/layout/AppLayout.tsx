@@ -5,6 +5,7 @@ import {
   PackageSearch,
   ShoppingCart,
   ChefHat,
+  ChevronRight,
 } from 'lucide-react';
 
 const navItems = [
@@ -61,13 +62,17 @@ export default function AppLayout() {
       </aside>
 
       {/* ── Main content ── */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
 
-        {/* Top navbar */}
-        <header className="flex h-14 shrink-0 items-center border-b px-6">
-          <h2 className="text-sm font-medium text-muted-foreground">
-            {pageTitle}
-          </h2>
+        {/* Top navbar with breadcrumb */}
+        <header className="flex h-14 shrink-0 items-center gap-1.5 border-b px-6">
+          <span className="text-sm text-muted-foreground">餐飲管理系統</span>
+          {pageTitle && (
+            <>
+              <ChevronRight size={13} className="shrink-0 text-muted-foreground/40" />
+              <span className="text-sm font-medium text-foreground">{pageTitle}</span>
+            </>
+          )}
         </header>
 
         {/* Page content */}

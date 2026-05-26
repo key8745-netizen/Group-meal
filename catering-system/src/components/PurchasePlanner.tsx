@@ -1,5 +1,3 @@
-'use client';
-
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Firestore } from 'firebase/firestore';
 import { PackageSearch, RefreshCw, Save, Send } from 'lucide-react';
@@ -346,7 +344,16 @@ export function PurchasePlanner({ db, orderIds }: PurchasePlannerProps) {
                     const isEdited = item.ingredientId in editedQtys;
 
                     return (
-                      <TableRow key={item.ingredientId} className={idx % 2 !== 0 ? 'bg-muted/30' : ''}>
+                      <TableRow
+                        key={item.ingredientId}
+                        className={
+                          item.currentStockKg < item.safetyLevelKg
+                            ? 'bg-red-50 dark:bg-red-950/20'
+                            : idx % 2 !== 0
+                              ? 'bg-muted/30'
+                              : ''
+                        }
+                      >
                         <TableCell className="font-medium">{item.ingredientName}</TableCell>
 
                         <TableCell className="text-right text-muted-foreground">

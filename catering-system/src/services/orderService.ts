@@ -161,13 +161,13 @@ export async function placeOrder(
         shortages.push(`${req.ingredientName}: 庫存資料不存在`);
         return;
       }
-      const { currentStock } = snap.data() as InventoryDoc;
+      const { currentStock, unit } = snap.data() as InventoryDoc;
       if (currentStock < req.totalQuantityKg) {
         shortages.push(
           `${req.ingredientName}: 庫存不足` +
-          `（現有 ${currentStock.toFixed(3)} kg，` +
-          `需求 ${req.totalQuantityKg.toFixed(3)} kg，` +
-          `差額 ${(req.totalQuantityKg - currentStock).toFixed(3)} kg）`,
+          `（現有 ${currentStock.toFixed(3)} ${unit}，` +
+          `需求 ${req.totalQuantityKg.toFixed(3)} ${unit}，` +
+          `差額 ${(req.totalQuantityKg - currentStock).toFixed(3)} ${unit}）`,
         );
       }
     });

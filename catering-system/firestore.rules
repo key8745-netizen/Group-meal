@@ -1,0 +1,71 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── 共用函式 ──────────────────────────────────────────────────────────────
+
+    // 是否已登入
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // 是否為採購人員（透過 Firebase Auth Custom Claims 設定）
+    // 設定方式：Admin SDK → auth.setCustomUserClaims(uid, { role: 'purchasing' })
+    function isPurchasingStaff() {
+      return isAuthenticated() && request.auth.token.role == 'purchasing';
+    }
+
+    // ── orders ────────────────────────────────────────────────────────────────
+    // 允許讀取與新增；明確禁止刪除；更新需已登入
+    match /orders/{orderId} {
+      allow read:   if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if false; // 訂單不可刪除，只能取消 (status: 'cancelled')
+    }
+
+    // ── inventory ─────────────────────────────────────────────────────────────
+    // 主文件：已登入可讀寫
+    match /inventory/{ingredientId} {
+      allow read:  if isAuthenticated();
+      allow write: if isAuthenticated();
+
+      // 異動紀錄子集合：只允許新增（不可修改/刪除，保持稽核完整性）
+      match /transactions/{txId} {
+        allow read:   if isAuthenticated();
+        allow create: if isAuthenticated();
+        allow update: if false;
+        allow delete: if false;
+      }
+    }
+
+    // ── purchases ─────────────────────────────────────────────────────────────
+    // 讀取限採購人員；寫入（新增/更新）需已登入；禁止刪除
+    match /purchases/{purchaseId} {
+      allow read:   if isPurchasingStaff();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if false;
+    }
+
+    // ── menus ─────────────────────────────────────────────────────────────────
+    // 採購計算需要讀取菜單 BOM，已登入皆可讀；寫入需採購人員
+    match /menus/{menuId} {
+      allow read:  if isAuthenticated();
+      allow write: if isPurchasingStaff();
+    }
+
+    // ── ingredients ───────────────────────────────────────────────────────────
+    // 食材主檔：已登入可讀；寫入需採購人員
+    match /ingredients/{ingredientId} {
+      allow read:  if isAuthenticated();
+      allow write: if isPurchasingStaff();
+    }
+
+    // ── 其他所有路徑：預設拒絕 ────────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

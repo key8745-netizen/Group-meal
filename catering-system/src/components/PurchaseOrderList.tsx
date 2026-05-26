@@ -25,18 +25,20 @@ const fmtKg     = (n: number) => `${n % 1 === 0 ? n.toFixed(0) : n.toFixed(2)} k
 const fmtTaijin = (n: number) => `${n % 1 === 0 ? n.toFixed(0) : n.toFixed(2)} 台斤`;
 
 const STATUS_LABEL: Record<PurchaseOrderStatus, string> = {
+  DRAFT:     '草稿',
   PENDING:   '待採購',
   RECEIVED:  '已完成',
   CANCELLED: '已取消',
 };
 
 const STATUS_VARIANT: Record<PurchaseOrderStatus, 'outline' | 'secondary' | 'destructive'> = {
+  DRAFT:     'outline',
   PENDING:   'outline',
   RECEIVED:  'secondary',
   CANCELLED: 'destructive',
 };
 
-const TABS: PurchaseOrderStatus[] = ['PENDING', 'RECEIVED'];
+const TABS: PurchaseOrderStatus[] = ['DRAFT', 'PENDING', 'RECEIVED'];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -71,7 +73,7 @@ function OrderCard({ order, onComplete }: {
   onComplete: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const isPending = order.status === 'PENDING';
+  const isPending = order.status === 'PENDING' || order.status === 'DRAFT';
 
   return (
     <div className="overflow-hidden rounded-lg border">
@@ -108,6 +110,11 @@ function OrderCard({ order, onComplete }: {
       </div>
 
       {/* Expandable item table */}
+      {expanded && order.notes && (
+        <div className="border-b bg-amber-50/60 px-4 py-2 text-xs text-amber-700 dark:bg-amber-950/20 dark:text-amber-400">
+          {order.notes}
+        </div>
+      )}
       {expanded && (
         <Table>
           <TableHeader>

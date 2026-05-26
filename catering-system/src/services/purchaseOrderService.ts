@@ -14,7 +14,7 @@ import { restockIngredient } from './inventoryService';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
-export type PurchaseOrderStatus = 'PENDING' | 'RECEIVED' | 'CANCELLED';
+export type PurchaseOrderStatus = 'DRAFT' | 'PENDING' | 'RECEIVED' | 'CANCELLED';
 
 /** Subset of FeasibilityItem that createOrder needs */
 export interface PurchaseOrderItem {
@@ -27,11 +27,12 @@ export interface PurchaseOrderItem {
 }
 
 export interface PurchaseOrder {
-  id?:        string;
-  status:     PurchaseOrderStatus;
-  items:      PurchaseOrderItem[];
-  createdAt:  Timestamp;
+  id?:         string;
+  status:      PurchaseOrderStatus;
+  items:       PurchaseOrderItem[];
+  createdAt:   Timestamp;
   receivedAt?: Timestamp;
+  notes?:      string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

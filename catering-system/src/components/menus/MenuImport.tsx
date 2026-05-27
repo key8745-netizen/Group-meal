@@ -239,7 +239,7 @@ export function MenuImport() {
       toast({
         variant: 'destructive',
         title:   '照片辨識失敗',
-        description: err instanceof Error ? err.message : '請確認已設定 ANTHROPIC_API_KEY 環境變數。',
+        description: err instanceof Error ? err.message : '請確認已在 Netlify 設定 GEMINI_API_KEY 環境變數。',
       });
     } finally {
       setLoading(false);

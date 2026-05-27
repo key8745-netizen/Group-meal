@@ -1,21 +1,19 @@
 /**
  * Netlify Function: ocr-menu
  *
- * Accepts a base64-encoded image, sends it to Claude Vision,
- * and returns a structured JSON with the menu rows it found.
+ * Accepts a base64-encoded JPEG image, sends it to Gemini Vision,
+ * and returns structured menu data.
  *
  * POST body: { imageBase64: string }
  * Response:  { rows: Array<{ date: string; headCount: number; dishes: string[] }> }
  *
- * Required env var in Netlify dashboard: ANTHROPIC_API_KEY
+ * Required env var in Netlify dashboard: GEMINI_API_KEY
  */
 
-import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { Handler } from '@netlify/functions';
 
-const client = new Anthropic();
-
-const SYSTEM_PROMPT = `你是一個專門解讀臺灣學校或機構「營養午餐菜單」的 AI 助手。
+const PROMPT = `你是一個專門解讀臺灣學校或機構「營養午餐菜單」的 AI 助手。
 使用者會上傳一張菜單的照片（可能是紙本翻拍或掃描）。
 
 請仔細閱讀照片內容，提取以下資訊，並以 JSON 格式回覆，不要加任何額外說明：
@@ -51,33 +49,21 @@ export const handler: Handler = async (event) => {
     return { statusCode: 400, body: 'Invalid request body' };
   }
 
-  try {
-    const message = await client.messages.create({
-      model:      'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type:   'image',
-              source: {
-                type:       'base64',
-                media_type: 'image/jpeg',
-                data:       imageBase64,
-              },
-            },
-            {
-              type: 'text',
-              text: '請分析這張菜單照片並以 JSON 格式回傳菜單資料。',
-            },
-          ],
-        },
-      ],
-      system: SYSTEM_PROMPT,
-    });
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return { statusCode: 500, body: 'GEMINI_API_KEY is not set' };
+  }
 
-    const raw   = (message.content[0] as { type: string; text: string }).text;
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+    const result = await model.generateContent([
+      { inlineData: { data: imageBase64, mimeType: 'image/jpeg' } },
+      PROMPT,
+    ]);
+
+    const raw   = result.response.text();
     const clean = raw.replace(/```json\n?|\n?```/g, '').trim();
     const data  = JSON.parse(clean);
 

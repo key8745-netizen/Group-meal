@@ -9,6 +9,7 @@ import {
   ChevronRight,
   LogOut,
   UtensilsCrossed,
+  BookOpen,
 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -16,6 +17,7 @@ import { auth } from '@/lib/firebase';
 const navItems = [
   { to: '/',          label: '儀表板',   icon: LayoutDashboard,  end: true },
   { to: '/orders',    label: '訂單管理', icon: ClipboardList },
+  { to: '/menus',     label: '菜單管理', icon: BookOpen },
   { to: '/plan',      label: '備料規劃', icon: UtensilsCrossed },
   { to: '/inventory', label: '庫存管理', icon: PackageSearch },
   { to: '/purchase',  label: '採購管理', icon: ShoppingCart },

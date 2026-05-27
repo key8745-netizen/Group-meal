@@ -8,6 +8,7 @@ import OrderEntry from '@/pages/OrderEntry';
 import InventoryStatus from '@/pages/InventoryStatus';
 import PurchasePage from '@/pages/PurchasePage';
 import PlanPage from '@/pages/PlanPage';
+import MenusPage from '@/pages/MenusPage';
 import Analytics from '@/pages/Analytics';
 import Login from '@/pages/Login';
 import ShareOrderPage from '@/pages/share/ShareOrderPage';
@@ -45,6 +46,7 @@ export default function App() {
           <Route path="orders" element={<OrderEntry />} />
           <Route path="inventory" element={<InventoryStatus />} />
           <Route path="plan" element={<PlanPage />} />
+          <Route path="menus" element={<MenusPage />} />
           <Route path="purchase" element={<PurchasePage />} />
           <Route path="analytics" element={<Analytics />} />
         </Route>

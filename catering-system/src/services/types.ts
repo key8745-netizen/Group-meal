@@ -96,6 +96,20 @@ export interface InventoryTransaction {
   timestamp: Timestamp;
 }
 
+// ─── Meal Plan ────────────────────────────────────────────────────────────────
+
+/** Daily meal plan — which dishes are served on a given date */
+export interface MealPlan {
+  /** ISO date string "YYYY-MM-DD" — also used as the Firestore document ID */
+  date:       string;
+  headCount:  number;
+  /** IDs from the menus collection */
+  menuIds:    string[];
+  notes?:     string;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+}
+
 // ─── Requirement map value ────────────────────────────────────────────────────
 
 export interface RequirementItem {

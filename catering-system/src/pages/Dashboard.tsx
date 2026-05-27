@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, getDocs, query, Timestamp, where } from 'firebase/firestore';
-import { ClipboardList, Package, ShoppingCart, TrendingDown } from 'lucide-react';
+import {
+  ClipboardList, Package, ShoppingCart, TrendingDown, UtensilsCrossed, FileEdit,
+} from 'lucide-react';
 import { db } from '@/lib/firebase';
 import type { Ingredient, InventoryDoc } from '@/services/types';
 import { UnitConverter } from '@/services/unitConverter';
@@ -29,9 +31,10 @@ const fmtCurrency = (n: number) =>
 export default function Dashboard() {
   const navigate = useNavigate();
 
-  const [loading, setLoading] = useState(true);
-  const [todayOrderCount, setTodayOrderCount] = useState(0);
-  const [lowStockItems, setLowStockItems] = useState<LowStockItem[]>([]);
+  const [loading,          setLoading]          = useState(true);
+  const [todayOrderCount,  setTodayOrderCount]  = useState(0);
+  const [draftOrderCount,  setDraftOrderCount]  = useState(0);
+  const [lowStockItems,    setLowStockItems]    = useState<LowStockItem[]>([]);
   const [purchaseEstimate, setPurchaseEstimate] = useState<number | null>(null);
 
   useEffect(() => {
@@ -42,7 +45,7 @@ export default function Dashboard() {
         const tomorrowStart = new Date(todayStart);
         tomorrowStart.setDate(tomorrowStart.getDate() + 1);
 
-        const [orderSnap, inventorySnap, ingredientSnap, suggestion] = await Promise.all([
+        const [orderSnap, inventorySnap, ingredientSnap, suggestion, purchaseSnap] = await Promise.all([
           getDocs(query(
             collection(db, 'orders'),
             where('orderDate', '>=', Timestamp.fromDate(todayStart)),
@@ -51,10 +54,17 @@ export default function Dashboard() {
           getDocs(collection(db, 'inventory')),
           getDocs(collection(db, 'ingredients')),
           generatePurchaseSuggestion(db),
+          getDocs(query(
+            collection(db, 'purchaseOrders'),
+            where('status', 'in', ['DRAFT', 'PENDING']),
+          )),
         ]);
 
         setTodayOrderCount(orderSnap.size);
         setPurchaseEstimate(suggestion.totalEstimatedCost);
+
+        const drafts = purchaseSnap.docs.filter(d => d.data().status === 'DRAFT');
+        setDraftOrderCount(drafts.length);
 
         const ingredientMap = new Map<string, Ingredient>();
         ingredientSnap.docs.forEach(doc => {
@@ -100,25 +110,36 @@ export default function Dashboard() {
 
   const kpis = [
     {
-      title: '今日訂單',
-      icon: ClipboardList,
-      value: loading ? null : String(todayOrderCount),
-      desc: '今日新建訂單總數',
-      alert: false,
+      title:   '今日訂單',
+      icon:    ClipboardList,
+      value:   loading ? null : String(todayOrderCount),
+      desc:    '今日新建訂單總數',
+      alert:   false,
+      onClick: () => navigate('/orders'),
     },
     {
-      title: '低庫存食材',
-      icon: TrendingDown,
-      value: loading ? null : String(lowStockItems.length),
-      desc: '低於安全水位的食材項目',
-      alert: lowStockItems.length > 0,
+      title:   '低庫存食材',
+      icon:    TrendingDown,
+      value:   loading ? null : String(lowStockItems.length),
+      desc:    '低於安全水位的食材項目',
+      alert:   lowStockItems.length > 0,
+      onClick: () => navigate('/inventory'),
     },
     {
-      title: '待採購預估',
-      icon: ShoppingCart,
-      value: loading ? null : purchaseEstimate !== null ? fmtCurrency(purchaseEstimate) : '—',
-      desc: '依庫存及訂單需求估算',
-      alert: false,
+      title:   '待確認採購單',
+      icon:    FileEdit,
+      value:   loading ? null : String(draftOrderCount),
+      desc:    '系統自動生成，待人工確認',
+      alert:   draftOrderCount > 0,
+      onClick: () => navigate('/purchase'),
+    },
+    {
+      title:   '待採購預估',
+      icon:    ShoppingCart,
+      value:   loading ? null : purchaseEstimate !== null ? fmtCurrency(purchaseEstimate) : '—',
+      desc:    '依庫存及訂單需求估算',
+      alert:   false,
+      onClick: () => navigate('/purchase'),
     },
   ];
 
@@ -130,9 +151,13 @@ export default function Dashboard() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        {kpis.map(({ title, icon: Icon, value, desc, alert }) => (
-          <Card key={title} className={alert ? 'border-destructive/50' : ''}>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {kpis.map(({ title, icon: Icon, value, desc, alert, onClick }) => (
+          <Card
+            key={title}
+            className={`cursor-pointer transition-shadow hover:shadow-md ${alert ? 'border-destructive/50' : ''}`}
+            onClick={onClick}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{title}</CardTitle>
               <Icon size={16} className={alert ? 'text-destructive' : 'text-muted-foreground'} />
@@ -229,10 +254,18 @@ export default function Dashboard() {
             <Button
               variant="outline"
               className="w-full justify-start gap-2"
+              onClick={() => navigate('/plan')}
+            >
+              <UtensilsCrossed size={14} />
+              備料規劃
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-2"
               onClick={() => navigate('/purchase')}
             >
               <ShoppingCart size={14} />
-              生成採購單
+              採購管理
             </Button>
             <Button
               variant="ghost"

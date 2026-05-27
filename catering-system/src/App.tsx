@@ -7,18 +7,18 @@ import Dashboard from '@/pages/Dashboard';
 import OrderEntry from '@/pages/OrderEntry';
 import InventoryStatus from '@/pages/InventoryStatus';
 import PurchasePage from '@/pages/PurchasePage';
+import PlanPage from '@/pages/PlanPage';
 import Analytics from '@/pages/Analytics';
 import Login from '@/pages/Login';
 import ShareOrderPage from '@/pages/share/ShareOrderPage';
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
-  const [user, setUser]       = useState<User | null | undefined>(undefined);
+  const [user, setUser] = useState<User | null | undefined>(undefined);
 
   useEffect(() => {
     return onAuthStateChanged(auth, setUser);
   }, []);
 
-  // Still resolving auth state
   if (user === undefined) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
@@ -44,6 +44,7 @@ export default function App() {
           <Route index element={<Dashboard />} />
           <Route path="orders" element={<OrderEntry />} />
           <Route path="inventory" element={<InventoryStatus />} />
+          <Route path="plan" element={<PlanPage />} />
           <Route path="purchase" element={<PurchasePage />} />
           <Route path="analytics" element={<Analytics />} />
         </Route>

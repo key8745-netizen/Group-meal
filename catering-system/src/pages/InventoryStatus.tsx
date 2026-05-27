@@ -10,6 +10,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import { InventoryAudit } from '@/components/InventoryAudit';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface InventoryRow {
   ingredientId: string;
@@ -23,6 +26,9 @@ interface InventoryRow {
 }
 
 type StockStatus = 'ok' | 'low' | 'critical' | 'unknown';
+type PageTab     = 'overview' | 'audit';
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getStatus(current: number, safety: number): StockStatus {
   if (safety <= 0) return 'unknown';
@@ -47,7 +53,15 @@ const statusOrder: Record<StockStatus, number> = { critical: 0, low: 1, unknown:
 
 type FilterKey = StockStatus | 'all';
 
+const PAGE_TABS: { key: PageTab; label: string }[] = [
+  { key: 'overview', label: '庫存總覽' },
+  { key: 'audit',    label: '庫存盤點' },
+];
+
+// ─── InventoryStatus ──────────────────────────────────────────────────────────
+
 export default function InventoryStatus() {
+  const [pageTab, setPageTab] = useState<PageTab>('overview');
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<InventoryRow[]>([]);
   const [filter, setFilter] = useState<FilterKey>('all');
@@ -100,7 +114,7 @@ export default function InventoryStatus() {
 
       setRows(data);
     } catch {
-      // silently ignore
+      // best-effort
     } finally {
       setLoading(false);
     }
@@ -120,7 +134,7 @@ export default function InventoryStatus() {
     ? rows
     : rows.filter(r => getStatus(r.currentStockKg, r.safetyLevelKg) === filter);
 
-  const filterTabs: { key: FilterKey; label: string }[] = [
+  const filterChips: { key: FilterKey; label: string }[] = [
     { key: 'all',      label: `全部（${counts.all}）` },
     { key: 'critical', label: `嚴重不足（${counts.critical}）` },
     { key: 'low',      label: `偏低（${counts.low}）` },
@@ -128,33 +142,18 @@ export default function InventoryStatus() {
   ];
 
   return (
-    <div className="space-y-6 p-6">
-
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">庫存管理</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            即時庫存水位，標示低於安全水位的食材。
-          </p>
-        </div>
-        <Button variant="ghost" size="sm" onClick={load} disabled={loading} aria-label="重新整理">
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          <span className="ml-1.5 hidden sm:inline">重新整理</span>
-        </Button>
-      </div>
-
-      {/* Filter chips */}
-      <div className="flex flex-wrap gap-2">
-        {filterTabs.map(({ key, label }) => (
+    <div className="flex flex-col">
+      {/* Page-level tab bar */}
+      <div className="flex gap-1 border-b bg-muted/20 px-6 pt-4">
+        {PAGE_TABS.map(({ key, label }) => (
           <button
             key={key}
-            onClick={() => setFilter(key)}
+            onClick={() => setPageTab(key)}
             className={[
-              'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-              filter === key
-                ? 'border-foreground bg-foreground text-background'
-                : 'border-muted text-muted-foreground hover:border-foreground hover:text-foreground',
+              'rounded-t-md px-4 py-2 text-sm font-medium transition-colors',
+              pageTab === key
+                ? 'border border-b-background -mb-px bg-background text-foreground'
+                : 'text-muted-foreground hover:text-foreground',
             ].join(' ')}
           >
             {label}
@@ -162,68 +161,107 @@ export default function InventoryStatus() {
         ))}
       </div>
 
-      {/* Table */}
-      {loading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="h-10 w-full" />
-          ))}
-        </div>
-      ) : displayed.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 py-20 text-muted-foreground">
-          <PackageSearch size={48} strokeWidth={1.2} />
-          <p className="text-sm">無符合條件的庫存項目</p>
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>食材名稱</TableHead>
-                <TableHead>類別</TableHead>
-                <TableHead className="text-right">目前庫存</TableHead>
-                <TableHead className="text-right">安全水位</TableHead>
-                <TableHead className="text-right">單價 / kg</TableHead>
-                <TableHead>更新日期</TableHead>
-                <TableHead>狀態</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {displayed.map((row, idx) => {
-                const status = getStatus(row.currentStockKg, row.safetyLevelKg);
-                const { label, variant, extra } = statusConfig[status];
-                const isAlert = status === 'critical' || status === 'low';
-                return (
-                  <TableRow
-                    key={row.ingredientId}
-                    className={idx % 2 !== 0 ? 'bg-muted/30' : ''}
-                  >
-                    <TableCell className="font-medium">{row.ingredientName}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{row.category}</TableCell>
-                    <TableCell
-                      className={`text-right tabular-nums ${isAlert ? 'font-medium text-destructive' : ''}`}
-                    >
-                      {row.currentStockKg.toFixed(2)} kg
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">
-                      {row.safetyLevelKg > 0 ? `${row.safetyLevelKg.toFixed(2)} kg` : '—'}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">
-                      NT$ {row.unitCost.toLocaleString()}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {row.lastUpdated ?? '—'}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={variant} className={extra}>
-                        {label}
-                      </Badge>
-                    </TableCell>
+      {/* Audit tab */}
+      {pageTab === 'audit' && <InventoryAudit />}
+
+      {/* Overview tab */}
+      {pageTab === 'overview' && (
+        <div className="space-y-6 p-6">
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight">庫存總覽</h1>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                即時庫存水位，標示低於安全水位的食材。
+              </p>
+            </div>
+            <Button variant="ghost" size="sm" onClick={load} disabled={loading} aria-label="重新整理">
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              <span className="ml-1.5 hidden sm:inline">重新整理</span>
+            </Button>
+          </div>
+
+          {/* Filter chips */}
+          <div className="flex flex-wrap gap-2">
+            {filterChips.map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setFilter(key)}
+                className={[
+                  'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                  filter === key
+                    ? 'border-foreground bg-foreground text-background'
+                    : 'border-muted text-muted-foreground hover:border-foreground hover:text-foreground',
+                ].join(' ')}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Table */}
+          {loading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton key={i} className="h-10 w-full" />
+              ))}
+            </div>
+          ) : displayed.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 py-20 text-muted-foreground">
+              <PackageSearch size={48} strokeWidth={1.2} />
+              <p className="text-sm">無符合條件的庫存項目</p>
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>食材名稱</TableHead>
+                    <TableHead>類別</TableHead>
+                    <TableHead className="text-right">目前庫存</TableHead>
+                    <TableHead className="text-right">安全水位</TableHead>
+                    <TableHead className="text-right">單價 / kg</TableHead>
+                    <TableHead>更新日期</TableHead>
+                    <TableHead>狀態</TableHead>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                </TableHeader>
+                <TableBody>
+                  {displayed.map((row, idx) => {
+                    const status = getStatus(row.currentStockKg, row.safetyLevelKg);
+                    const { label, variant, extra } = statusConfig[status];
+                    const isAlert = status === 'critical' || status === 'low';
+                    return (
+                      <TableRow
+                        key={row.ingredientId}
+                        className={idx % 2 !== 0 ? 'bg-muted/30' : ''}
+                      >
+                        <TableCell className="font-medium">{row.ingredientName}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{row.category}</TableCell>
+                        <TableCell
+                          className={`text-right tabular-nums ${isAlert ? 'font-medium text-destructive' : ''}`}
+                        >
+                          {row.currentStockKg.toFixed(2)} kg
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-muted-foreground">
+                          {row.safetyLevelKg > 0 ? `${row.safetyLevelKg.toFixed(2)} kg` : '—'}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-muted-foreground">
+                          NT$ {row.unitCost.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {row.lastUpdated ?? '—'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={variant} className={extra}>
+                            {label}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </div>
       )}
     </div>

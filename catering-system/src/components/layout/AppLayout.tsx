@@ -8,15 +8,17 @@ import {
   ChefHat,
   ChevronRight,
   LogOut,
+  UtensilsCrossed,
 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
 const navItems = [
-  { to: '/',          label: '儀表板',   icon: LayoutDashboard, end: true },
+  { to: '/',          label: '儀表板',   icon: LayoutDashboard,  end: true },
   { to: '/orders',    label: '訂單管理', icon: ClipboardList },
+  { to: '/plan',      label: '備料規劃', icon: UtensilsCrossed },
   { to: '/inventory', label: '庫存管理', icon: PackageSearch },
-  { to: '/purchase',  label: '採購計畫', icon: ShoppingCart },
+  { to: '/purchase',  label: '採購管理', icon: ShoppingCart },
   { to: '/analytics', label: '報表分析', icon: BarChart2 },
 ];
 
@@ -25,6 +27,10 @@ export default function AppLayout() {
   const pageTitle = [...navItems].reverse().find(({ to, end }) =>
     end ? pathname === to : pathname.startsWith(to),
   )?.label ?? '';
+
+  const user = auth.currentUser;
+  const displayName = user?.displayName ?? user?.email?.split('@')[0] ?? '使用者';
+  const initials = displayName.slice(0, 2).toUpperCase();
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -60,8 +66,16 @@ export default function AppLayout() {
           ))}
         </nav>
 
-        {/* Footer */}
+        {/* User + footer */}
         <div className="border-t p-3 space-y-1">
+          <div className="flex items-center gap-2 rounded-md px-3 py-2">
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+              {initials}
+            </div>
+            <span className="truncate text-xs text-muted-foreground" title={user?.email ?? ''}>
+              {displayName}
+            </span>
+          </div>
           <button
             onClick={() => signOut(auth)}
             className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
@@ -69,7 +83,7 @@ export default function AppLayout() {
             <LogOut size={13} />
             登出
           </button>
-          <p className="px-3 text-xs text-muted-foreground/60">v0.1.0</p>
+          <p className="px-3 text-xs text-muted-foreground/40">v0.1.0</p>
         </div>
       </aside>
 

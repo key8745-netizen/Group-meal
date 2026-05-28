@@ -7,7 +7,10 @@ import { configService } from '@/services/configService';
 import { UnitConverter } from '@/services/unitConverter';
 import type { Ingredient, InventoryDoc } from '@/services/types';
 
-const TENANT_ID = import.meta.env.VITE_FIREBASE_PROJECT_ID as string;
+// Single-tenant MVP: project ID doubles as tenant ID.
+// Multi-tenant: replace with VITE_TENANT_ID read from org auth context.
+const TENANT_ID: string =
+  (import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined) ?? 'umas-booking-manager';
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -99,7 +102,8 @@ export function useIntelligenceInsights(): UseIntelligenceInsightsResult {
         // ── 2. WASTE_RISK: high wasteFactor + stock above safety level ────────
         for (const [id, ingredient] of ingredientMap) {
           if (shortageIds.has(id)) continue;
-          if (!ingredient.wasteFactor || ingredient.wasteFactor <= wasteThreshold) continue;
+          const isHighWaste = !!ingredient.wasteFactor && ingredient.wasteFactor > wasteThreshold;
+          if (!isHighWaste) continue;
 
           const inventory = inventoryMap.get(id);
           if (!inventory) continue;

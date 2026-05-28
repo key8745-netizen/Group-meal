@@ -1,0 +1,153 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Repository Layout
+
+```
+Group-meal/
+├── catering-system/          # Vite + React SPA (the main app)
+│   ├── src/
+│   │   ├── services/         # Firebase/business logic (no React)
+│   │   ├── components/       # React components
+│   │   │   ├── menus/        # Menu management feature
+│   │   │   ├── layout/       # AppLayout + sidebar
+│   │   │   └── ui/           # shadcn/ui primitives
+│   │   ├── pages/            # Route-level components
+│   │   ├── utils/            # Standalone utilities
+│   │   ├── constants/        # Static seed data
+│   │   └── hooks/            # use-toast
+│   └── scripts/              # One-off Node scripts (run with tsx)
+├── netlify/
+│   └── functions/
+│       └── ocr-menu.ts       # Gemini Vision serverless function
+└── netlify.toml              # Build: base=catering-system, functions=netlify/functions
+```
+
+## Commands
+
+All commands run from `catering-system/`:
+
+```bash
+npm run dev        # Vite dev server (localhost:5173)
+npm run build      # tsc + vite build → dist/
+npm run typecheck  # tsc --noEmit (no emit, fast type check)
+npm run preview    # Preview production build
+```
+
+Scripts (require Firebase env vars — see `.env`):
+```bash
+npx tsx scripts/seedIngredients.ts          # Seed 10 core ingredients (idempotent)
+npx tsx scripts/generateAutomatedOrder.ts   # Auto-detect shortages → DRAFT purchase order
+npx tsx scripts/generateAutomatedOrder.ts <recipeId> <headCount>
+```
+
+There are no test files. Type-checking is the primary correctness gate:
+```bash
+npm run typecheck
+```
+One pre-existing error in `src/pages/Analytics.tsx:398` (`Formatter` type mismatch from recharts) can be ignored — it is not introduced by new changes.
+
+## Environment Variables
+
+`.env` in `catering-system/` (all prefixed `VITE_` for Vite):
+```
+VITE_FIREBASE_API_KEY
+VITE_FIREBASE_AUTH_DOMAIN
+VITE_FIREBASE_PROJECT_ID          # umas-booking-manager
+VITE_FIREBASE_STORAGE_BUCKET
+VITE_FIREBASE_MESSAGING_SENDER_ID
+VITE_FIREBASE_APP_ID
+```
+
+Netlify function env var (set in Netlify dashboard only, never in code):
+```
+GEMINI_API_KEY    # Google AI Studio key for ocr-menu function
+```
+
+## Firebase Architecture
+
+- **Project**: `umas-booking-manager`
+- **Named database**: `group-meal` (not the default database — `getFirestore(app, 'group-meal')`)
+- **Auth**: Email/Password + Google Sign-In via `signInWithPopup`
+
+### Firestore Collections
+
+| Collection | Doc ID | Purpose |
+|---|---|---|
+| `menus` | auto | Dish recipes with BOM (`ingredients: BOMItem[]`) |
+| `ingredients` | slug | Master ingredient data (name, unit, cost, wasteFactor) |
+| `inventory` | same as ingredientId | Live stock in kg (`currentStock`) |
+| `inventory/{id}/transactions` | auto | Audit trail (restock / deduct / adjustment) |
+| `orders` | auto | Customer orders |
+| `purchaseOrders` | auto | Purchase orders (DRAFT → PENDING → RECEIVED / CANCELLED) |
+| `mealPlans` | `YYYY-MM-DD` | Daily menu schedule (menuIds + headCount) |
+| `settings` | tenantId | System thresholds (configService) |
+
+### Service Patterns
+
+Two patterns exist — do not mix them:
+
+1. **Module-level `db`** — services that import `db` from `@/lib/firebase` directly:
+   `purchaseOrderService`, `mealPlanService`, `dishService`, `configService`, `InventoryAudit`, `ManualPurchaseForm`
+
+2. **`db: Firestore` parameter** — services designed for both browser and scripts:
+   `inventoryService`, `purchaseService`, `performanceService`, `recipeMatchingService`
+
+### Inventory Write Rules
+
+- **Deduct stock**: always via `inventoryService.deductStock()` — uses `runTransaction` with pre-validation
+- **Restock**: always via `inventoryService.restockIngredient()` — called by `purchaseOrderService.completeOrder()`
+- **Manual adjustment**: `InventoryAudit` uses its own `runTransaction` writing `type: 'adjustment'` transactions
+- Never update `inventory/{id}.currentStock` directly outside a transaction
+
+## Unit Conversion
+
+Two converters exist for historical reasons:
+
+- `src/services/unitConverter.ts` → `UnitConverter` class — handles kg / g / 台斤 / L / piece; used by order/purchase/recipe services
+- `src/utils/unitConverter.ts` → `toTaijin(kg)` / `toKg(taijin)` — simple 2dp kg↔台斤; used by UI components and scripts
+
+**1 台斤 = 0.6 kg**. All internal storage is in **kg**.
+
+## BOM / Recipe Matching
+
+`recipeMatchingService.ts` expands a recipe for N servings:
+
+```
+requiredKg = (qtyPerServingKg × headCount) × (1 + wasteFactor)
+```
+
+- `wasteFactor` from `ingredients/{id}` takes precedence over the BOM-level value
+- `menus/{id}.ingredients[]` is the BOM — each item has `ingredientId`, `quantity`, `unit`, `wasteFactor`
+- `inventory/{id}.currentStock` is always in kg
+
+## Routing
+
+`App.tsx` — `BrowserRouter` with two zones:
+
+| Path | Auth | Component |
+|---|---|---|
+| `/share/:orderId` | Public | `ShareOrderPage` |
+| `/` | Protected | `Dashboard` |
+| `/orders` | Protected | `OrderEntry` |
+| `/menus` | Protected | `MenusPage` (4 tabs: 今日備料 / 每月計畫 / 菜色管理 / 匯入菜單) |
+| `/plan` | Protected | `PlanPage` → `ProductionPlanner` |
+| `/inventory` | Protected | `InventoryStatus` (tabs: 庫存總覽 / 庫存盤點) |
+| `/purchase` | Protected | `PurchasePage` (tabs: 採購建議 / 手動建單 / 採購單管理) |
+| `/analytics` | Protected | `Analytics` |
+
+## Netlify Function
+
+`netlify/functions/ocr-menu.ts` — proxies photo uploads to Gemini Vision (`gemini-2.0-flash`).
+- Dependencies in `/` (repo root) `package.json` — `@google/generative-ai` + `@netlify/functions`
+- Build: esbuild (configured in `netlify.toml`)
+- Input: `POST { imageBase64: string }` (browser pre-compresses to ≤ 1200px JPEG)
+- Output: `{ rows: [{ date, headCount, dishes[] }] }`
+
+## Git Branches
+
+- Development: `claude/admiring-feynman-8LwF5`
+- Production (Netlify): `claude/fervent-dirac-HJT01`
+
+Push to the dev branch; open a PR targeting production to trigger Netlify deployment.

@@ -121,6 +121,32 @@ export const purchaseOrderService = {
   },
 
   /**
+   * Persists a new DRAFT purchase order from AI-generated shortage items.
+   * DRAFT orders are pending human review before becoming PENDING.
+   *
+   * @returns The Firestore document ID of the new order.
+   */
+  async createDraftOrder(
+    shortageItems: PurchaseOrderItem[],
+    notes = 'AI 智能建議自動產生',
+  ): Promise<string> {
+    const items = shortageItems.filter((i) => i.shortageKg > 0);
+
+    if (items.length === 0) {
+      throw new Error('purchaseOrderService: no shortage items to order');
+    }
+
+    const ref = await addDoc(collection(db, 'purchaseOrders'), {
+      status: 'DRAFT',
+      items,
+      notes,
+      createdAt: serverTimestamp(),
+    });
+
+    return ref.id;
+  },
+
+  /**
    * Cancels a PENDING order without touching inventory.
    */
   async cancelOrder(orderId: string): Promise<void> {

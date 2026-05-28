@@ -3,6 +3,7 @@ import {
   collection,
   doc,
   getDoc,
+  runTransaction,
   serverTimestamp,
   Timestamp,
   updateDoc,
@@ -136,14 +137,21 @@ export const purchaseOrderService = {
       throw new Error('purchaseOrderService: no shortage items to order');
     }
 
-    const ref = await addDoc(collection(db, 'purchaseOrders'), {
-      status: 'DRAFT',
-      items,
-      notes,
-      createdAt: serverTimestamp(),
+    // Use runTransaction to establish atomic write pattern.
+    // Future iterations will extend this transaction to update inventory
+    // and write audit records atomically.
+    const orderRef = doc(collection(db, 'purchaseOrders'));
+
+    await runTransaction(db, async (t) => {
+      t.set(orderRef, {
+        status: 'DRAFT',
+        items,
+        notes,
+        createdAt: serverTimestamp(),
+      });
     });
 
-    return ref.id;
+    return orderRef.id;
   },
 
   /**

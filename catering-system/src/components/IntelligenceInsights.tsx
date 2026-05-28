@@ -27,6 +27,10 @@ function InsightIcon({ type }: { type: InsightType }) {
     case 'ALERT':        return <AlertTriangle className="h-4 w-4 text-destructive" />;
     case 'OPTIMIZATION': return <Lightbulb className="h-4 w-4 text-blue-500" />;
     case 'DATA_WARNING': return <TrendingDown className="h-4 w-4 text-yellow-500" />;
+    default: {
+      const _: never = type;
+      return null;
+    }
   }
 }
 
@@ -94,15 +98,20 @@ export default function IntelligenceInsights() {
   }, []);
 
   async function handleApply() {
+    if (applying) return; // double-submit guard
     if (!suggestion || suggestion.items.length === 0) return;
     setApplying(true);
     try {
-      const items: PurchaseOrderItem[] = suggestion.items.map((item) => ({
-        ingredientId:   item.ingredientId,
-        name:           item.ingredientName,
-        shortageKg:     item.suggestedQtyKg,
-        shortageTaijin: toTaijin(item.suggestedQtyKg),
-      }));
+      // shortageKg here maps to suggestedQtyKg (AI-calculated purchase qty).
+      // Domain naming TBD by Gemini: shortageKg vs purchaseQtyKg.
+      const items: PurchaseOrderItem[] = suggestion.items
+        .filter((item) => Number.isFinite(item.suggestedQtyKg) && item.suggestedQtyKg > 0)
+        .map((item) => ({
+          ingredientId:   item.ingredientId,
+          name:           item.ingredientName,
+          shortageKg:     item.suggestedQtyKg,
+          shortageTaijin: toTaijin(item.suggestedQtyKg),
+        }));
       const orderId = await purchaseOrderService.createDraftOrder(items);
       setAppliedId(orderId);
       toast({

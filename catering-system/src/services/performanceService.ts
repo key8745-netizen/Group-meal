@@ -21,6 +21,7 @@ const TENANT_ID: string =
   (import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined) ??
   'umas-booking-manager';
 
+const r2 = (n: number) => Math.round(n * 100) / 100;
 const r3 = (n: number) => Math.round(n * 1000) / 1000;
 
 // ─── Order fulfillment logging ────────────────────────────────────────────────
@@ -55,7 +56,7 @@ export function logOrderFulfillment(
         items.map((item) => {
           const variance =
             item.originalRecommendedQtyKg !== null
-              ? item.purchasedQtyKg - item.originalRecommendedQtyKg
+              ? r2(item.purchasedQtyKg - item.originalRecommendedQtyKg)
               : null;
           return addDoc(col, {
             orderId,
@@ -69,8 +70,10 @@ export function logOrderFulfillment(
           });
         }),
       );
-    } catch {
-      // Intentionally swallowed — logging must never block or crash the caller
+    } catch (err) {
+      // Intentionally swallowed — logging must never block or crash the caller.
+      // Surface in dev so issues are visible without affecting production.
+      if (import.meta.env.DEV) console.warn('[performanceService] logOrderFulfillment failed:', err);
     }
   })();
 }

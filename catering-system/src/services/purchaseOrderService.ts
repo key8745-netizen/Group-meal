@@ -64,6 +64,9 @@ export const purchaseOrderService = {
    * Only items where purchaseQtyKg > 0 are written (defensive filter so callers
    * can pass the full FeasibilityItem list without pre-filtering).
    *
+   * Manual orders have no AI baseline — recommendedQtyKg is not stamped here.
+   * Use createDraftOrder() for AI-suggested orders that require variance tracking.
+   *
    * @returns The Firestore document ID of the new order.
    */
   async createOrder(shortageItems: PurchaseOrderItem[]): Promise<string> {

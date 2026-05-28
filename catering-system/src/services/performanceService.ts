@@ -1,9 +1,11 @@
 import {
+  addDoc,
   collection,
   doc,
   getDoc,
   getDocs,
   query,
+  serverTimestamp,
   where,
   Timestamp,
   type Firestore,
@@ -12,7 +14,66 @@ import type { Ingredient, Menu } from './types';
 import { UnitConverter } from './unitConverter';
 import { calculateOrderRequirements } from './orderService';
 
+// VITE_TENANT_ID identifies the tenant for scoped Firestore paths.
+// Falls back to project ID for single-tenant deploys.
+const TENANT_ID: string =
+  (import.meta.env.VITE_TENANT_ID as string | undefined) ??
+  (import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined) ??
+  'umas-booking-manager';
+
 const r3 = (n: number) => Math.round(n * 1000) / 1000;
+
+// ─── Order fulfillment logging ────────────────────────────────────────────────
+
+export interface OrderFulfillmentLogItem {
+  ingredientId:             string;
+  ingredientName:           string;
+  /** Quantity actually purchased / received (kg) */
+  purchasedQtyKg:           number;
+  /** Original AI-recommended qty (kg); null for manually created orders */
+  originalRecommendedQtyKg: number | null;
+  /** purchasedQtyKg − originalRecommendedQtyKg; null when no recommendation */
+  variance:                 number | null;
+}
+
+/**
+ * Appends one fulfillment log document per item to
+ * `performanceLogs/{tenantId}/orderFulfillments/`.
+ *
+ * Fire-and-forget: returns void synchronously, never throws.
+ * Errors are swallowed so Firestore latency never blocks the UI.
+ */
+export function logOrderFulfillment(
+  db: Firestore,
+  orderId: string,
+  items: Array<Omit<OrderFulfillmentLogItem, 'variance'>>,
+): void {
+  void (async () => {
+    try {
+      const col = collection(db, 'performanceLogs', TENANT_ID, 'orderFulfillments');
+      await Promise.all(
+        items.map((item) => {
+          const variance =
+            item.originalRecommendedQtyKg !== null
+              ? item.purchasedQtyKg - item.originalRecommendedQtyKg
+              : null;
+          return addDoc(col, {
+            orderId,
+            ingredientId:             item.ingredientId,
+            ingredientName:           item.ingredientName,
+            purchasedQtyKg:           item.purchasedQtyKg,
+            originalRecommendedQtyKg: item.originalRecommendedQtyKg,
+            variance,
+            tenantId:   TENANT_ID,
+            fulfilledAt: serverTimestamp(),
+          });
+        }),
+      );
+    } catch {
+      // Intentionally swallowed — logging must never block or crash the caller
+    }
+  })();
+}
 
 // ─── Return types ─────────────────────────────────────────────────────────────
 

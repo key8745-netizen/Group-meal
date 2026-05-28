@@ -7,10 +7,12 @@ import { configService } from '@/services/configService';
 import { UnitConverter } from '@/services/unitConverter';
 import type { Ingredient, InventoryDoc } from '@/services/types';
 
-// Single-tenant MVP: project ID doubles as tenant ID.
-// Multi-tenant: replace with VITE_TENANT_ID read from org auth context.
+// VITE_TENANT_ID identifies the tenant in Firestore settings/{tenantId}.
+// Falls back to project ID for single-tenant deploys; set explicitly for multi-tenant.
 const TENANT_ID: string =
-  (import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined) ?? 'umas-booking-manager';
+  (import.meta.env.VITE_TENANT_ID as string | undefined) ??
+  (import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined) ??
+  'umas-booking-manager';
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 

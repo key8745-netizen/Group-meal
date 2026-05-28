@@ -102,15 +102,13 @@ export default function IntelligenceInsights() {
     if (!suggestion || suggestion.items.length === 0) return;
     setApplying(true);
     try {
-      // shortageKg here maps to suggestedQtyKg (AI-calculated purchase qty).
-      // Domain naming TBD by Gemini: shortageKg vs purchaseQtyKg.
       const items: PurchaseOrderItem[] = suggestion.items
         .filter((item) => Number.isFinite(item.suggestedQtyKg) && item.suggestedQtyKg > 0)
         .map((item) => ({
-          ingredientId:   item.ingredientId,
-          name:           item.ingredientName,
-          shortageKg:     item.suggestedQtyKg,
-          shortageTaijin: toTaijin(item.suggestedQtyKg),
+          ingredientId:  item.ingredientId,
+          name:          item.ingredientName,
+          purchaseQtyKg: item.suggestedQtyKg,
+          purchaseTaijin: toTaijin(item.suggestedQtyKg),
         }));
       const orderId = await purchaseOrderService.createDraftOrder(items);
       setAppliedId(orderId);

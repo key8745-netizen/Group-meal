@@ -3,8 +3,11 @@ import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { runDailyAnalysis, THRESHOLDS, type Insight } from '@/services/intelligenceAgent';
 import { generatePurchaseSuggestion } from '@/services/purchaseService';
+import { configService } from '@/services/configService';
 import { UnitConverter } from '@/services/unitConverter';
 import type { Ingredient, InventoryDoc } from '@/services/types';
+
+const TENANT_ID = import.meta.env.VITE_FIREBASE_PROJECT_ID as string;
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -47,13 +50,16 @@ export function useIntelligenceInsights(): UseIntelligenceInsightsResult {
       setLoading(true);
       setError(null);
       try {
-        const [insightData, suggestionData, ingredientSnaps, inventorySnaps] =
+        const [insightData, suggestionData, ingredientSnaps, inventorySnaps, settings] =
           await Promise.all([
             runDailyAnalysis(db),
             generatePurchaseSuggestion(db),
             getDocs(collection(db, 'ingredients')),
             getDocs(collection(db, 'inventory')),
+            configService.getSettings(TENANT_ID),
           ]);
+
+        const wasteThreshold = settings.wasteFactorWarning ?? THRESHOLDS.highWasteFactor;
 
         if (cancelled) return;
 
@@ -93,7 +99,7 @@ export function useIntelligenceInsights(): UseIntelligenceInsightsResult {
         // ── 2. WASTE_RISK: high wasteFactor + stock above safety level ────────
         for (const [id, ingredient] of ingredientMap) {
           if (shortageIds.has(id)) continue;
-          if (!ingredient.wasteFactor || ingredient.wasteFactor <= THRESHOLDS.highWasteFactor) continue;
+          if (!ingredient.wasteFactor || ingredient.wasteFactor <= wasteThreshold) continue;
 
           const inventory = inventoryMap.get(id);
           if (!inventory) continue;

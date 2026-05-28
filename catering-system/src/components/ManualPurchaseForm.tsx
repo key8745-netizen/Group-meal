@@ -106,8 +106,8 @@ export function ManualPurchaseForm() {
         return {
           ingredientId:   r.ingredientId,
           name:           r.name,
-          shortageKg:     kg,
-          shortageTaijin: toTaijin(kg),
+          purchaseQtyKg:  kg,
+          purchaseTaijin: toTaijin(kg),
         };
       });
 

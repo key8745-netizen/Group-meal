@@ -70,8 +70,8 @@ export default function IntelligenceDashboard() {
       const orderId = await purchaseOrderService.createDraftOrder([{
         ingredientId:   item.ingredientId,
         name:           item.ingredientName,
-        shortageKg:     item.suggestedQtyKg,
-        shortageTaijin: toTaijin(item.suggestedQtyKg),
+        purchaseQtyKg:  item.suggestedQtyKg,
+        purchaseTaijin: toTaijin(item.suggestedQtyKg),
       }]);
       setAppliedMap((prev) => new Map(prev).set(item.ingredientId, orderId));
       toast({

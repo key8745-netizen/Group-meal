@@ -19,12 +19,12 @@ export type PurchaseOrderStatus = 'DRAFT' | 'PENDING' | 'RECEIVED' | 'CANCELLED'
 
 /** Subset of FeasibilityItem that createOrder needs */
 export interface PurchaseOrderItem {
-  ingredientId:   string;
-  name:           string;
-  /** Deficit quantity in kg — becomes the order quantity */
-  shortageKg:     number;
-  /** Informational display value */
-  shortageTaijin: number;
+  ingredientId:  string;
+  name:          string;
+  /** Quantity to purchase in kg (AI-suggested or manually entered) */
+  purchaseQtyKg: number;
+  /** purchaseQtyKg converted to 台斤 for display */
+  purchaseTaijin: number;
 }
 
 export interface PurchaseOrder {
@@ -58,13 +58,13 @@ export const purchaseOrderService = {
    * Persists a new purchase order from the shortage items produced by
    * ProductionPlanner / checkInventoryFeasibility.
    *
-   * Only items where shortageKg > 0 are written (defensive filter so callers
+   * Only items where purchaseQtyKg > 0 are written (defensive filter so callers
    * can pass the full FeasibilityItem list without pre-filtering).
    *
    * @returns The Firestore document ID of the new order.
    */
   async createOrder(shortageItems: PurchaseOrderItem[]): Promise<string> {
-    const items = shortageItems.filter((i) => i.shortageKg > 0);
+    const items = shortageItems.filter((i) => i.purchaseQtyKg > 0);
 
     if (items.length === 0) {
       throw new Error('purchaseOrderService: no shortage items to order');
@@ -109,7 +109,7 @@ export const purchaseOrderService = {
         db as Firestore,
         item.ingredientId,
         item.name,
-        item.shortageKg,
+        item.purchaseQtyKg,
         orderId,
         performedBy,
       );
@@ -131,7 +131,7 @@ export const purchaseOrderService = {
     shortageItems: PurchaseOrderItem[],
     notes = 'AI 智能建議自動產生',
   ): Promise<string> {
-    const items = shortageItems.filter((i) => i.shortageKg > 0);
+    const items = shortageItems.filter((i) => i.purchaseQtyKg > 0);
 
     if (items.length === 0) {
       throw new Error('purchaseOrderService: no shortage items to order');

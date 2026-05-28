@@ -34,8 +34,8 @@ export default function PurchaseSuggestionCard({ item, onApplied }: Props) {
       const orderId = await purchaseOrderService.createDraftOrder([{
         ingredientId:   item.ingredientId,
         name:           item.ingredientName,
-        shortageKg:     item.suggestedQtyKg,
-        shortageTaijin: toTaijin(item.suggestedQtyKg),
+        purchaseQtyKg:  item.suggestedQtyKg,
+        purchaseTaijin: toTaijin(item.suggestedQtyKg),
       }]);
       setAppliedId(orderId);
       toast({

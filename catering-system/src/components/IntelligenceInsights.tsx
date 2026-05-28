@@ -28,7 +28,8 @@ function InsightIcon({ type }: { type: InsightType }) {
     case 'OPTIMIZATION': return <Lightbulb className="h-4 w-4 text-blue-500" />;
     case 'DATA_WARNING': return <TrendingDown className="h-4 w-4 text-yellow-500" />;
     default: {
-      const _: never = type;
+      const _exhaustive: never = type;
+      void _exhaustive;
       return null;
     }
   }

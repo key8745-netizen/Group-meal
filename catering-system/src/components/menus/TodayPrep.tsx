@@ -115,8 +115,8 @@ export function TodayPrep() {
         shortages.map((i) => ({
           ingredientId:   i.ingredientId,
           name:           i.name,
-          shortageKg:     i.shortageKg,
-          shortageTaijin: i.shortageTaijin,
+          purchaseQtyKg:  i.shortageKg,
+          purchaseTaijin: i.shortageTaijin,
         })),
       );
       toast({ title: '採購單已建立', description: `採購單 #${orderId.slice(-8)} 共 ${shortages.length} 項。` });

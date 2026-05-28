@@ -121,7 +121,7 @@ export function useIntelligenceInsights(): UseIntelligenceInsightsResult {
             orderDemandKg:  0,
             suggestedQtyKg: 0,
             estimatedCost:  0,
-            wasteFactor:    ingredient.wasteFactor,
+            wasteFactor:    ingredient.wasteFactor ?? 0,
             type:           'WASTE_RISK',
           });
         }

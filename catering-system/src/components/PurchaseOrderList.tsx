@@ -128,9 +128,9 @@ function OrderCard({ order, onComplete }: {
             {order.items.map((item, idx) => (
               <TableRow key={item.ingredientId} className={idx % 2 !== 0 ? 'bg-muted/30' : ''}>
                 <TableCell className="font-medium">{item.name}</TableCell>
-                <TableCell className="text-right tabular-nums">{fmtKg(item.shortageKg)}</TableCell>
+                <TableCell className="text-right tabular-nums">{fmtKg(item.purchaseQtyKg)}</TableCell>
                 <TableCell className="text-right tabular-nums text-muted-foreground">
-                  {fmtTaijin(item.shortageTaijin)}
+                  {fmtTaijin(item.purchaseTaijin)}
                 </TableCell>
               </TableRow>
             ))}

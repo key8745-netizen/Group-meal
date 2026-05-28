@@ -44,7 +44,7 @@ export default function ShareOrderPage() {
       .finally(() => setLoading(false));
   }, [orderId]);
 
-  const totalKg = order?.items.reduce((s, i) => s + i.shortageKg, 0) ?? 0;
+  const totalKg = order?.items.reduce((s, i) => s + i.purchaseQtyKg, 0) ?? 0;
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -134,10 +134,10 @@ export default function ShareOrderPage() {
                 >
                   <td className="px-4 py-3 font-medium text-gray-900">{item.name}</td>
                   <td className="px-4 py-3 text-right tabular-nums text-gray-700">
-                    {fmtKg(item.shortageKg)}
+                    {fmtKg(item.purchaseQtyKg)}
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums text-gray-500">
-                    {fmtTaijin(item.shortageTaijin)}
+                    {fmtTaijin(item.purchaseTaijin)}
                   </td>
                 </tr>
               ))}
@@ -147,7 +147,7 @@ export default function ShareOrderPage() {
                 <td className="px-4 py-3 text-gray-700">合計</td>
                 <td className="px-4 py-3 text-right tabular-nums">{fmtKg(totalKg)}</td>
                 <td className="px-4 py-3 text-right tabular-nums text-gray-500">
-                  {fmtTaijin(order.items.reduce((s, i) => s + i.shortageTaijin, 0))}
+                  {fmtTaijin(order.items.reduce((s, i) => s + i.purchaseTaijin, 0))}
                 </td>
               </tr>
             </tfoot>

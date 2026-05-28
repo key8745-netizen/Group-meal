@@ -1,7 +1,16 @@
 [build]
   base    = "catering-system"
-  command = "npx vite build"
+  command = "npm run build"
   publish = "dist"
+
+# Required environment variables (set in Netlify dashboard, not committed here):
+#   VITE_TENANT_ID            — tenant identifier for Firestore scoped paths
+#   VITE_FIREBASE_PROJECT_ID  — fallback tenant ID and Firebase project
+#   VITE_FIREBASE_API_KEY
+#   VITE_FIREBASE_AUTH_DOMAIN
+#   VITE_FIREBASE_STORAGE_BUCKET
+#   VITE_FIREBASE_MESSAGING_SENDER_ID
+#   VITE_FIREBASE_APP_ID
 
 [functions]
   directory = "netlify/functions"

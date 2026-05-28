@@ -395,7 +395,7 @@ export default function Analytics() {
                 width={56}
               />
               <Tooltip
-                formatter={(value: number) => [fmtCurrency(value), '消耗成本']}
+                formatter={(value) => [fmtCurrency(typeof value === 'number' ? value : 0), '消耗成本']}
                 contentStyle={{
                   background: 'hsl(var(--background))',
                   border: '1px solid hsl(var(--border))',

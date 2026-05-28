@@ -26,6 +26,7 @@ export default function PurchaseSuggestionCard({ item, onApplied }: Props) {
   const isShortage = item.type === 'SHORTAGE';
 
   async function handleApply() {
+    if (item.type !== 'SHORTAGE') return;
     if (applying || appliedId) return;
     if (!Number.isFinite(item.suggestedQtyKg) || item.suggestedQtyKg <= 0) return;
     setApplying(true);

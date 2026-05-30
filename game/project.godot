@@ -1,0 +1,21 @@
+; Engine configuration file.
+; Godot 4.2 — 家族冒險 RPG
+; Phase 4: 視覺填充與邏輯對接
+
+config_version=5
+
+[application]
+
+config/name="家族冒險 RPG"
+config/description="家長與孩子共同完成每日任務的 RPG 遊戲"
+run/main_scene="res://scenes/Main.tscn"
+config/features=PackedStringArray("4.2", "GL Compatibility")
+
+[autoload]
+
+SaveManager="*res://autoloads/save_manager.gd"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"

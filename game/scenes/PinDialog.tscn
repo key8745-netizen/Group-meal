@@ -1,0 +1,118 @@
+[gd_scene load_steps=2 format=3 uid="uid://pin0dialog04"]
+
+[ext_resource type="Script" path="res://scenes/PinDialog.gd" id="1_pin0gd"]
+
+[node name="PinDialog" type="Window"]
+title = "家長驗證"
+size = Vector2i(280, 340)
+unresizable = true
+script = ExtResource("1_pin0gd")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 12.0
+offset_right = -16.0
+offset_bottom = -12.0
+theme_override_constants/separation = 10
+
+[node name="TitleLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "家長驗證 🔐"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 18
+
+[node name="PinDisplay" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "○○○○"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 32
+theme_override_colors/font_color = Color(0.2, 0.4, 0.9, 1)
+
+[node name="NumPad" type="GridContainer" parent="VBoxContainer"]
+layout_mode = 2
+columns = 3
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 8
+
+[node name="Btn1" type="Button" parent="VBoxContainer/NumPad"]
+layout_mode = 2
+custom_minimum_size = Vector2(72, 52)
+text = "1"
+theme_override_font_sizes/font_size = 20
+
+[node name="Btn2" type="Button" parent="VBoxContainer/NumPad"]
+layout_mode = 2
+custom_minimum_size = Vector2(72, 52)
+text = "2"
+theme_override_font_sizes/font_size = 20
+
+[node name="Btn3" type="Button" parent="VBoxContainer/NumPad"]
+layout_mode = 2
+custom_minimum_size = Vector2(72, 52)
+text = "3"
+theme_override_font_sizes/font_size = 20
+
+[node name="Btn4" type="Button" parent="VBoxContainer/NumPad"]
+layout_mode = 2
+custom_minimum_size = Vector2(72, 52)
+text = "4"
+theme_override_font_sizes/font_size = 20
+
+[node name="Btn5" type="Button" parent="VBoxContainer/NumPad"]
+layout_mode = 2
+custom_minimum_size = Vector2(72, 52)
+text = "5"
+theme_override_font_sizes/font_size = 20
+
+[node name="Btn6" type="Button" parent="VBoxContainer/NumPad"]
+layout_mode = 2
+custom_minimum_size = Vector2(72, 52)
+text = "6"
+theme_override_font_sizes/font_size = 20
+
+[node name="Btn7" type="Button" parent="VBoxContainer/NumPad"]
+layout_mode = 2
+custom_minimum_size = Vector2(72, 52)
+text = "7"
+theme_override_font_sizes/font_size = 20
+
+[node name="Btn8" type="Button" parent="VBoxContainer/NumPad"]
+layout_mode = 2
+custom_minimum_size = Vector2(72, 52)
+text = "8"
+theme_override_font_sizes/font_size = 20
+
+[node name="Btn9" type="Button" parent="VBoxContainer/NumPad"]
+layout_mode = 2
+custom_minimum_size = Vector2(72, 52)
+text = "9"
+theme_override_font_sizes/font_size = 20
+
+[node name="ClearButton" type="Button" parent="VBoxContainer/NumPad"]
+layout_mode = 2
+custom_minimum_size = Vector2(72, 52)
+text = "清除"
+theme_override_colors/font_color = Color(0.8, 0.2, 0.2, 1)
+
+[node name="Btn0" type="Button" parent="VBoxContainer/NumPad"]
+layout_mode = 2
+custom_minimum_size = Vector2(72, 52)
+text = "0"
+theme_override_font_sizes/font_size = 20
+
+[node name="ConfirmButton" type="Button" parent="VBoxContainer/NumPad"]
+layout_mode = 2
+custom_minimum_size = Vector2(72, 52)
+text = "確認 ✓"
+theme_override_colors/font_color = Color(0.1, 0.6, 0.2, 1)
+
+[node name="ErrorLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = ""
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.85, 0.15, 0.15, 1)
+visible = false

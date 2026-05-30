@@ -1,0 +1,169 @@
+[gd_scene load_steps=2 format=3 uid="uid://battle0scene04"]
+
+[ext_resource type="Script" path="res://scenes/Battle.gd" id="1_battle0gd"]
+
+[node name="Battle" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_battle0gd")
+
+; ── Enemy Area ─────────────────────────────────────────────────────
+
+[node name="EnemyArea" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchor_right = 1.0
+offset_top = 8.0
+offset_bottom = 180.0
+theme_override_constants/separation = 6
+
+[node name="EnemyAvatarLabel" type="Label" parent="EnemyArea"]
+layout_mode = 2
+text = "🟢\n拖延史萊姆"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 28
+
+[node name="EnemyNameLabel" type="Label" parent="EnemyArea"]
+layout_mode = 2
+text = "拖延史萊姆"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 16
+
+[node name="EnemyHPBar" type="ProgressBar" parent="EnemyArea"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 18)
+value = 100.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+
+[node name="EnemyDialogLabel" type="Label" parent="EnemyArea"]
+layout_mode = 2
+text = ""
+horizontal_alignment = 1
+autowrap_mode = 3
+theme_override_colors/font_color = Color(0.3, 0.7, 0.3, 1)
+
+; ── Player Area ────────────────────────────────────────────────────
+
+[node name="PlayerArea" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = 188.0
+offset_bottom = -160.0
+theme_override_constants/separation = 16
+
+; yohani panel
+
+[node name="YohaniPanel" type="VBoxContainer" parent="PlayerArea"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="YohaniNameLabel" type="Label" parent="PlayerArea/YohaniPanel"]
+layout_mode = 2
+text = "⚔️ yohani"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 15
+
+[node name="YohaniHPBar" type="ProgressBar" parent="PlayerArea/YohaniPanel"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 14)
+value = 100.0
+
+[node name="AttackButton" type="Button" parent="PlayerArea/YohaniPanel"]
+layout_mode = 2
+text = "普通攻擊"
+
+[node name="YohaniSpecialButton" type="Button" parent="PlayerArea/YohaniPanel"]
+layout_mode = 2
+text = "★ 星光連擊"
+theme_override_colors/font_color = Color(0.2, 0.4, 1.0, 1)
+
+[node name="ChargesLabel" type="Label" parent="PlayerArea/YohaniPanel"]
+layout_mode = 2
+text = "特技：★★★"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.3, 0.5, 1.0, 1)
+
+; sani panel
+
+[node name="SaniPanel" type="VBoxContainer" parent="PlayerArea"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="SaniNameLabel" type="Label" parent="PlayerArea/SaniPanel"]
+layout_mode = 2
+text = "🌸 sani"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 15
+
+[node name="SaniHPBar" type="ProgressBar" parent="PlayerArea/SaniPanel"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 14)
+value = 100.0
+
+[node name="AttackButton" type="Button" parent="PlayerArea/SaniPanel"]
+layout_mode = 2
+text = "普通攻擊"
+
+[node name="SaniSpecialButton" type="Button" parent="PlayerArea/SaniPanel"]
+layout_mode = 2
+text = "♡ 粉紅颶風"
+theme_override_colors/font_color = Color(1.0, 0.3, 0.6, 1)
+
+[node name="ChargesLabel" type="Label" parent="PlayerArea/SaniPanel"]
+layout_mode = 2
+text = "特技：♡♡♡"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(1.0, 0.4, 0.7, 1)
+
+; ── Battle Log ─────────────────────────────────────────────────────
+
+[node name="BattleLog" type="RichTextLabel" parent="."]
+layout_mode = 1
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -160.0
+offset_bottom = -44.0
+bbcode_enabled = true
+scroll_following = true
+theme_override_font_sizes/normal_font_size = 13
+
+; ── Particles ──────────────────────────────────────────────────────
+; Positioned at each player's approximate screen position.
+; process_material is assigned at runtime in Battle.gd::_setup_particles().
+
+[node name="YohaniParticles" type="GPUParticles2D" parent="."]
+position = Vector2(160, 320)
+emitting = false
+amount = 48
+lifetime = 1.5
+one_shot = true
+explosiveness = 0.8
+
+[node name="SaniParticles" type="GPUParticles2D" parent="."]
+position = Vector2(480, 320)
+emitting = false
+amount = 48
+lifetime = 1.5
+one_shot = true
+explosiveness = 0.8
+
+; ── Return Button ──────────────────────────────────────────────────
+
+[node name="ReturnButton" type="Button" parent="."]
+layout_mode = 1
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -80.0
+offset_top = -40.0
+offset_right = 80.0
+offset_bottom = -6.0
+text = "回到主世界"
+visible = false

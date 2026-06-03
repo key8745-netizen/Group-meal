@@ -26,6 +26,10 @@ import {
   UnitConversionError,
 } from '@/services/unitConversionService';
 import { RECEIVING_DELTA_NOTE_THRESHOLD } from '@/types/receivingBoundary';
+import {
+  generateReceivingToken,
+  generateReceivingRequestId,
+} from '@/services/receivingIdempotencyService';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -160,8 +164,8 @@ export function ReceivingConfirmationDialog({
       const { purchaseOrderService } = await import('@/services/purchaseOrderService');
 
       const request = {
-        requestId:        `req_rcv_${Date.now()}`,
-        receivingToken:   `tok_${purchaseOrderId}_${Date.now().toString(36)}`,
+        requestId:        generateReceivingRequestId(),
+        receivingToken:   generateReceivingToken(),
         tenantId,
         purchaseOrderId,
         auditTrailId,

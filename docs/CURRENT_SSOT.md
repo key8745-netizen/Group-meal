@@ -14,27 +14,32 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Feature 002: Receiving & Inventory Update Boundary
+Feature 003: Predictive Purchasing Optimization Engine
 
 ---
 
 ## Current Phase
 
-Phase 3: UI Integration & End-to-End Testing
+Phase 2: Integration with Feature 001 Suggestion Service + Dry-run Prediction Output
 
 ---
 
 ## Current Basis
 
-- Feature 001: CLOSED
-- Feature 001 Final Commit: `48c57b0`
-- Feature 002 Gemini Spec: v1.2
-- Feature 002 Phase 1: PASSED
-- Feature 002 Phase 1 Commit: `ec0a874`
-- Feature 002 Phase 2: CONDITIONALLY PASSED
-- Feature 002 Phase 2 Commit: `425dd22`
-- Feature 002 Phase 2 Grok Review: 91/100
-- ChatGPT Decision: Claude GO - Feature 002 Phase 3 only
+* Feature 001: CLOSED
+* Feature 001 Final Commit: `48c57b0`
+* Feature 002: CLOSED
+* Feature 002 Final Commit: `2bf0769`
+* System Integration Gate: CONDITIONALLY PASSED
+* Integration Tests: 139/139 assertions pass
+* Gemini Feature 003 Spec v1.1: CONDITIONALLY PASSED
+* Grok Red Team Review v1.1: 92/100
+* Feature 003 Phase 1: PASSED
+* Feature 003 Phase 1 Commit: `40c7ac8`
+* Feature 003 Phase 1 SSOT Commit: `d5c82fa`
+* Feature 003 Phase 1 Tests: 110/110 pass
+* Feature 003 Phase 1 Grok Code Review: 93/100
+* ChatGPT Decision: Claude GO - Feature 003 Phase 2 only
 
 ---
 
@@ -46,110 +51,104 @@ Phase 3: UI Integration & End-to-End Testing
 
 ## Current Commit
 
-`7ef739f`
+`98817e7` — Feature 003 Phase 2 complete (153/153 tests, typecheck clean, build clean)
 
 ---
 
 ## Allowed in this phase
 
-- Phase 2 risk fixes
-- Receiving confirmation UI
-- `ReceivingConfirmationDialog.tsx`
-- UI-level receiving quantity input
-- UI-level kg / 台斤 / grams conversion through existing safe conversion helpers
-- UI-level delta warning
-- "不可撤銷 / irreversible" warning
-- Integration with existing guarded receiving transaction service
-- E2E tests
-- Regression tests
-- Docs
-- SSOT update
+* Integrate Feature 003 prediction pure functions with existing Feature 001 suggestion output in dry-run mode
+* Create dry-run prediction adapter
+* Create prediction-enhanced suggestion preview object
+* Preserve `sourceSnapshotId`
+* Preserve `auditTrailId`
+* Preserve `suggestionId`
+* Add `predictionId`
+* Add `PredictionOutput` to dataLineage as non-executable metadata
+* Add tests for Feature 001 → Feature 003 continuity
+* Add tests for auditTrailId / sourceSnapshotId propagation
+* Add tests confirming no Firestore read/write
+* Add tests confirming no executable draft purchase suggestion is created
+* Add docs explaining `dataQualityScore` formula and human-approved config recommendation behavior
+* SSOT update
 
 ---
 
 ## Forbidden in this phase
 
-- Do not remove irreversible receiving warnings
-- Do not allow AI auto-receiving
-- Do not bypass `validateAIOperationOrThrow`
-- Do not bypass receiving validation
-- Do not bypass idempotency lock
-- Do not bypass single transaction receiving service
-- Do not update inventory outside transaction
-- Do not modify inventory directly from UI
-- Do not create inventoryTransactions outside transaction
-- Do not write performanceLogs / finalizedPerformanceLogs / operationalReports
-- Do not add Netlify Functions
-- Do not implement receiving cleanup jobs
-- Do not return to Feature 001
-- Do not return to Feature 002 v1.1 / old phases
+* Do not write Firestore
+* Do not read raw Firestore documents
+* Do not call `admin.firestore().set/update/add/delete`
+* Do not connect UI
+* Do not add Netlify Functions
+* Do not call purchaseOrderService
+* Do not call inventoryService
+* Do not modify settings
+* Do not write performanceLogs / finalizedPerformanceLogs / operationalReports
+* Do not modify Feature 001 core flow
+* Do not modify Feature 002 core flow
+* Do not create executable draft purchase suggestion
+* Do not apply model config
+* Do not auto-adjust wasteFactorWarning
+* Do not auto-adjust confidence rules
+* Do not allow AI to mutate rules
+* Do not make prediction output actionable without human approval
 
 ---
 
 ## Required Guard Rails
 
-- UI must call only the guarded receiving transaction service.
-- UI must not directly write Firestore.
-- UI must not directly modify inventory or purchaseOrders.
-- Receiving quantity must be converted using existing safe grams conversion helpers.
-- Delta >15% must show warning and require receiving note.
-- Delta >15% without note must remain blocked by backend validation.
-- Duplicate submit must be prevented in UI and still blocked by backend idempotency.
-- Network failure / retry must not cause duplicate receiving.
-- The receiving action must clearly show:
-  - This action is irreversible.
-  - This will mark the purchase order as RECEIVED.
-  - This will update inventory.
-  - This must be done only after actual human receiving confirmation.
-
----
-
-## Phase 3 Pre-flight Risks
-
-- Transaction retry and final rollback behavior must be covered by E2E tests.
-- Idempotency lock TTL cleanup is documented only; cleanup job is not implemented in this phase.
-- UI must not weaken backend protections.
+* Prediction integration must remain dry-run only.
+* Prediction output must be metadata, not an executable purchase action.
+* Existing Feature 001 suggestion logic must remain intact.
+* Feature 003 may enrich a suggestion preview, but must not change purchase flow behavior.
+* All prediction outputs must include `predictionId`, `sourceSnapshotId`, and `auditTrailId`.
+* `dataLineage.usedRawDocuments` must remain false.
+* `aiCanWrite` must remain false.
+* `aiCanMutateRules` must remain false.
+* Missing `maxPurchaseLimitGrams` must remain BLOCKED.
+* `tenantConsistencyCheck` must remain enforced.
+* All quantities must use `Grams` / `asGrams`.
+* Model config recommendation must require human approval and cannot be applied in this phase.
 
 ---
 
 ## Team State
 
-- Claude: GO - Feature 002 Phase 3 only
-- Gemini: HOLD
-- Grok: Prepare Feature 002 Phase 3 code review
-- ChatGPT: Gatekeeper + SSOT maintainer
-- ibi: Final authority
+* Claude: GO - Feature 003 Phase 2 only
+* Gemini: HOLD
+* Grok: Prepare Feature 003 Phase 2 code review
+* ChatGPT: Gatekeeper + SSOT maintainer
+* ibi: Final authority
 
 ---
 
 ## Next Expected Input
 
-Claude Feature 002 Phase 3 report:
-
-- branch name
-- commit hash
-- changed files
-- whether only allowed files were modified
-- tests result
-- typecheck result
-- build result
-- confirmation that UI does not write Firestore directly
-- confirmation that UI only calls guarded receiving transaction service
-- confirmation that no Netlify Function was added
-- confirmation that no inventory update happens outside transaction
-- confirmation that irreversible warning is visible
-- confirmation that delta >15% requires note in UI
-- confirmation that duplicate submit is guarded
-- confirmation that E2E tests cover duplicate submit / network failure / delta warning
+Claude Feature 003 Phase 2 report:
+* branch name
+* commit hash
+* changed files
+* whether only allowed files were modified
+* tests result
+* typecheck result
+* build result
+* confirmation that no Firestore read/write exists
+* confirmation that no UI was added
+* confirmation that no Netlify Function was added
+* confirmation that purchaseOrderService / inventoryService were not called
+* confirmation that Feature 001 / Feature 002 core flows were not modified
+* confirmation that prediction output is dry-run only
+* confirmation that no executable draft purchase suggestion is created
+* confirmation that sourceSnapshotId / auditTrailId / suggestionId continuity is tested
+* known limitations
 
 ---
 
 ## SSOT Update Rule
 
 After each phase is reviewed and approved, ChatGPT will generate the next version of this file.
-
 Claude should update this file only when explicitly instructed by ibi or ChatGPT.
-
 If the latest ChatGPT-generated SSOT in chat differs from this file, the chat SSOT is considered newer and this file must be updated.
 
 ---
@@ -157,6 +156,5 @@ If the latest ChatGPT-generated SSOT in chat differs from this file, the chat SS
 ## Agent Reading Rule
 
 Before starting implementation or review, every agent must read this file and follow only this current state.
-
 Old conversations, previous specs, and previous phases are historical context only.
 They are not active instructions unless reflected in this file.

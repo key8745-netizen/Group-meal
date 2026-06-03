@@ -18,10 +18,32 @@ import type { BlockedReason, TenantId } from '@/types/aiBoundary';
 import type { ReceivingIdempotencyLock } from '@/types/receivingBoundary';
 import { RECEIVING_LOCK_TTL_MS } from '@/types/receivingBoundary';
 
-// ─── ID generation ────────────────────────────────────────────────────────────
+// ─── Token / ID generation ────────────────────────────────────────────────────
 
 function generateLockId(): string {
   return `lock_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
+}
+
+/**
+ * Generates a collision-resistant receiving token using crypto.randomUUID().
+ *
+ * HARD RULE: do NOT use Date.now() alone — timestamps are guessable and can
+ * collide when two requests arrive in the same millisecond.
+ *
+ * crypto.randomUUID() is available in all modern browsers (>= 2021) and
+ * Node.js >= 14.17. The UUID v4 format provides 122 bits of randomness,
+ * making collisions cryptographically infeasible.
+ */
+export function generateReceivingToken(): string {
+  return crypto.randomUUID();
+}
+
+/**
+ * Generates a collision-resistant request ID for idempotency tracking.
+ * Uses the same crypto.randomUUID() source.
+ */
+export function generateReceivingRequestId(): string {
+  return `req_rcv_${crypto.randomUUID()}`;
 }
 
 // ─── createReceivingIdempotencyLock ───────────────────────────────────────────

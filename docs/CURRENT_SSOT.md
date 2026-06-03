@@ -14,13 +14,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Post-Merge Verification / Production Deployment Checklist
+Production Release Completed: Feature 001 + Feature 002 + Feature 003
 
 ---
 
 ## Current Phase
 
-Post-Merge Validation
+Post-Release Monitoring / Feature 004 Planning Pending
 
 ---
 
@@ -34,18 +34,13 @@ Post-Merge Validation
 * Feature 003 Final Commit: `1a5a381`
 * System Release Gate: PASSED
 * System Release Gate Commit: `4473127`
-* Merge / Release Preparation: PASSED
-* Merge Preparation Commit: `95a79ec`
-* Merge Commit (target branch): `948e639`
-* Source Branch: `claude/busy-heisenberg-HcwYg`
-* Target Branch: `claude/fervent-dirac-HJT01`
-* Merge Conflicts: None
+* Merge Commit: `948e639`
+* Production Branch: `claude/fervent-dirac-HJT01`
+* Production Deployment Checklist: 20/20 PASS
 * Full-system Integration Tests: 223/223 pass
 * Critical Safety Gates: 16/16 pass
-* Production Readiness Checklist: 20/20 pass
-* Grok Final Release Gate Review: 96/100
-* Release Recommendation: RELEASE_READY
-* ChatGPT Decision: Merge APPROVED; Claude — Report merge result
+* Grok Release Gate Score: 96/100
+* Release Status: RELEASED
 
 ---
 
@@ -57,26 +52,21 @@ Post-Merge Validation
 
 ## Current Commit
 
-`948e639`
+`948e639` (merge) + SSOT/checklist commit (see below)
 
 ---
 
 ## Allowed in this phase
 
-* Post-merge test run on target branch
-* Post-merge typecheck on target branch
-* Post-merge build on target branch
-* Verify docs/CURRENT_SSOT.md reflects post-merge state
-* Verify docs/AI_TEAM_WORKFLOW.md exists
-* Verify docs/RELEASE_RISK_REGISTER.md exists and complete
-* Produce merge report
-* Push target branch
+* Post-release monitoring
+* Feature 004 planning (when ibi authorizes)
+* Bug fixes if production issues are reported
 
 ---
 
 ## Forbidden in this phase
 
-* Do not start Feature 004 yet
+* Do not start Feature 004 until explicitly authorized by ibi
 * Do not introduce new business logic
 * Do not add UI
 * Do not add Netlify Functions
@@ -88,7 +78,6 @@ Post-Merge Validation
 * Do not write performanceLogs / finalizedPerformanceLogs / operationalReports
 * Do not allow AI approval, AI submit, AI receiving, or AI rule mutation
 * Do not allow prediction output to become executable purchase action
-* Do not change production behavior
 
 ---
 
@@ -110,9 +99,9 @@ Post-Merge Validation
 
 ## Team State
 
-* Claude: Report merge result
+* Claude: HOLD — await Feature 004 planning authorization
 * Gemini: HOLD
-* Grok: HOLD / Prepare post-merge quick review if requested
+* Grok: HOLD / Prepare post-release quick check if requested
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -121,9 +110,9 @@ Post-Merge Validation
 ## Next Expected Input
 
 ibi decision:
-1. Confirm merge and begin Feature 004 planning
-2. Request Grok post-merge quick review
-3. Pause
+1. Begin Feature 004 planning (authorize Gemini Spec)
+2. Request Grok post-release quick check
+3. Pause / monitor production
 
 ---
 

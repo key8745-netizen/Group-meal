@@ -301,3 +301,50 @@ export interface SuggestionConfidenceV2 {
   /** The snapshot this confidence evaluation is based on */
   sourceSnapshotId?: string;
 }
+
+// ─── AI Purchase Suggestion (Phase 3) ────────────────────────────────────────
+
+/**
+ * A single ingredient line within an AI purchase suggestion.
+ * All quantities in Grams. usableForDraft is always false in Phase 3.
+ */
+export interface PurchaseSuggestionItem {
+  ingredientId: string;
+  name: string;
+  /** Quantity the system suggests purchasing */
+  suggestedQtyGrams: Grams;
+  currentStockGrams: Grams;
+  shortageGrams: Grams;
+  /** Average daily usage (30-day window) */
+  averageDailyUsageGrams?: Grams;
+  confidence: SuggestionConfidenceV2;
+}
+
+/**
+ * An AI-generated purchase suggestion derived from an AIContextSnapshot.
+ *
+ * Phase 3 invariant: usableForDraft is ALWAYS false.
+ * Phase 4 will add the human-approval path that sets usableForDraft conditionally.
+ *
+ * This object must never be written to purchaseOrders or inventory directly.
+ */
+export interface AIPurchaseSuggestion {
+  suggestionId: SuggestionId;
+  tenantId: TenantId;
+  /** The snapshot that was used to generate this suggestion */
+  sourceSnapshotId: SnapshotId;
+  generatedAt: Date;
+  /** Suggestion is stale and must not be actioned after this time */
+  expiresAt: Date;
+  items: PurchaseSuggestionItem[];
+  overallConfidence: SuggestionConfidenceV2;
+  /**
+   * Phase 3: always false.
+   * Phase 4 will allow true only after human approval via approveDraftOrder().
+   */
+  usableForDraft: false;
+  blockedReasons: BlockedReason[];
+  warnings: BlockedReason[];
+  /** Audit event produced at generation time */
+  auditEvent: AuditEvent;
+}

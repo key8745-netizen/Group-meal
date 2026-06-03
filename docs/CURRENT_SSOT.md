@@ -14,13 +14,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Feature 003: Predictive Purchasing Optimization Engine
+System Release Gate: Feature 001 + Feature 002 + Feature 003 Production Readiness Review
 
 ---
 
 ## Current Phase
 
-Phase 4: Final Integration & Production Readiness
+Pre-Release Full-System Validation
 
 ---
 
@@ -30,26 +30,14 @@ Phase 4: Final Integration & Production Readiness
 * Feature 001 Final Commit: `48c57b0`
 * Feature 002: CLOSED
 * Feature 002 Final Commit: `2bf0769`
-* System Integration Gate: CONDITIONALLY PASSED
-* Integration Tests: 139/139 assertions pass
-* Gemini Feature 003 Spec v1.1: CONDITIONALLY PASSED
-* Grok Red Team Review v1.1: 92/100
-* Feature 003 Phase 1: PASSED
-* Feature 003 Phase 1 Commit: `40c7ac8`
-* Feature 003 Phase 1 SSOT Commit: `d5c82fa`
-* Feature 003 Phase 1 Tests: 110/110 pass
-* Feature 003 Phase 1 Grok Code Review: 93/100
-* Feature 003 Phase 2: PASSED
-* Feature 003 Phase 2 Commit: `98817e7`
-* Feature 003 Phase 2 SSOT Commit: `791863c`
-* Feature 003 Phase 2 Tests: 153/153 pass
-* Feature 003 Phase 2 Grok Code Review: 92/100
-* Feature 003 Phase 3: PASSED
-* Feature 003 Phase 3 Commit: `11bb0ef`
-* Feature 003 Phase 3 SSOT Commit: `68a8784`
-* Feature 003 Phase 3 Tests: 180/180 pass
-* Feature 003 Phase 3 Grok Code Review: 94/100
-* ChatGPT Decision: Claude GO - Feature 003 Phase 4 only
+* Feature 003: CLOSED
+* Feature 003 Final Commit: `1a5a381`
+* Feature 003 Final Tests: 264/264 pass
+* Feature 003 Final Integration Tests: 84/84 pass
+* Feature 003 Production Checklist: 20/20 pass
+* Feature 003 Grok Final Review: 95/100
+* `docs/AI_TEAM_WORKFLOW.md`: CREATED
+* ChatGPT Decision: Feature 003 CLOSED; run System Release Gate before Feature 004
 
 ---
 
@@ -61,72 +49,65 @@ Phase 4: Final Integration & Production Readiness
 
 ## Current Commit
 
-`b99ebb8` — Feature 003 Phase 4 complete (264/264 tests, typecheck clean, build clean)
+`1a5a381`
 
 ---
 
 ## Allowed in this phase
 
-* Final Feature 001 → Feature 003 integration validation
-* Final prediction dry-run E2E tests
-* Final auditTrailId / sourceSnapshotId / suggestionId / predictionId continuity tests
-* Dry-run immutability regression tests
-* Production readiness checklist
-* Documentation for `dataQualityScore` formula weights and rationale
-* Documentation for human-approved model config recommendation behavior
-* Documentation that prediction preview is not an executable action
-* Documentation that Feature 003 does not modify Feature 001 / Feature 002 execution flow
-* Docs / SSOT update
+* Full-system integration tests across Feature 001 + Feature 002 + Feature 003
+* End-to-end validation from AI suggestion to prediction preview to purchase receiving
+* Audit trail continuity checks
+* Permission boundary regression tests
+* AI forbidden-action regression tests
+* Transaction and idempotency regression tests
+* Prediction preview non-executable regression tests
+* Production readiness checklist consolidation
+* Release risk register
+* Documentation cleanup
+* SSOT update
 
 ---
 
 ## Forbidden in this phase
 
-* Do not write Firestore
-* Do not read raw Firestore documents
-* Do not call `admin.firestore().set/update/add/delete`
-* Do not connect UI
+* Do not start Feature 004 yet
+* Do not introduce new business logic
+* Do not modify Feature 001 core flow unless required by failing tests
+* Do not modify Feature 002 inventory mutation logic unless required by failing tests
+* Do not modify Feature 003 prediction logic unless required by failing tests
 * Do not add Netlify Functions
-* Do not call purchaseOrderService
-* Do not call inventoryService
-* Do not modify settings
-* Do not apply model config
+* Do not add UI
+* Do not bypass backend guards
+* Do not bypass idempotency locks
 * Do not write performanceLogs / finalizedPerformanceLogs / operationalReports
-* Do not modify Feature 001 core flow
-* Do not modify Feature 002 core flow
-* Do not create executable draft purchase suggestion
-* Do not let prediction output become an executable purchase action
-* Do not auto-adjust wasteFactorWarning
-* Do not auto-adjust confidence rules
-* Do not allow AI to mutate rules
-* Do not add new business logic beyond final hardening / tests / docs
+* Do not allow AI approval, AI submit, AI receiving, or AI rule mutation
+* Do not allow prediction output to become executable purchase action
+* Do not return to old Feature phases unless explicitly required for a failing regression test
 
 ---
 
 ## Required Guard Rails
 
-* Feature 003 remains pure computation.
-* Prediction output remains dry-run only.
-* Prediction preview must never be executable.
-* Existing Feature 001 suggestion logic must remain unchanged.
-* Existing Feature 002 receiving logic must remain unchanged.
-* Prediction may enrich a preview, but must not change purchase flow behavior.
-* `PredictionEnhancedSuggestionPreview.executable` must remain literal `false`.
-* `aiCanWrite` must remain literal `false`.
-* `aiCanMutateRules` must remain literal `false`.
-* `dataLineage.usedRawDocuments` must remain literal `false`.
-* All outputs must preserve `sourceSnapshotId`, `auditTrailId`, `suggestionId`, and `predictionId`.
-* Human-approved model config recommendation must remain recommendation-only.
-* No settings write is allowed.
-* No executable draft purchase suggestion is allowed.
+* Feature 001 human-in-the-loop purchase boundary must remain intact.
+* Feature 002 receiving and inventory update must remain transaction-only.
+* Feature 003 prediction engine must remain pure computation.
+* AI cannot approve, submit, receive, mutate inventory, write settings, or apply model config.
+* Prediction output must remain dry-run and non-executable.
+* Audit trail must remain traceable across snapshot, suggestion, prediction, purchase order, receiving, and inventory transaction.
+* Duplicate receiving must remain blocked.
+* Retry must not duplicate inventory updates.
+* `ai_performance_metrics` must remain isolated from operational performance logs.
+* `docs/CURRENT_SSOT.md` remains the only current-state source of truth.
+* `docs/AI_TEAM_WORKFLOW.md` governs role workflow but does not replace `CURRENT_SSOT.md`.
 
 ---
 
 ## Team State
 
-* Claude: GO - Feature 003 Phase 4 only
+* Claude: HOLD until System Release Gate instruction
 * Gemini: HOLD
-* Grok: Prepare Feature 003 Phase 4 / final closeout code review
+* Grok: Prepare full-system release review if requested
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -134,25 +115,10 @@ Phase 4: Final Integration & Production Readiness
 
 ## Next Expected Input
 
-Claude Feature 003 Phase 4 report:
-* branch name
-* commit hash
-* changed files
-* whether only allowed files were modified
-* tests result
-* typecheck result
-* build result
-* confirmation that no Firestore read/write exists
-* confirmation that no UI was added
-* confirmation that no Netlify Function was added
-* confirmation that purchaseOrderService / inventoryService were not called
-* confirmation that Feature 001 / Feature 002 core flows were not modified
-* confirmation that prediction preview remains non-executable
-* confirmation that model config recommendation is not applied
-* confirmation that aiCanWrite / aiCanMutateRules remain false
-* confirmation that dataLineage.usedRawDocuments remains false
-* production readiness checklist summary
-* known limitations
+ibi decision:
+1. Start System Release Gate
+2. Pause development and prepare merge/release
+3. Start Feature 004 planning after release gate
 
 ---
 

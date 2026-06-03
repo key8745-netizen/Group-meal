@@ -14,7 +14,7 @@
  *  8. ModelConfigRecommendation.requiresHumanApproval is permanently true.
  */
 
-import type { Grams, TenantId, SnapshotId, AuditTrailId, BlockedReason } from './aiBoundary';
+import type { Grams, TenantId, SnapshotId, AuditTrailId, BlockedReason, SuggestionId, AISuggestionConfidence } from './aiBoundary';
 
 export type { Grams, TenantId, SnapshotId, AuditTrailId, BlockedReason };
 
@@ -164,6 +164,49 @@ export interface PredictionFactorResult {
 // ─── Confidence tier ──────────────────────────────────────────────────────────
 
 export type PredictionConfidenceTier = PredictionOutput['confidenceTier'];
+
+// ─── PredictionEnhancedSuggestionPreview ─────────────────────────────────────
+
+/**
+ * A dry-run, non-executable enrichment of an AIPurchaseSuggestion with
+ * prediction engine output. Must never become an executable purchase action.
+ *
+ * HARD RULES:
+ *  1. executable is permanently false.
+ *  2. aiCanWrite is permanently false.
+ *  3. aiCanMutateRules is permanently false.
+ *  4. dataLineage.usedRawDocuments is permanently false.
+ *  5. This object must not be used to create or approve a purchase order.
+ */
+export interface PredictionEnhancedSuggestionPreview {
+  previewId: string;
+  tenantId: TenantId;
+  suggestionId: SuggestionId;
+  predictionId: string;
+  sourceSnapshotId: SnapshotId;
+  auditTrailId: AuditTrailId;
+  originalRecommendedQtyGrams: Grams;
+  predictedAdjustedQtyGrams: Grams;
+  originalConfidence: AISuggestionConfidence;
+  predictionConfidenceTier: PredictionConfidenceTier;
+  dataLineage: {
+    suggestionId: SuggestionId;
+    predictionId: string;
+    sourceSnapshotId: SnapshotId;
+    auditTrailId: AuditTrailId;
+    /** Hard invariant: always false. */
+    usedRawDocuments: false;
+  };
+  /** Hard invariant: always false — this is never an executable purchase action. */
+  executable: false;
+  /** Hard invariant: always false. */
+  aiCanWrite: false;
+  /** Hard invariant: always false. */
+  aiCanMutateRules: false;
+  createdAt: Date;
+}
+
+export type { SuggestionId, AISuggestionConfidence };
 
 // ─── Audit event types ────────────────────────────────────────────────────────
 

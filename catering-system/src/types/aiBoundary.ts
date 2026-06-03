@@ -189,20 +189,82 @@ export interface AIAuditTrail {
   updatedAt: Date;
 }
 
+// ─── Summary sub-types ────────────────────────────────────────────────────────
+
+export interface ActiveMealPlanSummary {
+  mealPlanIds: string[];
+  dateRangeStart: Date;
+  dateRangeEnd: Date;
+  totalMeals: number;
+  totalServings: number;
+}
+
+export interface InventoryIngredientSummary {
+  ingredientId: string;
+  name: string;
+  currentStockGrams: Grams;
+  safetyStockGrams?: Grams;
+  category?: string;
+  isVerified: boolean;
+  source: 'manual' | 'imported' | 'system';
+  warnings: BlockedReason[];
+  blockedReasons: BlockedReason[];
+}
+
+export interface WasteRiskSummary {
+  ingredientId: string;
+  wasteFactor?: number;
+  recentWasteGrams?: Grams;
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'UNKNOWN';
+}
+
+export interface SafeSettingsSummary {
+  tenantId: TenantId;
+  wasteFactorWarning?: number;
+  aiPurchaseSuggestionEnabled?: boolean;
+  /** Always true — AI suggestions always require human approval */
+  requireHumanApproval: true;
+}
+
 // ─── Snapshot ─────────────────────────────────────────────────────────────────
+
+/**
+ * Aggregated operational data included in a summary-mode snapshot.
+ * All quantity fields use Grams. Raw logs, raw OCR, and PII must never appear here.
+ */
+export interface AIContextSummary {
+  tenantId: TenantId;
+  generatedAt: Date;
+  activeMealPlanSummary: ActiveMealPlanSummary;
+  inventorySummaryByIngredient: Record<string, InventoryIngredientSummary>;
+  /** Required grams per ingredient for planned meals (BOM × headCount × wasteFactor) */
+  requiredQtyGramsByIngredient: Record<string, Grams>;
+  /** Shortage (required + safetyStock − currentStock) per ingredient, minimum 0 */
+  shortageQtyGramsByIngredient: Record<string, Grams>;
+  /** Sum of RECEIVED purchase order quantities per ingredient (last 30 days) */
+  recentPurchaseTotalsGramsByIngredient: Record<string, Grams>;
+  /** Rolling average daily usage per ingredient (last 30 days / 30) */
+  averageDailyUsageGramsByIngredient: Record<string, Grams>;
+  wasteRiskSummaryByIngredient: Record<string, WasteRiskSummary>;
+  settingsSummary: SafeSettingsSummary;
+  /** Non-fatal observations — populated when data quality is degraded */
+  warnings: BlockedReason[];
+  /** Fatal issues — summary must not be used for AI suggestions when non-empty */
+  blockedReasons: BlockedReason[];
+}
 
 /**
  * Metadata for an AIContextSnapshot document.
  * The snapshot is the sole authorised data source for AI suggestion generation.
- * Expired or contaminated snapshots must not be used to create new suggestions.
+ * Expired, contaminated, or debug snapshots must not be used to create suggestions.
  */
 export interface AIContextSnapshot {
-  snapshotId: string;
-  tenantId: string;
-  /** 'summary' is the production default; 'debug' is for development only */
+  snapshotId: SnapshotId;
+  tenantId: TenantId;
+  /** 'summary' is the production default; 'debug' is for development only and MUST NOT be used for suggestions */
   mode: 'summary' | 'debug';
   generatedAt: Date;
-  /** Snapshot must be rejected if Date.now() > expiresAt */
+  /** Snapshot must be rejected if Date.now() > expiresAt (default: generatedAt + 4 hours) */
   expiresAt: Date;
   /** Collections read to build this snapshot */
   sourceCollections: string[];
@@ -212,30 +274,9 @@ export interface AIContextSnapshot {
   contaminationDetected: boolean;
   contaminationReasons: BlockedReason[];
   summary?: AIContextSummary;
-  createdBy: 'system' | 'ai' | 'human';
-}
-
-/**
- * Aggregated operational data included in a summary-mode snapshot.
- * All quantity fields use Grams.  Unknown or unresolvable fields are omitted.
- *
- * Phase 1: skeleton only — aggregation formulas are Phase 2.
- */
-export interface AIContextSummary {
-  tenantId: string;
-  generatedAt: Date;
-  activeMealPlanSummary?: unknown;
-  inventorySummaryByIngredient?: Record<string, unknown>;
-  /** Required grams per ingredient for planned meals */
-  requiredQtyGramsByIngredient?: Record<string, Grams>;
-  /** Shortage (required − stock) per ingredient, in grams */
-  shortageQtyGramsByIngredient?: Record<string, Grams>;
-  /** Sum of RECEIVED purchase order quantities per ingredient (last N days) */
-  recentPurchaseTotalsGramsByIngredient?: Record<string, Grams>;
-  /** Rolling average daily usage per ingredient */
-  averageDailyUsageGramsByIngredient?: Record<string, Grams>;
-  wasteRiskSummaryByIngredient?: Record<string, unknown>;
-  settingsSummary?: Record<string, unknown>;
+  createdBy: CallerType;
+  /** Unique cache key: tenantId + mode + dateRange — used for deduplication */
+  cacheKey: string;
 }
 
 // ─── Confidence (v1.3 upgrade) ────────────────────────────────────────────────

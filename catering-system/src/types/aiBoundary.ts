@@ -92,7 +92,15 @@ export type BlockedReason =
   | 'MISSING_SNAPSHOT_ID'
   | 'MISSING_AUDIT_TRAIL_ID'
   | 'AUDIT_VERSION_CONFLICT'
-  | 'LEGACY_QUANTITY_BLOCKED_FOR_AI';
+  | 'LEGACY_QUANTITY_BLOCKED_FOR_AI'
+  // ── Draft purchase suggestion (Phase 5) ──────────────────────────────────────
+  | 'MISSING_DRAFT_SUGGESTION_ID'
+  | 'DRAFT_REQUIRES_HUMAN_ACTOR'
+  | 'DRAFT_FROM_LOW_CONFIDENCE_BLOCKED'
+  | 'DRAFT_FROM_BLOCKED_SUGGESTION_BLOCKED'
+  | 'FEEDBACK_SUGGESTION_MISMATCH'
+  | 'OVERRIDE_SUGGESTION_MISMATCH'
+  | 'AI_DRAFT_CREATION_FORBIDDEN';
 
 // ─── Operation validation ──────────────────────────────────────────────────────
 
@@ -401,4 +409,63 @@ export interface AIPurchaseSuggestion {
   warnings: BlockedReason[];
   /** Audit event produced at generation time */
   auditEvent: AuditEvent;
+  /** Optional: links this suggestion to an audit trail chain (set externally) */
+  auditTrailId?: AuditTrailId;
+}
+
+// ─── Draft Purchase Suggestion (Phase 5) ──────────────────────────────────────
+
+/**
+ * Alias for SuggestionConfidenceV2 — used in DraftPurchaseSuggestion to
+ * explicitly signal that confidence is the per-item graded value.
+ */
+export type AISuggestionConfidence = SuggestionConfidenceV2;
+
+export type DraftPurchaseSuggestionStatus =
+  | 'DRAFT_PREPARED'
+  | 'BLOCKED'
+  | 'REJECTED'
+  | 'AWAITING_HUMAN_APPROVAL';
+
+/**
+ * A draft purchase suggestion object — NOT a purchase order.
+ *
+ * Phase 5 invariant: this object is never written to purchaseOrders.
+ * requiresHumanApproval is always true.
+ * approvedBy / approvedAt are Phase 6 fields and must not appear here.
+ *
+ * createdBy is always 'human' — AI cannot create a draft directly.
+ */
+export interface DraftPurchaseSuggestion {
+  draftSuggestionId: string;
+  tenantId: TenantId;
+  sourceSnapshotId: SnapshotId;
+  suggestionId: SuggestionId;
+  auditTrailId: AuditTrailId;
+  feedbackId?: string;
+  overrideId?: string;
+  ingredientId: string;
+  ingredientName?: string;
+  suggestedQtyGrams: Grams;
+  finalQtyGrams: Grams;
+  confidence: AISuggestionConfidence;
+  status: DraftPurchaseSuggestionStatus;
+  blockedReasons: BlockedReason[];
+  warnings: BlockedReason[];
+  requiresHumanApproval: true;
+  /** Phase 6 only — must be undefined in Phase 5 */
+  approvedBy?: never;
+  /** Phase 6 only — must be undefined in Phase 5 */
+  approvedAt?: never;
+  dataLineage: {
+    snapshotId: SnapshotId;
+    suggestionId: SuggestionId;
+    feedbackId?: string;
+    overrideId?: string;
+    sourceCollections: string[];
+    generatedAt: Date;
+  };
+  createdBy: 'human';
+  createdByUserId: string;
+  createdAt: Date;
 }

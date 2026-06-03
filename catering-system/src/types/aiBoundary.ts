@@ -87,7 +87,12 @@ export type BlockedReason =
   // ── Caller identity ──────────────────────────────────────────────────────────
   | 'MISSING_CALLER_TYPE'
   | 'MISSING_CALLER_ID'
-  | 'MISSING_REQUEST_ID';
+  | 'MISSING_REQUEST_ID'
+  // ── Snapshot / audit chain (Phase 1 Patch) ───────────────────────────────────
+  | 'MISSING_SNAPSHOT_ID'
+  | 'MISSING_AUDIT_TRAIL_ID'
+  | 'AUDIT_VERSION_CONFLICT'
+  | 'LEGACY_QUANTITY_BLOCKED_FOR_AI';
 
 // ─── Operation validation ──────────────────────────────────────────────────────
 

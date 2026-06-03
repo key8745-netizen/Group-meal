@@ -25,6 +25,17 @@ import type {
   CallerType,
 } from '@/types/aiBoundary';
 
+// ─── Error type ───────────────────────────────────────────────────────────────
+
+export class AIOperationBlockedError extends Error {
+  readonly blockedReasons: BlockedReason[];
+  constructor(blockedReasons: BlockedReason[]) {
+    super(`[aiBoundaryService] Operation blocked: ${blockedReasons.join(', ')}`);
+    this.name = 'AIOperationBlockedError';
+    this.blockedReasons = blockedReasons;
+  }
+}
+
 // ─── Permission tables ────────────────────────────────────────────────────────
 
 /**
@@ -211,12 +222,35 @@ export function validateOperation(
       request.targetCollection === 'ai_audit_trails';
 
     if (isWriteAction && !isCreatingAuditTrail && !request.sourceSnapshotId) {
-      blocked.push('MISSING_AUDIT_TRAIL'); // re-using audit reason; snapshotId is part of audit chain
+      blocked.push('MISSING_SNAPSHOT_ID');
     }
 
     // 6. auditTrailId required for write operations (except creating the trail itself)
     if (isWriteAction && !isCreatingAuditTrail && !request.auditTrailId) {
-      blocked.push('MISSING_AUDIT_TRAIL');
+      blocked.push('MISSING_AUDIT_TRAIL_ID');
+    }
+
+    // 7. draft_purchase_suggestions requires suggestionId
+    if (
+      request.targetCollection === 'draft_purchase_suggestions' &&
+      isWriteAction &&
+      !request.suggestionId
+    ) {
+      blocked.push('MISSING_AUDIT_TRAIL_ID');
+    }
+
+    // 8. ai_suggestion_feedback requires suggestionId + auditTrailId
+    if (
+      request.targetCollection === 'ai_suggestion_feedback' &&
+      isWriteAction &&
+      !isCreatingAuditTrail
+    ) {
+      if (!request.suggestionId) {
+        blocked.push('MISSING_AUDIT_TRAIL_ID');
+      }
+      if (!request.auditTrailId) {
+        blocked.push('MISSING_AUDIT_TRAIL_ID');
+      }
     }
   }
 
@@ -244,4 +278,21 @@ export function isAIForbiddenCollection(collection: string): boolean {
 /** Returns true when the collection is in AI_ALLOWED_WRITE_COLLECTIONS */
 export function isAIAllowedWriteCollection(collection: string): boolean {
   return isAllowedWriteCollection(collection);
+}
+
+/**
+ * Validates an AI operation and throws AIOperationBlockedError if not allowed.
+ *
+ * This is the primary entry point for all AI Netlify Functions and backend services.
+ * Call this before any AI-initiated Firestore write. Never skip it.
+ *
+ * Admin SDK bypasses Firestore Security Rules — this guard is mandatory.
+ *
+ * @throws AIOperationBlockedError when the operation is not allowed
+ */
+export function validateAIOperationOrThrow(request: AIOperationRequest): void {
+  const result = validateOperation(request);
+  if (!result.allowed) {
+    throw new AIOperationBlockedError(result.blockedReasons);
+  }
 }

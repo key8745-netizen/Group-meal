@@ -21,15 +21,26 @@ import {
   toGrams,
   assertKnownUnit,
   assertIntegerGrams,
+  asGrams,
+  isGrams,
 } from '../unitConversionService';
 
 import {
   readQuantityAsGrams,
+  canUseForAISuggestion,
 } from '../quantityMigrationHelper';
 
 import {
   validateOperation,
+  validateAIOperationOrThrow,
+  AIOperationBlockedError,
 } from '../aiBoundaryService';
+
+import {
+  createAuditEvent,
+  validateAuditAppend,
+  computeAuditEventHash,
+} from '../aiAuditTrailHelper';
 
 import type { Grams } from '../../types/aiBoundary';
 
@@ -59,6 +70,26 @@ function checkThrows(label: string, fn: () => unknown): void {
   } catch (err) {
     console.log(`  ✅ ${label} (threw: ${(err as Error).message.slice(0, 80)})`);
     passed++;
+  }
+}
+
+function checkThrowsType<T extends Error>(
+  label: string,
+  fn: () => unknown,
+  check_: (err: T) => boolean,
+): void {
+  try {
+    fn();
+    console.error(`  ❌ ${label} — expected throw but did not throw`);
+    failed++;
+  } catch (err) {
+    if (check_(err as T)) {
+      console.log(`  ✅ ${label}`);
+      passed++;
+    } else {
+      console.error(`  ❌ ${label} — threw but check failed: ${(err as Error).message}`);
+      failed++;
+    }
   }
 }
 
@@ -106,6 +137,21 @@ checkThrows('assertIntegerGrams throws for -1', () => assertIntegerGrams(-1));
 // Non-integer input to toGrams(unit=grams)
 checkThrows('toGrams(1.5, grams) throws — grams must already be integer', () => toGrams(1.5, 'grams'));
 
+// asGrams
+check('asGrams(500) = 500', asGrams(500), 500);
+checkThrows('asGrams(-1) throws', () => asGrams(-1));
+checkThrows('asGrams(1.5) throws', () => asGrams(1.5));
+checkThrows('asGrams(NaN) throws', () => asGrams(NaN));
+checkThrows('asGrams(Infinity) throws', () => asGrams(Infinity));
+
+// isGrams
+check('isGrams(500) = true', isGrams(500), true);
+check('isGrams(0) = true', isGrams(0), true);
+check('isGrams(-1) = false', isGrams(-1), false);
+check('isGrams(1.5) = false', isGrams(1.5), false);
+check('isGrams(NaN) = false', isGrams(NaN), false);
+check('isGrams("500") = false', isGrams('500'), false);
+
 // ─── 2. quantityMigrationHelper ───────────────────────────────────────────────
 
 console.log('\n── quantityMigrationHelper ────────────────────────────────────');
@@ -116,15 +162,18 @@ console.log('\n── quantityMigrationHelper ───────────�
   check('only grams: valueGrams = 600', r.valueGrams, 600);
   check('only grams: no blocked', r.blockedReasons, []);
   check('only grams: no fallback', r.usedLegacyFallback, false);
+  check('only grams: canUseForAISuggestion = true', canUseForAISuggestion(r), true);
 }
 
-// Case B: only kg → fallback + warning
+// Case B: only kg → fallback + BLOCKED for AI
 {
   const r = readQuantityAsGrams({ kg: 1, fieldName: 'testField' });
   check('only kg: valueGrams = 1000', r.valueGrams, 1000);
-  check('only kg: no blocked', r.blockedReasons, []);
+  check('only kg: blockedReasons has LEGACY_KG_FALLBACK_USED', r.blockedReasons.includes('LEGACY_KG_FALLBACK_USED'), true);
+  check('only kg: blockedReasons has LEGACY_QUANTITY_BLOCKED_FOR_AI', r.blockedReasons.includes('LEGACY_QUANTITY_BLOCKED_FOR_AI'), true);
   check('only kg: LEGACY_KG_FALLBACK_USED warning', r.warnings, ['LEGACY_KG_FALLBACK_USED']);
   check('only kg: usedLegacyFallback = true', r.usedLegacyFallback, true);
+  check('only kg: canUseForAISuggestion = false', canUseForAISuggestion(r), false);
 }
 
 // Case C: grams + kg consistent (1 kg → 1000 g, stored grams = 1000)
@@ -133,6 +182,7 @@ console.log('\n── quantityMigrationHelper ───────────�
   check('grams+kg consistent: valueGrams = 1000', r.valueGrams, 1000);
   check('grams+kg consistent: no blocked', r.blockedReasons, []);
   check('grams+kg consistent: no fallback', r.usedLegacyFallback, false);
+  check('grams+kg consistent: canUseForAISuggestion = true', canUseForAISuggestion(r), true);
 }
 
 // Case D: grams + kg inconsistent (1 kg → 1000 g, but stored grams = 500)
@@ -140,6 +190,7 @@ console.log('\n── quantityMigrationHelper ───────────�
   const r = readQuantityAsGrams({ grams: 500, kg: 1, fieldName: 'testField' });
   check('grams+kg mismatch: valueGrams undefined', r.valueGrams, undefined);
   check('grams+kg mismatch: UNIT_MIGRATION_MISMATCH', r.blockedReasons, ['UNIT_MIGRATION_MISMATCH']);
+  check('grams+kg mismatch: canUseForAISuggestion = false', canUseForAISuggestion(r), false);
 }
 
 // Case E: neither grams nor kg
@@ -147,6 +198,7 @@ console.log('\n── quantityMigrationHelper ───────────�
   const r = readQuantityAsGrams({ fieldName: 'testField' });
   check('missing both: valueGrams undefined', r.valueGrams, undefined);
   check('missing both: MISSING_GRAMS_FIELD', r.blockedReasons, ['MISSING_GRAMS_FIELD']);
+  check('missing both: canUseForAISuggestion = false', canUseForAISuggestion(r), false);
 }
 
 // ─── 3. aiBoundaryService ─────────────────────────────────────────────────────
@@ -167,6 +219,7 @@ function makeBaseRequest(overrides: Partial<OpRequest> = {}): OpRequest {
     payloadSummary:    { tenantId: 'tenant-abc' },
     sourceSnapshotId:  'snap-001',
     auditTrailId:      'audit-001',
+    suggestionId:      'sug-001',
     requestId:         'req-001',
     createdAt:         new Date(),
     ...overrides,
@@ -197,14 +250,24 @@ function makeBaseRequest(overrides: Partial<OpRequest> = {}): OpRequest {
   check('AI → settings: AI_FORBIDDEN_WRITE_ATTEMPT', r.blockedReasons.includes('AI_FORBIDDEN_WRITE_ATTEMPT'), true);
 }
 
-// AI creating ai_suggestions, missing sourceSnapshotId → BLOCKED
+// AI creating ai_suggestions, missing sourceSnapshotId → BLOCKED with MISSING_SNAPSHOT_ID
 {
   const r = validateOperation(makeBaseRequest({
     sourceSnapshotId: undefined,
     auditTrailId:     'audit-001',
   }));
   check('AI create suggestion, no snapshotId: not allowed', r.allowed, false);
-  check('AI create suggestion, no snapshotId: MISSING_AUDIT_TRAIL', r.blockedReasons.includes('MISSING_AUDIT_TRAIL'), true);
+  check('AI create suggestion, no snapshotId: MISSING_SNAPSHOT_ID', r.blockedReasons.includes('MISSING_SNAPSHOT_ID'), true);
+}
+
+// AI creating ai_suggestions, missing auditTrailId → BLOCKED with MISSING_AUDIT_TRAIL_ID
+{
+  const r = validateOperation(makeBaseRequest({
+    sourceSnapshotId: 'snap-001',
+    auditTrailId:     undefined,
+  }));
+  check('AI create suggestion, no auditTrailId: not allowed', r.allowed, false);
+  check('AI create suggestion, no auditTrailId: MISSING_AUDIT_TRAIL_ID', r.blockedReasons.includes('MISSING_AUDIT_TRAIL_ID'), true);
 }
 
 // AI create ai_suggestions, tenantId consistent, snapshotId + auditTrailId present → ALLOWED
@@ -226,7 +289,6 @@ function makeBaseRequest(overrides: Partial<OpRequest> = {}): OpRequest {
 // Missing callerType
 {
   const req = makeBaseRequest();
-  // Force runtime undefined while keeping TS happy via unknown cast
   (req as unknown as Record<string, unknown>)['callerType'] = undefined;
   const r = validateOperation(req);
   check('Missing callerType: not allowed', r.allowed, false);
@@ -267,13 +329,145 @@ function makeBaseRequest(overrides: Partial<OpRequest> = {}): OpRequest {
   check('AI create audit trail (first event): allowed', r.allowed, true);
 }
 
+// draft_purchase_suggestions without suggestionId → BLOCKED
+{
+  const r = validateOperation(makeBaseRequest({
+    targetCollection: 'draft_purchase_suggestions',
+    targetPath:       'draft_purchase_suggestions/draft-001',
+    suggestionId:     undefined,
+  }));
+  check('draft_purchase_suggestions, no suggestionId: not allowed', r.allowed, false);
+  check('draft_purchase_suggestions, no suggestionId: MISSING_AUDIT_TRAIL_ID', r.blockedReasons.includes('MISSING_AUDIT_TRAIL_ID'), true);
+}
+
+// validateAIOperationOrThrow — throws on blocked operation
+{
+  checkThrowsType<AIOperationBlockedError>(
+    'validateAIOperationOrThrow throws AIOperationBlockedError on forbidden collection',
+    () => validateAIOperationOrThrow(makeBaseRequest({
+      targetCollection: 'inventory',
+      targetPath:       'inventory/carrot',
+      action:           'update',
+      payloadSummary:   { tenantId: 'tenant-abc' },
+    })),
+    (err) => err instanceof AIOperationBlockedError && err.blockedReasons.includes('AI_FORBIDDEN_WRITE_ATTEMPT'),
+  );
+}
+
+// validateAIOperationOrThrow — does NOT throw on allowed operation
+{
+  try {
+    validateAIOperationOrThrow(makeBaseRequest());
+    console.log('  ✅ validateAIOperationOrThrow does not throw for valid request');
+    passed++;
+  } catch {
+    console.error('  ❌ validateAIOperationOrThrow should not throw for valid request');
+    failed++;
+  }
+}
+
+// ─── 4. aiAuditTrailHelper ────────────────────────────────────────────────────
+
+console.log('\n── aiAuditTrailHelper ─────────────────────────────────────────');
+
+// computeAuditEventHash — deterministic
+{
+  const event = {
+    eventType:    'SUGGESTION_GENERATED',
+    actorType:    'ai' as const,
+    actorId:      'ai-001',
+    at:           new Date('2026-06-03T00:00:00.000Z'),
+    eventVersion: 1,
+  };
+  const h1 = computeAuditEventHash(event);
+  const h2 = computeAuditEventHash(event);
+  check('computeAuditEventHash is deterministic', h1, h2);
+  check('computeAuditEventHash returns 8-char hex string', /^[0-9a-f]{8}$/.test(h1), true);
+}
+
+// createAuditEvent — builds complete event with hash
+{
+  const evt = createAuditEvent({
+    eventType:    'SUGGESTION_GENERATED',
+    actorType:    'ai',
+    actorId:      'ai-service-001',
+    at:           new Date('2026-06-03T00:00:00.000Z'),
+    eventVersion: 1,
+    toState:      'SUGGESTED',
+  });
+  check('createAuditEvent: eventVersion correct', evt.eventVersion, 1);
+  check('createAuditEvent: eventHash present', typeof evt.eventHash === 'string' && evt.eventHash.length > 0, true);
+  check('createAuditEvent: actorType correct', evt.actorType, 'ai');
+}
+
+// validateAuditAppend — first event (empty trail)
+{
+  const evt = createAuditEvent({
+    eventType:    'SUGGESTION_GENERATED',
+    actorType:    'ai',
+    actorId:      'ai-001',
+    at:           new Date(),
+    eventVersion: 1,
+  });
+  const r = validateAuditAppend({ existingEvents: [], newEvent: evt });
+  check('validateAuditAppend: first event allowed', r.allowed, true);
+  check('validateAuditAppend: first event no blocked', r.blockedReasons, []);
+}
+
+// validateAuditAppend — version conflict
+{
+  const evt = createAuditEvent({
+    eventType:    'HUMAN_OVERRIDE',
+    actorType:    'human',
+    actorId:      'user-001',
+    at:           new Date(),
+    eventVersion: 5, // wrong — should be 2
+  });
+  const first = createAuditEvent({ eventType: 'SUGGESTION_GENERATED', actorType: 'ai', actorId: 'ai-001', at: new Date(), eventVersion: 1 });
+  const r = validateAuditAppend({ existingEvents: [first], newEvent: evt });
+  check('validateAuditAppend: version conflict blocked', r.allowed, false);
+  check('validateAuditAppend: AUDIT_VERSION_CONFLICT', r.blockedReasons.includes('AUDIT_VERSION_CONFLICT'), true);
+}
+
+// validateAuditAppend — hash mismatch
+{
+  const first = createAuditEvent({ eventType: 'SUGGESTION_GENERATED', actorType: 'ai', actorId: 'ai-001', at: new Date(), eventVersion: 1 });
+  const second = createAuditEvent({
+    eventType:         'HUMAN_OVERRIDE',
+    actorType:         'human',
+    actorId:           'user-001',
+    at:                new Date(),
+    eventVersion:      2,
+    previousEventHash: 'deadbeef', // wrong hash
+  });
+  const r = validateAuditAppend({ existingEvents: [first], newEvent: second });
+  check('validateAuditAppend: hash mismatch blocked', r.allowed, false);
+  check('validateAuditAppend: AUDIT_HASH_MISMATCH', r.blockedReasons.includes('AUDIT_HASH_MISMATCH'), true);
+}
+
+// validateAuditAppend — valid second event with correct previousEventHash
+{
+  const first = createAuditEvent({ eventType: 'SUGGESTION_GENERATED', actorType: 'ai', actorId: 'ai-001', at: new Date('2026-06-03T00:00:00.000Z'), eventVersion: 1 });
+  const second = createAuditEvent({
+    eventType:         'HUMAN_OVERRIDE',
+    actorType:         'human',
+    actorId:           'user-001',
+    at:                new Date('2026-06-03T01:00:00.000Z'),
+    eventVersion:      2,
+    previousEventHash: first.eventHash,
+  });
+  const r = validateAuditAppend({ existingEvents: [first], newEvent: second });
+  check('validateAuditAppend: valid chain allowed', r.allowed, true);
+  check('validateAuditAppend: valid chain no blocked', r.blockedReasons, []);
+}
+
 // ─── Summary ──────────────────────────────────────────────────────────────────
 
 console.log(`\n${'─'.repeat(60)}`);
 console.log(`Result: ${passed} passed, ${failed} failed`);
 if (failed > 0) {
-  console.error('VALIDATION FAILED — Phase 1 not ready');
+  console.error('VALIDATION FAILED — Phase 1 Patch not ready');
   throw new Error(`${failed} validation(s) failed`);
 } else {
-  console.log('VALIDATION PASSED — Phase 1 core boundary services verified');
+  console.log('VALIDATION PASSED — Phase 1 Patch boundary services verified');
 }

@@ -8,13 +8,11 @@
  *  1. Read-only — never writes to Firestore.
  *  2. Never starts a migration job.
  *  3. Never modifies production data.
- *  4. Any AI suggestion that used a legacy kg fallback cannot be HIGH confidence.
- *  5. grams + kg mismatch → always BLOCKED, never silently resolved.
- *
- * Usage:
- *   Call readQuantityAsGrams() when reading a Firestore document field that
- *   might be stored in either the new (grams) or legacy (kg) format.
- *   Inspect warnings and blockedReasons before using the result.
+ *  4. Legacy kg fallback produces BOTH a readable valueGrams (for human inspection)
+ *     AND a blockedReason that prevents AI suggestion use.
+ *  5. grams + kg mismatch → always BLOCKED, valueGrams is undefined.
+ *  6. canUseForAISuggestion() is the authoritative gate — any caller that
+ *     wants to use a quantity in an AI suggestion MUST call this first.
  */
 
 import type { Grams, BlockedReason } from '@/types/aiBoundary';
@@ -25,22 +23,27 @@ import { kgToGrams } from './unitConversionService';
 /**
  * Maximum allowed difference in grams between a stored grams value and the
  * grams value derived from a stored kg value, before declaring UNIT_MIGRATION_MISMATCH.
- *
- * Set to 1 gram — rounding differences of ≤1g are acceptable during migration;
- * larger differences indicate a genuine data inconsistency.
+ * Set to 1 gram — rounding differences of ≤1g are acceptable during migration.
  */
 const MISMATCH_TOLERANCE_GRAMS = 1;
 
 // ─── Result type ──────────────────────────────────────────────────────────────
 
-export interface QuantityReadResult {
-  /** Resolved gram value, or undefined when blocked */
+export interface ReadQuantityAsGramsResult {
+  /**
+   * Resolved gram value.
+   * Present even when legacy fallback is used (for human display).
+   * Absent only when data is truly unusable (mismatch, missing, invalid).
+   */
   valueGrams?: Grams;
-  /** When non-empty, valueGrams is undefined and the caller must not proceed */
+  /**
+   * Non-empty → this quantity MUST NOT be used for AI suggestions.
+   * Use canUseForAISuggestion() to check in one call.
+   */
   blockedReasons: BlockedReason[];
-  /** Non-fatal observations — HIGH confidence must be downgraded if non-empty */
+  /** Non-fatal observations visible in UI — also populated for legacy fallback */
   warnings: BlockedReason[];
-  /** true when kg was used because grams was absent — degrades max confidence to MEDIUM */
+  /** true when kg was the only source — always coincides with a blockedReason */
   usedLegacyFallback: boolean;
 }
 
@@ -51,21 +54,19 @@ export interface QuantityReadResult {
  * the new grams format or the legacy kg format.
  *
  * Priority and validation rules:
- *  1. If grams is present and valid → use grams (preferred path).
- *  2. If only kg is present → convert to grams + add LEGACY_KG_FALLBACK_USED warning.
- *  3. If both grams and kg are present and consistent (≤1g diff) → use grams.
- *  4. If both grams and kg are present but inconsistent → BLOCKED: UNIT_MIGRATION_MISMATCH.
- *  5. If neither is present → BLOCKED: MISSING_GRAMS_FIELD.
- *
- * @param input.grams      Raw grams value from the Firestore document (if present)
- * @param input.kg         Raw kg value from the Firestore document (if present)
- * @param input.fieldName  The logical field name for error messages
+ *  1. grams only  → use grams, no warnings, AI-safe.
+ *  2. kg only     → convert to grams, valueGrams set for human display,
+ *                   LEGACY_KG_FALLBACK_USED in BOTH blockedReasons and warnings,
+ *                   AI MUST NOT use this value.
+ *  3. grams + kg, consistent (diff ≤ 1g) → use grams, no warnings, AI-safe.
+ *  4. grams + kg, inconsistent → BLOCKED: UNIT_MIGRATION_MISMATCH, valueGrams undefined.
+ *  5. Neither present → BLOCKED: MISSING_GRAMS_FIELD, valueGrams undefined.
  */
 export function readQuantityAsGrams(input: {
   grams?: number;
   kg?: number;
   fieldName: string;
-}): QuantityReadResult {
+}): ReadQuantityAsGramsResult {
   const { grams, kg } = input;
 
   const hasGrams = grams !== undefined && grams !== null;
@@ -74,28 +75,20 @@ export function readQuantityAsGrams(input: {
   // ── Neither present ───────────────────────────────────────────────────────
   if (!hasGrams && !hasKg) {
     return {
-      valueGrams:        undefined,
-      blockedReasons:    ['MISSING_GRAMS_FIELD'],
-      warnings:          [],
+      valueGrams:         undefined,
+      blockedReasons:     ['MISSING_GRAMS_FIELD'],
+      warnings:           [],
       usedLegacyFallback: false,
     };
   }
 
   // ── Both present — check consistency ─────────────────────────────────────
   if (hasGrams && hasKg) {
-    if (!Number.isFinite(grams!) || grams! < 0) {
+    if (!Number.isFinite(grams!) || grams! < 0 || !Number.isFinite(kg!) || kg! < 0) {
       return {
-        valueGrams:        undefined,
-        blockedReasons:    ['UNIT_MIGRATION_MISMATCH'],
-        warnings:          [],
-        usedLegacyFallback: false,
-      };
-    }
-    if (!Number.isFinite(kg!) || kg! < 0) {
-      return {
-        valueGrams:        undefined,
-        blockedReasons:    ['UNIT_MIGRATION_MISMATCH'],
-        warnings:          [],
+        valueGrams:         undefined,
+        blockedReasons:     ['UNIT_MIGRATION_MISMATCH'],
+        warnings:           [],
         usedLegacyFallback: false,
       };
     }
@@ -105,9 +98,9 @@ export function readQuantityAsGrams(input: {
       derivedFromKg = kgToGrams(kg!);
     } catch {
       return {
-        valueGrams:        undefined,
-        blockedReasons:    ['UNIT_MIGRATION_MISMATCH'],
-        warnings:          [],
+        valueGrams:         undefined,
+        blockedReasons:     ['UNIT_MIGRATION_MISMATCH'],
+        warnings:           [],
         usedLegacyFallback: false,
       };
     }
@@ -117,49 +110,50 @@ export function readQuantityAsGrams(input: {
 
     if (diff > MISMATCH_TOLERANCE_GRAMS) {
       return {
-        valueGrams:        undefined,
-        blockedReasons:    ['UNIT_MIGRATION_MISMATCH'],
-        warnings:          [],
+        valueGrams:         undefined,
+        blockedReasons:     ['UNIT_MIGRATION_MISMATCH'],
+        warnings:           [],
         usedLegacyFallback: false,
       };
     }
 
-    // Consistent — use the grams value (rounded to integer)
-    const validated = storedGramsRounded as Grams;
+    // Consistent — use rounded grams value
     return {
-      valueGrams:        validated,
-      blockedReasons:    [],
-      warnings:          [],
+      valueGrams:         storedGramsRounded as Grams,
+      blockedReasons:     [],
+      warnings:           [],
       usedLegacyFallback: false,
     };
   }
 
-  // ── Only grams present ────────────────────────────────────────────────────
+  // ── Only grams present — preferred path ──────────────────────────────────
   if (hasGrams && !hasKg) {
     if (!Number.isFinite(grams!) || grams! < 0) {
       return {
-        valueGrams:        undefined,
-        blockedReasons:    ['MISSING_GRAMS_FIELD'],
-        warnings:          [],
+        valueGrams:         undefined,
+        blockedReasons:     ['MISSING_GRAMS_FIELD'],
+        warnings:           [],
         usedLegacyFallback: false,
       };
     }
-    const rounded = Math.round(grams!) as Grams;
     return {
-      valueGrams:        rounded,
-      blockedReasons:    [],
-      warnings:          [],
+      valueGrams:         Math.round(grams!) as Grams,
+      blockedReasons:     [],
+      warnings:           [],
       usedLegacyFallback: false,
     };
   }
 
-  // ── Only kg present — legacy fallback ─────────────────────────────────────
-  // hasKg === true, hasGrams === false
+  // ── Only kg present — legacy fallback ────────────────────────────────────
+  // valueGrams is set for human display, but BLOCKED for AI use.
+  // LEGACY_KG_FALLBACK_USED appears in BOTH blockedReasons and warnings so:
+  //   - canUseForAISuggestion() returns false (blockedReasons non-empty)
+  //   - UI can show the warning badge to prompt migration
   if (!Number.isFinite(kg!) || kg! < 0) {
     return {
-      valueGrams:        undefined,
-      blockedReasons:    ['MISSING_GRAMS_FIELD'],
-      warnings:          [],
+      valueGrams:         undefined,
+      blockedReasons:     ['MISSING_GRAMS_FIELD'],
+      warnings:           [],
       usedLegacyFallback: false,
     };
   }
@@ -169,32 +163,46 @@ export function readQuantityAsGrams(input: {
     converted = kgToGrams(kg!);
   } catch {
     return {
-      valueGrams:        undefined,
-      blockedReasons:    ['MISSING_GRAMS_FIELD'],
-      warnings:          [`LEGACY_KG_FALLBACK_USED` as BlockedReason],
+      valueGrams:         undefined,
+      blockedReasons:     ['MISSING_GRAMS_FIELD', 'LEGACY_QUANTITY_BLOCKED_FOR_AI'],
+      warnings:           ['LEGACY_KG_FALLBACK_USED'],
       usedLegacyFallback: true,
     };
   }
 
-  // Legacy fallback succeeded — caller must not assign HIGH confidence
   return {
-    valueGrams:        converted,
-    blockedReasons:    [],
-    warnings:          ['LEGACY_KG_FALLBACK_USED'],
+    valueGrams:         converted,        // readable by humans
+    blockedReasons:     ['LEGACY_KG_FALLBACK_USED', 'LEGACY_QUANTITY_BLOCKED_FOR_AI'],
+    warnings:           ['LEGACY_KG_FALLBACK_USED'],
     usedLegacyFallback: true,
   };
 }
 
-// ─── legacyKgDegradedConfidence ───────────────────────────────────────────────
+// ─── canUseForAISuggestion ────────────────────────────────────────────────────
+
+/**
+ * Returns true only when a ReadQuantityAsGramsResult is safe to use in an
+ * AI-generated purchase suggestion.
+ *
+ * Rules (ALL must hold):
+ *  - blockedReasons is empty
+ *  - usedLegacyFallback is false
+ *  - valueGrams is present
+ *
+ * This is the authoritative gate — every AI suggestion that involves a
+ * quantity MUST pass this check before proceeding.
+ */
+export function canUseForAISuggestion(result: ReadQuantityAsGramsResult): boolean {
+  return (
+    result.blockedReasons.length === 0 &&
+    !result.usedLegacyFallback &&
+    result.valueGrams !== undefined
+  );
+}
 
 /**
  * Returns the maximum confidence level allowed when a legacy kg fallback was used.
- * Any AI suggestion built from legacy data cannot be HIGH confidence.
- *
- * Usage:
- *   if (result.usedLegacyFallback) {
- *     maxLevel = legacyKgDegradedConfidence(); // 'MEDIUM'
- *   }
+ * AI suggestions built from legacy-only data cannot exceed MEDIUM confidence.
  */
 export function legacyKgMaxConfidence(): 'MEDIUM' {
   return 'MEDIUM';

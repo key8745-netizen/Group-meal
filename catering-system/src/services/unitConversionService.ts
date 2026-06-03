@@ -45,10 +45,68 @@ export class UnitConversionError extends Error {
 // ─── Type guards / assertions ─────────────────────────────────────────────────
 
 /**
+ * Converts a raw number to a branded Grams value with full runtime validation.
+ *
+ * Checks (in order):
+ *  - typeof === 'number'
+ *  - not NaN
+ *  - finite
+ *  - integer
+ *  - safe integer
+ *  - non-negative
+ *
+ * Throws UnitConversionError on any violation.
+ * Use this as the single entry point for branding a number as Grams.
+ */
+export function asGrams(value: number): Grams {
+  if (typeof value !== 'number') {
+    throw new UnitConversionError(`asGrams: value must be a number, got ${typeof value}`);
+  }
+  if (Number.isNaN(value)) {
+    throw new UnitConversionError('asGrams: value must not be NaN');
+  }
+  if (!Number.isFinite(value)) {
+    throw new UnitConversionError(`asGrams: value must be finite, got ${value}`);
+  }
+  if (!Number.isInteger(value)) {
+    throw new UnitConversionError(
+      `asGrams: value must be an integer, got ${value}. Round before calling asGrams().`,
+    );
+  }
+  if (!Number.isSafeInteger(value)) {
+    throw new UnitConversionError(
+      `asGrams: ${value} exceeds Number.MAX_SAFE_INTEGER and cannot be represented exactly`,
+    );
+  }
+  if (value < 0) {
+    throw new UnitConversionError(
+      `asGrams: value must be non-negative, got ${value}`,
+    );
+  }
+  return value as Grams;
+}
+
+/**
+ * Type guard: returns true when value is a valid branded Grams (safe non-negative integer).
+ * Does NOT throw — safe to use in conditional checks.
+ */
+export function isGrams(value: unknown): value is Grams {
+  return (
+    typeof value === 'number' &&
+    !Number.isNaN(value) &&
+    Number.isFinite(value) &&
+    Number.isInteger(value) &&
+    Number.isSafeInteger(value) &&
+    value >= 0
+  );
+}
+
+/**
  * Asserts that a number is a safe non-negative integer suitable for use as Grams.
  * Throws UnitConversionError otherwise.
  *
- * Call this on any value before branding it as Grams.
+ * Prefer asGrams() when you need the branded value returned.
+ * Use assertIntegerGrams() when you already have the value and just need type narrowing.
  */
 export function assertIntegerGrams(value: number): asserts value is Grams {
   if (!Number.isFinite(value)) {

@@ -20,7 +20,7 @@ Feature 003: Predictive Purchasing Optimization Engine
 
 ## Current Phase
 
-Spec v1.1 Revision Required
+Phase 1: Pure Computation Types, Validators, Formula, Tests
 
 ---
 
@@ -32,9 +32,9 @@ Spec v1.1 Revision Required
 - Feature 002 Final Commit: `2bf0769`
 - System Integration Gate: CONDITIONALLY PASSED
 - Integration Tests: 139/139 assertions pass
-- Gemini Feature 003 Spec v1.0: SUBMITTED
-- Grok Red Team Review v1.0: 87/100
-- ChatGPT Decision: Spec v1.0 not ready for Claude; Gemini must produce Spec v1.1
+- Gemini Feature 003 Spec v1.1: CONDITIONALLY PASSED
+- Grok Red Team Review v1.1: 92/100
+- ChatGPT Decision: Claude GO - Feature 003 Phase 1 only; no Gemini v1.2 required
 
 ---
 
@@ -46,71 +46,73 @@ Spec v1.1 Revision Required
 
 ## Current Commit
 
-Pending Feature 003 Spec v1.1
+`40c7ac8` — Feature 003 Phase 1 complete (110/110 tests, typecheck clean, build clean)
 
 ---
 
 ## Allowed in this phase
 
-- Gemini revises Feature 003 Spec v1.1
-- Grok reviews Feature 003 Spec v1.1
-- Strengthen `PredictionInputSummary`
-- Add `containsRawData: false`
-- Add `dataQualityScore`
-- Add `sourceAggregationLevel`
-- Add `tenantConsistencyCheck`
-- Add `warnings`
-- Define multi-source small-group suppression
-- Define prediction factor formula and clamp rules
-- Define max purchase limit and negative quantity handling
-- Define human-approved model config workflow
-- Define full audit trail metadata
-- Expand BlockedReason list
-- Define Claude Phase 1 pure computation scope
-- Docs / SSOT update only
+- TypeScript interfaces (`PredictionInputSummary`, `PredictionOutput`, `ModelConfigRecommendation`)
+- `validatePredictionInputSummary`
+- `applySmallGroupSuppression`
+- `calculateDataQualityScore`
+- `calculatePredictionFactors`
+- `calculatePredictionOutput`
+- `evaluatePredictionConfidenceTier`
+- `createPredictionAuditEvent`
+- `createModelConfigRecommendation` pure helper
+- BlockedReason additions to `aiBoundary.ts`
+- Tests for all of the above
+- `docs/FEATURE_003_PREDICTIVE_PURCHASING_PHASE1.md`
+- `docs/CURRENT_SSOT.md`
 
 ---
 
 ## Forbidden in this phase
 
-- Do not let Claude implement code
 - Do not write Firestore
-- Do not modify inventory
-- Do not modify purchaseOrders
+- Do not read raw Firestore documents
+- Do not call `admin.firestore().set/update/add/delete`
+- Do not connect UI
+- Do not add Netlify Functions
+- Do not call purchaseOrderService
+- Do not call inventoryService
 - Do not modify settings
 - Do not write performanceLogs / finalizedPerformanceLogs / operationalReports
-- Do not create UI
-- Do not add Netlify Functions
-- Do not modify Feature 001 / Feature 002 core logic
+- Do not modify Feature 001 core flow
+- Do not modify Feature 002 core flow
+- Do not create executable draft purchase suggestion
 - Do not allow AI to mutate rules
-- Do not allow AI to auto-adjust wasteFactorWarning
-- Do not allow raw documents into prediction engine
-- Do not treat Spec v1.0 as implementation-ready
+- Do not apply model config
+- Do not auto-adjust wasteFactorWarning
+- Do not auto-adjust confidence rules
 
 ---
 
 ## Required Guard Rails
 
-- Prediction engine must remain pure computation.
-- Input must be `PredictionInputSummary`, not raw Firestore documents.
-- `PredictionInputSummary` must explicitly assert `containsRawData: false`.
-- `PredictionInputSummary` must include data quality and aggregation safety fields.
-- Small-group suppression must check historical usage, waste risk, and receiving delta separately.
-- Any key source below safe sample threshold must downgrade or block prediction.
-- Prediction formula must have bounded factors and clamp rules.
-- All quantities must use `Grams`.
+- Prediction engine must be pure computation.
+- `PredictionInputSummary.containsRawData` must be false.
+- `tenantConsistencyCheck.allSourcesMatchTenant` must be true or BLOCKED.
+- `sourceAggregationLevel === 'blocked_single_source'` must be BLOCKED.
+- `dataQualityScore` must be computed by explicit formula.
+- `maxPurchaseLimitGrams` missing must be BLOCKED.
+- All quantities must use `Grams` branded type and go through `asGrams()` or equivalent.
+- Small-group suppression must check historicalUsage, wasteRisk, and receivingDelta separately.
+- Any key source below safe threshold must downgrade or block prediction.
+- Prediction factors must be bounded and clamped.
 - `aiCanWrite` must be false.
 - `aiCanMutateRules` must be false.
 - `dataLineage.usedRawDocuments` must be false.
-- Model config changes must require human approval and must not write settings in Feature 003 Phase 1.
+- Model config recommendations must require human approval and cannot be applied in this phase.
 
 ---
 
 ## Team State
 
-- Claude: HOLD
-- Gemini: GO — Produce Feature 003 Spec v1.1
-- Grok: GO — Prepare Spec v1.1 Red Team Review
+- Claude: GO — Feature 003 Phase 1 only
+- Gemini: HOLD
+- Grok: Prepare Feature 003 Phase 1 code review
 - ChatGPT: Gatekeeper + SSOT maintainer
 - ibi: Final authority
 
@@ -118,12 +120,23 @@ Pending Feature 003 Spec v1.1
 
 ## Next Expected Input
 
-Gemini Feature 003 Spec v1.1, followed by Grok Red Team Review v1.1.
-
-Grok review should decide:
-- whether Spec v1.1 is safe enough
-- whether Gemini must produce v1.2
-- whether Claude can begin Feature 003 Phase 1
+Claude Feature 003 Phase 1 report:
+- branch name
+- commit hash
+- changed files
+- whether only allowed files were modified
+- tests result
+- typecheck result
+- build result
+- confirmation that no Firestore read/write exists
+- confirmation that no UI was added
+- confirmation that no Netlify Function was added
+- confirmation that purchaseOrderService / inventoryService were not called
+- confirmation that dataQualityScore formula was implemented
+- confirmation that maxPurchaseLimitGrams missing is BLOCKED
+- confirmation that tenantConsistencyCheck is enforced in validator
+- confirmation that all quantities use Grams / asGrams
+- known limitations
 
 ---
 

@@ -14,13 +14,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Feature 003 Pre-Spec Gap Analysis
+Feature 003: Predictive Purchasing Optimization Engine
 
 ---
 
 ## Current Phase
 
-Pre-Spec / Red Team Gap Analysis
+Spec v1.1 Revision Required
 
 ---
 
@@ -28,15 +28,13 @@ Pre-Spec / Red Team Gap Analysis
 
 - Feature 001: CLOSED
 - Feature 001 Final Commit: `48c57b0`
-- Feature 001 Final Tests: 581/581 pass
 - Feature 002: CLOSED
 - Feature 002 Final Commit: `2bf0769`
-- Feature 002 Final Tests: 384/384 pass
-- Feature 002 Grok Final Review: 92/100
 - System Integration Gate: CONDITIONALLY PASSED
-- Integration Gate Commit: `3b0a3ee`
-- Integration Gate Tests: 662/662 pass (139 new integration assertions)
-- ChatGPT Decision: Integration Gate conditionally passed; Grok Gap Analysis before Feature 003 Spec
+- Integration Tests: 139/139 assertions pass
+- Gemini Feature 003 Spec v1.0: SUBMITTED
+- Grok Red Team Review v1.0: 87/100
+- ChatGPT Decision: Spec v1.0 not ready for Claude; Gemini must produce Spec v1.1
 
 ---
 
@@ -48,77 +46,71 @@ Pre-Spec / Red Team Gap Analysis
 
 ## Current Commit
 
-`3b0a3ee`
-
----
-
-## Feature 003 Positioning
-
-Feature 003 is NOT a redo of Feature 001 suggestion logic.
-
-Feature 003 = **Predictive Purchasing Optimization Engine**
-
-```
-Feature 001: can generate suggestions
-Feature 003: makes suggestions smarter — but still cannot place orders
-```
-
-Feature 003 must be built on top of existing AIContextSummary and aiSuggestionService.
-It is a pure computation layer — no Firestore writes, no order execution, no rule mutation.
+Pending Feature 003 Spec v1.1
 
 ---
 
 ## Allowed in this phase
 
-- Grok: Feature 003 Gap Analysis (data overflow, false positive, prediction boundary, learning contamination)
-- Gemini: Feature 003 Spec (after Grok Gap Analysis is complete)
-- SSOT update when instructed by ibi or ChatGPT
+- Gemini revises Feature 003 Spec v1.1
+- Grok reviews Feature 003 Spec v1.1
+- Strengthen `PredictionInputSummary`
+- Add `containsRawData: false`
+- Add `dataQualityScore`
+- Add `sourceAggregationLevel`
+- Add `tenantConsistencyCheck`
+- Add `warnings`
+- Define multi-source small-group suppression
+- Define prediction factor formula and clamp rules
+- Define max purchase limit and negative quantity handling
+- Define human-approved model config workflow
+- Define full audit trail metadata
+- Expand BlockedReason list
+- Define Claude Phase 1 pure computation scope
+- Docs / SSOT update only
 
 ---
 
 ## Forbidden in this phase
 
-- Do not let Claude start Feature 003 implementation
-- Do not rewrite or duplicate Feature 001 aiSuggestionService
-- Do not introduce new Firestore write paths
-- Do not add Netlify Functions
-- Do not modify AI confidence rules
-- Do not modify inventory mutation logic
-- Do not bypass Feature 001 / Feature 002 guards
+- Do not let Claude implement code
+- Do not write Firestore
+- Do not modify inventory
+- Do not modify purchaseOrders
+- Do not modify settings
 - Do not write performanceLogs / finalizedPerformanceLogs / operationalReports
-- Do not allow AI to auto-adjust purchasing thresholds or confidence rules
-- Do not return to Feature 001 or Feature 002 old phases
+- Do not create UI
+- Do not add Netlify Functions
+- Do not modify Feature 001 / Feature 002 core logic
+- Do not allow AI to mutate rules
+- Do not allow AI to auto-adjust wasteFactorWarning
+- Do not allow raw documents into prediction engine
+- Do not treat Spec v1.0 as implementation-ready
 
 ---
 
-## Feature 003 Hard Rules (pre-decided, must appear in Spec)
+## Required Guard Rails
 
-- Feature 003 is pure computation only — no Firestore reads of raw collections
-- Input must come from Summary Pattern (AIContextSummary, ai_performance_metrics summary, etc.)
-- Output is prediction + recommendation only — not an executable draft
-- All weight adjustments require human review before becoming settings
-- `aiCanMutateRules: false` must be enforced at output level
-- Audit trail event: `PREDICTION_GENERATED` or `PREDICTION_BLOCKED`
-- Data lineage must be traceable from prediction input to output
-
----
-
-## Required Guard Rails (carry-forward from F001 + F002)
-
-- AI cannot approve, submit, receive, or mutate inventory.
-- All receiving writes must remain inside one transaction.
-- Duplicate receiving must remain blocked.
-- Retry must not duplicate inventory updates.
-- Audit trail must remain traceable from snapshot to inventoryTransaction.
-- `ai_performance_metrics` must remain isolated from operational performance logs.
+- Prediction engine must remain pure computation.
+- Input must be `PredictionInputSummary`, not raw Firestore documents.
+- `PredictionInputSummary` must explicitly assert `containsRawData: false`.
+- `PredictionInputSummary` must include data quality and aggregation safety fields.
+- Small-group suppression must check historical usage, waste risk, and receiving delta separately.
+- Any key source below safe sample threshold must downgrade or block prediction.
+- Prediction formula must have bounded factors and clamp rules.
+- All quantities must use `Grams`.
+- `aiCanWrite` must be false.
+- `aiCanMutateRules` must be false.
+- `dataLineage.usedRawDocuments` must be false.
+- Model config changes must require human approval and must not write settings in Feature 003 Phase 1.
 
 ---
 
 ## Team State
 
 - Claude: HOLD
-- Gemini: HOLD — prepare Feature 003 Spec after Grok Gap Analysis
-- Grok: GO — Feature 003 Gap Analysis
+- Gemini: GO — Produce Feature 003 Spec v1.1
+- Grok: GO — Prepare Spec v1.1 Red Team Review
 - ChatGPT: Gatekeeper + SSOT maintainer
 - ibi: Final authority
 
@@ -126,9 +118,12 @@ It is a pure computation layer — no Firestore writes, no order execution, no r
 
 ## Next Expected Input
 
-1. Grok: Feature 003 Gap Analysis report (data overflow, emulator false positive, prediction boundary, learning contamination)
-2. Gemini: Feature 003 Spec (after Grok clears)
-3. ibi: decision to open Claude Feature 003 Phase 1
+Gemini Feature 003 Spec v1.1, followed by Grok Red Team Review v1.1.
+
+Grok review should decide:
+- whether Spec v1.1 is safe enough
+- whether Gemini must produce v1.2
+- whether Claude can begin Feature 003 Phase 1
 
 ---
 

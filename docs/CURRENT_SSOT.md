@@ -14,13 +14,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Feature 003: Predictive Purchasing Optimization Engine
+Release Preparation: Feature 001 + Feature 002 + Feature 003
 
 ---
 
 ## Current Phase
 
-Phase 2: Integration with Feature 001 Suggestion Service + Dry-run Prediction Output
+Merge & Release Preparation
 
 ---
 
@@ -30,16 +30,16 @@ Phase 2: Integration with Feature 001 Suggestion Service + Dry-run Prediction Ou
 * Feature 001 Final Commit: `48c57b0`
 * Feature 002: CLOSED
 * Feature 002 Final Commit: `2bf0769`
-* System Integration Gate: CONDITIONALLY PASSED
-* Integration Tests: 139/139 assertions pass
-* Gemini Feature 003 Spec v1.1: CONDITIONALLY PASSED
-* Grok Red Team Review v1.1: 92/100
-* Feature 003 Phase 1: PASSED
-* Feature 003 Phase 1 Commit: `40c7ac8`
-* Feature 003 Phase 1 SSOT Commit: `d5c82fa`
-* Feature 003 Phase 1 Tests: 110/110 pass
-* Feature 003 Phase 1 Grok Code Review: 93/100
-* ChatGPT Decision: Claude GO - Feature 003 Phase 2 only
+* Feature 003: CLOSED
+* Feature 003 Final Commit: `1a5a381`
+* System Release Gate: PASSED
+* System Release Gate Commit: `4473127`
+* Full-system Integration Tests: 223/223 pass
+* Critical Safety Gates: 16/16 pass
+* Production Readiness Checklist: 20/20 pass
+* Grok Final Release Gate Review: 96/100
+* Release Recommendation: RELEASE_READY
+* ChatGPT Decision: System Release Gate PASSED; Claude GO - Merge / Release Preparation only
 
 ---
 
@@ -49,75 +49,75 @@ Phase 2: Integration with Feature 001 Suggestion Service + Dry-run Prediction Ou
 
 ---
 
+## Target Merge Branch
+
+`claude/fervent-dirac-HJT01`
+
+---
+
 ## Current Commit
 
-`98817e7` — Feature 003 Phase 2 complete (153/153 tests, typecheck clean, build clean)
+`4473127`
 
 ---
 
 ## Allowed in this phase
 
-* Integrate Feature 003 prediction pure functions with existing Feature 001 suggestion output in dry-run mode
-* Create dry-run prediction adapter
-* Create prediction-enhanced suggestion preview object
-* Preserve `sourceSnapshotId`
-* Preserve `auditTrailId`
-* Preserve `suggestionId`
-* Add `predictionId`
-* Add `PredictionOutput` to dataLineage as non-executable metadata
-* Add tests for Feature 001 → Feature 003 continuity
-* Add tests for auditTrailId / sourceSnapshotId propagation
-* Add tests confirming no Firestore read/write
-* Add tests confirming no executable draft purchase suggestion is created
-* Add docs explaining `dataQualityScore` formula and human-approved config recommendation behavior
-* SSOT update
+* Prepare merge from `claude/busy-heisenberg-HcwYg` to `claude/fervent-dirac-HJT01`
+* Verify clean working tree
+* Verify branch diff
+* Run final tests
+* Run typecheck
+* Run build
+* Confirm no unexpected files changed
+* Confirm `docs/CURRENT_SSOT.md` is updated
+* Confirm `docs/AI_TEAM_WORKFLOW.md` exists
+* Confirm release notes / release summary
+* Confirm `docs/RELEASE_RISK_REGISTER.md` exists and is complete
+* Prepare merge report
+* Prepare release preparation report
 
 ---
 
 ## Forbidden in this phase
 
-* Do not write Firestore
-* Do not read raw Firestore documents
-* Do not call `admin.firestore().set/update/add/delete`
-* Do not connect UI
+* Do not start Feature 004 yet
+* Do not introduce new business logic
+* Do not add UI
 * Do not add Netlify Functions
-* Do not call purchaseOrderService
-* Do not call inventoryService
-* Do not modify settings
-* Do not write performanceLogs / finalizedPerformanceLogs / operationalReports
 * Do not modify Feature 001 core flow
-* Do not modify Feature 002 core flow
-* Do not create executable draft purchase suggestion
-* Do not apply model config
-* Do not auto-adjust wasteFactorWarning
-* Do not auto-adjust confidence rules
-* Do not allow AI to mutate rules
-* Do not make prediction output actionable without human approval
+* Do not modify Feature 002 inventory mutation logic
+* Do not modify Feature 003 prediction logic
+* Do not bypass backend guards
+* Do not bypass idempotency locks
+* Do not write performanceLogs / finalizedPerformanceLogs / operationalReports
+* Do not allow AI approval, AI submit, AI receiving, or AI rule mutation
+* Do not allow prediction output to become executable purchase action
+* Do not change production behavior except merge/release preparation metadata and docs
 
 ---
 
 ## Required Guard Rails
 
-* Prediction integration must remain dry-run only.
-* Prediction output must be metadata, not an executable purchase action.
-* Existing Feature 001 suggestion logic must remain intact.
-* Feature 003 may enrich a suggestion preview, but must not change purchase flow behavior.
-* All prediction outputs must include `predictionId`, `sourceSnapshotId`, and `auditTrailId`.
-* `dataLineage.usedRawDocuments` must remain false.
-* `aiCanWrite` must remain false.
-* `aiCanMutateRules` must remain false.
-* Missing `maxPurchaseLimitGrams` must remain BLOCKED.
-* `tenantConsistencyCheck` must remain enforced.
-* All quantities must use `Grams` / `asGrams`.
-* Model config recommendation must require human approval and cannot be applied in this phase.
+* Feature 001 human-in-the-loop purchase boundary must remain intact.
+* Feature 002 receiving and inventory update must remain transaction-only.
+* Feature 003 prediction engine must remain pure computation.
+* AI cannot approve, submit, receive, mutate inventory, write settings, or apply model config.
+* Prediction output must remain dry-run and non-executable.
+* Audit trail must remain traceable across snapshot, suggestion, prediction, purchase order, receiving, and inventory transaction.
+* Duplicate receiving must remain blocked.
+* Retry must not duplicate inventory updates.
+* `ai_performance_metrics` must remain isolated from operational performance logs.
+* `docs/CURRENT_SSOT.md` remains the only current-state source of truth.
+* `docs/AI_TEAM_WORKFLOW.md` governs role workflow but does not replace `CURRENT_SSOT.md`.
 
 ---
 
 ## Team State
 
-* Claude: GO - Feature 003 Phase 2 only
+* Claude: GO - Merge / Release Preparation only
 * Gemini: HOLD
-* Grok: Prepare Feature 003 Phase 2 code review
+* Grok: HOLD / Prepare post-merge review if requested
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -125,22 +125,19 @@ Phase 2: Integration with Feature 001 Suggestion Service + Dry-run Prediction Ou
 
 ## Next Expected Input
 
-Claude Feature 003 Phase 2 report:
-* branch name
-* commit hash
-* changed files
-* whether only allowed files were modified
-* tests result
+Claude Merge / Release Preparation report:
+* source branch
+* target branch
+* current commit
+* merge readiness
+* changed files summary
+* final tests result
 * typecheck result
 * build result
-* confirmation that no Firestore read/write exists
-* confirmation that no UI was added
-* confirmation that no Netlify Function was added
-* confirmation that purchaseOrderService / inventoryService were not called
-* confirmation that Feature 001 / Feature 002 core flows were not modified
-* confirmation that prediction output is dry-run only
-* confirmation that no executable draft purchase suggestion is created
-* confirmation that sourceSnapshotId / auditTrailId / suggestionId continuity is tested
+* release risk register status
+* release notes summary
+* confirmation that no new business logic was added
+* confirmation that no Feature 004 work was started
 * known limitations
 
 ---

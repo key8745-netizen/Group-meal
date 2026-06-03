@@ -92,6 +92,7 @@ console.log('\n── predictionAuditService ───────────�
 // ── MODEL_CONFIG_RECOMMENDATION_GENERATED audit event ────────────────────────
 {
   const rec: ModelConfigRecommendation = {
+    _kind:                 'recommendation',
     recommendationId:      'mcr_test_001',
     tenantId:              T,
     auditTrailId:          AID,

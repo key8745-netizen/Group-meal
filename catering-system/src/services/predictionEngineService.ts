@@ -160,13 +160,17 @@ export function calculatePredictionOutput(input: {
   const baseRecommendedQtyGrams     = asGrams(baseGrams);
   const adjustedRecommendedQtyGrams = asGrams(clampedAdjusted);
 
+  const hist  = summary.historicalUsageSummary;
+  const waste = summary.wasteRiskSummary;
+  const delta = summary.receivingDeltaSummary;
   const rationale: string[] = [
-    `Base shortage: ${baseGrams}g`,
-    `Historical usage factor: ${historicalUsageFactor.toFixed(3)}`,
-    `Waste risk factor (${summary.wasteRiskSummary.riskLevel}): ${wasteRiskFactor.toFixed(3)}`,
-    `Receiving delta factor: ${receivingDeltaFactor.toFixed(3)}`,
-    `Adjusted: ${ceilAdjusted}g → clamped to ${clampedAdjusted}g (max ${maxLimit}g)`,
-    `Data quality score: ${dataQualityScore.toFixed(3)}`,
+    `Base shortage: ${baseGrams}g (currentStock=${summary.currentStockGrams}g, required=${summary.requiredQtyGrams}g)`,
+    `Historical usage factor: ${historicalUsageFactor.toFixed(3)} — avg=${hist.averageDailyUsageGrams}g/day vs expected=${hist.expectedDailyUsageGrams}g/day over ${hist.sampleDays} days (${hist.sampleCount} samples)`,
+    `Waste risk factor: ${wasteRiskFactor.toFixed(3)} — riskLevel=${waste.riskLevel} (${waste.sampleCount} samples)`,
+    `Receiving delta factor: ${receivingDeltaFactor.toFixed(3)} — avgDelta=${delta.averageDeltaPercent !== undefined ? (delta.averageDeltaPercent * 100).toFixed(1) + '%' : 'unknown'} (${delta.sampleCount} samples)`,
+    `Raw adjusted: ${baseGrams}g × ${historicalUsageFactor.toFixed(3)} × ${wasteRiskFactor.toFixed(3)} × ${receivingDeltaFactor.toFixed(3)} = ${rawAdjusted.toFixed(1)}g → ceil = ${ceilAdjusted}g`,
+    `Clamped to [0, ${maxLimit}g]: ${clampedAdjusted}g`,
+    `Data quality score: ${dataQualityScore.toFixed(3)} (source=${summary.sourceAggregationLevel})`,
     `Confidence: ${confidenceTier}`,
   ];
 

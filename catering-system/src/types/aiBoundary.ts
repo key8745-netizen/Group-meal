@@ -158,7 +158,8 @@ export type BlockedReason =
   | 'ADAPTER_MISSING_PREDICTION_ID'
   | 'ADAPTER_PREDICTION_BLOCKED'
   | 'ADAPTER_AI_WRITE_GUARD'
-  | 'ADAPTER_RAW_DATA_GUARD';
+  | 'ADAPTER_RAW_DATA_GUARD'
+  | 'MODEL_CONFIG_WEIGHT_OUT_OF_RANGE';
 
 // ─── Operation validation ──────────────────────────────────────────────────────
 

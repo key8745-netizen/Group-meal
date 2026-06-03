@@ -75,6 +75,40 @@ The AI must also never set:
 
 ---
 
+## First-Line Rule
+
+Every AI Netlify Function handler MUST call `validateAIOperationOrThrow()` as its
+**very first action** after parsing the request. No Firestore read or write may occur
+before this call. If the function reaches any database operation without having called
+the guard, it is non-compliant and must not be deployed to production.
+
+```typescript
+export const handler = async (event) => {
+  // FIRST LINE — before any Firestore operation
+  validateAIOperationOrThrow(request);
+  
+  // Only reaches here if permitted
+  await db.collection('ai_suggestions').doc(id).set({ ... });
+};
+```
+
+## Phase 3 Audit Hash Upgrade
+
+`computeAuditEventHash()` in `aiAuditTrailHelper.ts` currently uses **djb2** (synchronous,
+no dependency). Before Phase 3 ships to production, this MUST be upgraded to:
+
+- **Web Crypto API** (`crypto.subtle.digest('SHA-256', ...)`) — available in all modern
+  runtimes including Node 18+ and Netlify Functions
+- Or an equivalent stable cryptographic hash function
+
+Do NOT introduce `node:crypto`, `sha.js`, or similar large dependencies just for hashing —
+Web Crypto is already available in the runtime.
+
+The upgrade is non-breaking: event hash format changes are handled by re-computing on read
+during Phase 3 migration window.
+
+---
+
 ## Phase 2 / Phase 3 Integration Checklist
 
 - [ ] All Netlify Functions that perform AI writes call `validateAIOperationOrThrow()` at entry

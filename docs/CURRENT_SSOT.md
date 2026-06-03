@@ -14,33 +14,33 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Production Release Completed: Feature 001 + Feature 002 + Feature 003
+Production Deployment: Feature 001 + Feature 002 + Feature 003
 
 ---
 
 ## Current Phase
 
-Post-Release Monitoring / Feature 004 Planning Pending
+Production Deployment
 
 ---
 
 ## Current Basis
 
 * Feature 001: CLOSED
-* Feature 001 Final Commit: `48c57b0`
 * Feature 002: CLOSED
-* Feature 002 Final Commit: `2bf0769`
 * Feature 003: CLOSED
-* Feature 003 Final Commit: `1a5a381`
 * System Release Gate: PASSED
-* System Release Gate Commit: `4473127`
-* Merge Commit: `948e639`
-* Production Branch: `claude/fervent-dirac-HJT01`
-* Production Deployment Checklist: 20/20 PASS
-* Full-system Integration Tests: 223/223 pass
-* Critical Safety Gates: 16/16 pass
-* Grok Release Gate Score: 96/100
-* Release Status: RELEASED
+* Merge: COMPLETED
+* Production Deployment Checklist: PASSED
+* Current Branch: `claude/fervent-dirac-HJT01`
+* Current Commit: `fbf6593`
+* Full Test Suite: 1026/1026 pass
+* Typecheck: PASS
+* Build: PASS
+* Production Readiness Checklist: PASS
+* Grok Final Production Readiness Review: 96/100
+* Production Deployment Recommendation: READY_FOR_PRODUCTION_DEPLOYMENT
+* ChatGPT Decision: Claude GO - Production Deployment only
 
 ---
 
@@ -52,27 +52,34 @@ Post-Release Monitoring / Feature 004 Planning Pending
 
 ## Current Commit
 
-`948e639` (merge) + SSOT/checklist commit (see below)
+`fbf6593`
 
 ---
 
 ## Allowed in this phase
 
-* Post-release monitoring
-* Feature 004 planning (when ibi authorizes)
-* Bug fixes if production issues are reported
+* Production deployment
+* Deployment verification
+* Environment variable confirmation
+* Firebase / Netlify deployment checks
+* Post-deployment smoke tests
+* Post-release monitoring checklist
+* Release completion report
+* SSOT update
 
 ---
 
 ## Forbidden in this phase
 
-* Do not start Feature 004 until explicitly authorized by ibi
+* Do not start Feature 004
 * Do not introduce new business logic
 * Do not add UI
 * Do not add Netlify Functions
 * Do not modify Feature 001 core flow
 * Do not modify Feature 002 inventory mutation logic
 * Do not modify Feature 003 prediction logic
+* Do not modify settings behavior
+* Do not add new Firestore write paths
 * Do not bypass backend guards
 * Do not bypass idempotency locks
 * Do not write performanceLogs / finalizedPerformanceLogs / operationalReports
@@ -92,16 +99,15 @@ Post-Release Monitoring / Feature 004 Planning Pending
 * Duplicate receiving must remain blocked.
 * Retry must not duplicate inventory updates.
 * ai_performance_metrics must remain isolated from operational performance logs.
-* docs/CURRENT_SSOT.md remains the only current-state source of truth.
-* docs/AI_TEAM_WORKFLOW.md governs role workflow but does not replace CURRENT_SSOT.md.
+* Production deployment must not introduce new unreviewed write paths.
 
 ---
 
 ## Team State
 
-* Claude: HOLD — await Feature 004 planning authorization
+* Claude: GO - Production Deployment only
 * Gemini: HOLD
-* Grok: HOLD / Prepare post-release quick check if requested
+* Grok: Prepare post-release quick check after deployment
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -109,10 +115,18 @@ Post-Release Monitoring / Feature 004 Planning Pending
 
 ## Next Expected Input
 
-ibi decision:
-1. Begin Feature 004 planning (authorize Gemini Spec)
-2. Request Grok post-release quick check
-3. Pause / monitor production
+Claude Production Deployment report:
+* deployed branch
+* deployed commit
+* deployment target
+* deployment status
+* smoke test result
+* production environment check result
+* whether tests/typecheck/build remain passing
+* whether no new business logic was added
+* whether Feature 004 was not started
+* known deployment limitations
+* final recommendation: DEPLOYMENT_COMPLETE / BLOCKED
 
 ---
 

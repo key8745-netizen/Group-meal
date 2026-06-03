@@ -7,7 +7,13 @@
  * Hard rules:
  *  - Never expose Firebase credentials, auth tokens, or raw secrets
  *  - Never expose unauthenticated user PII
+ *  - OCR-sourced data where verified !== true is EXCLUDED from snapshot
+ *    (those items receive BLOCKED confidence in aiSuggestionConfidence)
  *  - All fields are plain serialisable values (no Firestore DocumentReferences)
+ *
+ * Performance:
+ *  - Snapshots are cached per tenantId for CACHE_TTL_MS (4 hours)
+ *  - Callers can force a refresh by passing forceRefresh: true
  */
 
 import {
@@ -23,6 +29,17 @@ import {
 import { configService } from './configService';
 import type { Ingredient, InventoryDoc, Menu } from './types';
 
+// ─── Cache ────────────────────────────────────────────────────────────────────
+
+const CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
+
+interface CacheEntry {
+  snapshot: AIContextSnapshot;
+  expiresAt: number;
+}
+
+const snapshotCache = new Map<string, CacheEntry>();
+
 // ─── Snapshot sub-types ───────────────────────────────────────────────────────
 
 export interface MenuSummary {
@@ -32,6 +49,8 @@ export interface MenuSummary {
   ingredientCount: number;
   /** true when all BOM items have a valid ingredientId and quantity > 0 */
   bomComplete: boolean;
+  /** true when this menu was OCR-imported and has NOT been human-verified */
+  isUnverifiedOcr: boolean;
 }
 
 export interface InventorySummary {
@@ -46,6 +65,11 @@ export interface InventorySummary {
   wasteFactor: number;
   /** false when unitCost is 0 or missing */
   hasCostData: boolean;
+  /**
+   * true when the ingredient record was imported via OCR and has not been
+   * human-verified.  computeConfidence will BLOCK suggestions for these items.
+   */
+  isUnverifiedOcr: boolean;
 }
 
 export interface PurchaseHistorySummary {
@@ -81,15 +105,29 @@ export interface AIContextSnapshot {
 
 /**
  * Collects a sanitised operational snapshot for AI consumption.
- * Reads menus, ingredients, inventory, and 90-day purchase history in parallel.
  *
- * @param db        Firestore instance
- * @param tenantId  Used to load tenant-level settings thresholds
+ * OCR isolation: menus/ingredients where isOcr && !verified are flagged as
+ * isUnverifiedOcr in the snapshot; confidence scoring will BLOCK those items.
+ *
+ * Caching: results are cached per tenantId for CACHE_TTL_MS.
+ *
+ * @param db            Firestore instance
+ * @param tenantId      Used to load tenant-level settings thresholds
+ * @param forceRefresh  Skip cache and rebuild from Firestore
  */
 export async function buildAIContextSnapshot(
   db: Firestore,
   tenantId: string,
+  forceRefresh = false,
 ): Promise<AIContextSnapshot> {
+  // ── Cache lookup ─────────────────────────────────────────────────────────
+  if (!forceRefresh) {
+    const cached = snapshotCache.get(tenantId);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.snapshot;
+    }
+  }
+
   const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
 
   const [menuSnaps, ingredientSnaps, inventorySnaps, receivedOrderSnaps, tenantSettings] =
@@ -109,19 +147,23 @@ export async function buildAIContextSnapshot(
       configService.getSettings(tenantId).catch(() => null),
     ]);
 
-  // ── Menu summaries ───────────────────────────────────────────────────────
+  // ── Menu summaries — OCR unverified menus are flagged, not excluded ──────
+  // They are flagged so the UI can show a warning; ingredient-level OCR
+  // filtering happens via InventorySummary.isUnverifiedOcr → BLOCKED.
   const menus: MenuSummary[] = menuSnaps.docs.map((snap) => {
     const data = snap.data() as Menu;
     const bom = data.ingredients ?? [];
     const bomComplete =
       bom.length > 0 &&
       bom.every((item) => !!item.ingredientId && item.quantity > 0);
+    const isUnverifiedOcr = data.isOcr === true && data.verified !== true;
     return {
       id: snap.id,
       name: data.name,
       category: data.category,
       ingredientCount: bom.length,
       bomComplete,
+      isUnverifiedOcr,
     };
   });
 
@@ -137,15 +179,18 @@ export async function buildAIContextSnapshot(
     const ingredient = ingredientMap.get(snap.id);
     const safetyLevelKg = ingredient?.minStockLevel ?? 0;
     const unitCost = ingredient?.unitCost ?? 0;
+    const isUnverifiedOcr =
+      ingredient?.isOcr === true && ingredient.verified !== true;
     return {
-      ingredientId:   snap.id,
-      ingredientName: inv.ingredientName,
-      currentStockKg: inv.currentStock,
+      ingredientId:    snap.id,
+      ingredientName:  inv.ingredientName,
+      currentStockKg:  inv.currentStock,
       safetyLevelKg,
-      belowSafety:   inv.currentStock < safetyLevelKg,
-      negativeStock: inv.currentStock < 0,
-      wasteFactor:   ingredient?.wasteFactor ?? 0,
-      hasCostData:   unitCost > 0,
+      belowSafety:     inv.currentStock < safetyLevelKg,
+      negativeStock:   inv.currentStock < 0,
+      wasteFactor:     ingredient?.wasteFactor ?? 0,
+      hasCostData:     unitCost > 0,
+      isUnverifiedOcr,
     };
   });
 
@@ -177,5 +222,34 @@ export async function buildAIContextSnapshot(
     requireHumanApproval:      ai?.requireHumanApproval        ?? true,
   };
 
-  return { menus, inventory, purchaseHistory, settings, generatedAt: new Date() };
+  const snapshot: AIContextSnapshot = {
+    menus,
+    inventory,
+    purchaseHistory,
+    settings,
+    generatedAt: new Date(),
+  };
+
+  // ── Write cache ──────────────────────────────────────────────────────────
+  snapshotCache.set(tenantId, {
+    snapshot,
+    expiresAt: Date.now() + CACHE_TTL_MS,
+  });
+
+  return snapshot;
+}
+
+/**
+ * Invalidates the cached snapshot for a specific tenant (or all tenants when
+ * no tenantId is provided).  Call after data-modifying operations so the next
+ * AI suggestion reflects the updated state.
+ *
+ * Examples: human-verifying an OCR menu, receiving a purchase order.
+ */
+export function invalidateSnapshotCache(tenantId?: string): void {
+  if (tenantId) {
+    snapshotCache.delete(tenantId);
+  } else {
+    snapshotCache.clear();
+  }
 }

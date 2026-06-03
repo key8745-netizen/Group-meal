@@ -76,6 +76,11 @@ export function computeConfidence(
     return blocked('庫存記錄不存在，可能為新增食材尚未建檔');
   }
 
+  // OCR isolation: unverified OCR ingredients must not generate purchase orders
+  if (inv.isUnverifiedOcr) {
+    return blocked('食材資料來自 OCR 匯入且尚未人工驗證，禁止產生採購建議。請至菜色管理頁確認資料後再試');
+  }
+
   if (inv.negativeStock) {
     return blocked(
       `庫存為負數（${inv.currentStockKg.toFixed(3)} kg），資料異常，請先盤點修正`,

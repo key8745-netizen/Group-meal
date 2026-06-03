@@ -13,6 +13,8 @@ import { db } from '@/lib/firebase';
 import { auth } from '@/lib/firebase';
 import { restockIngredient } from './inventoryService';
 import { logOrderFulfillment } from './performanceService';
+import { configService } from './configService';
+import { invalidateSnapshotCache } from './aiContextService';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -136,6 +138,10 @@ export const purchaseOrderService = {
       receivedAt: serverTimestamp(),
     });
 
+    // Snapshot cache is stale after a RECEIVED — next AI suggestion must re-read
+    // purchase history.  tenantId is unavailable here; clear all tenant caches.
+    invalidateSnapshotCache();
+
     // Fire-and-forget: log fulfillment data for performance tracking.
     // Never awaited — must not block the UI or fail the completeOrder call.
     logOrderFulfillment(
@@ -209,5 +215,51 @@ export const purchaseOrderService = {
     await updateDoc(doc(db, 'purchaseOrders', orderId), {
       status: 'CANCELLED',
     });
+  },
+
+  /**
+   * The ONLY authorised path for DRAFT → PENDING transition.
+   *
+   * Guard rails enforced here:
+   *  1. Order must be in DRAFT status.
+   *  2. When aiGenerated is true and requireHumanApproval is enabled in settings,
+   *     the caller's identity is stamped as the approver — this makes the human
+   *     action explicit and auditable.
+   *  3. After transition, the AI context snapshot cache is invalidated so the
+   *     next suggestion reflects current state.
+   *
+   * Never call updateDoc({ status: 'PENDING' }) directly — always use this method.
+   *
+   * @param orderId   Firestore document ID in purchaseOrders collection
+   * @param tenantId  Used to check requireHumanApproval setting
+   */
+  async approveDraftOrder(orderId: string, tenantId: string): Promise<void> {
+    const order = await getPurchaseOrder(orderId);
+
+    if (order.status !== 'DRAFT') {
+      throw new Error(
+        `purchaseOrderService: cannot approve — order "${orderId}" is ${order.status}, expected DRAFT`,
+      );
+    }
+
+    const settings = await configService.getSettings(tenantId).catch(() => null);
+    const requireApproval = settings?.aiAutomation.requireHumanApproval ?? true;
+
+    const approvedBy = currentUser();
+    if (requireApproval && approvedBy === 'system') {
+      throw new Error(
+        'purchaseOrderService: requireHumanApproval is enabled — ' +
+        'approveDraftOrder must be called by an authenticated user, not by an automated system',
+      );
+    }
+
+    await updateDoc(doc(db, 'purchaseOrders', orderId), {
+      status:     'PENDING',
+      approvedBy,
+      approvedAt: serverTimestamp(),
+    });
+
+    // Invalidate AI snapshot so next suggestion reflects the approved state
+    invalidateSnapshotCache(tenantId);
   },
 };

@@ -289,6 +289,56 @@ export const purchaseOrderService = {
     return orderRef.id;
   },
 
+  /**
+   * Human-only DRAFT→PENDING transition for AI-origin purchase orders (Phase 7).
+   *
+   * HARD RULES:
+   *  - Only transitions DRAFT → PENDING (validated by validatePurchaseOrderPendingInput)
+   *  - submittedByHumanUserId must be present
+   *  - aiPendingMetadata.aiCanSubmit must be false
+   *  - Does NOT modify inventory
+   *  - Does NOT transition to RECEIVED
+   *  - Does NOT call inventoryService
+   *
+   * @throws Error when input validation fails
+   */
+  async submitAIDraftPurchaseOrderToPending(
+    input: import('./aiHumanSubmitService').PurchaseOrderPendingInput,
+  ): Promise<void> {
+    const { validatePurchaseOrderPendingInput } = await import('./aiHumanSubmitService');
+    const validationErrors = validatePurchaseOrderPendingInput(input);
+    if (validationErrors.length > 0) {
+      throw new Error(
+        `purchaseOrderService.submitAIDraftPurchaseOrderToPending: ` +
+        `validation failed: ${validationErrors.join(', ')}`,
+      );
+    }
+
+    const order = await getPurchaseOrder(input.purchaseOrderId);
+    if (order.status !== 'DRAFT') {
+      throw new Error(
+        `purchaseOrderService.submitAIDraftPurchaseOrderToPending: ` +
+        `order "${input.purchaseOrderId}" is ${order.status}, expected DRAFT`,
+      );
+    }
+
+    await updateDoc(doc(db, 'purchaseOrders', input.purchaseOrderId), {
+      status:                 'PENDING',
+      submittedBy:            input.submittedByHumanUserId,
+      submittedAt:            serverTimestamp(),
+      submitNote:             input.submitNote ?? null,
+      // Extended AI audit chain — receiving confirmation still required
+      aiPendingMetadata:      input.aiPendingMetadata,
+      requiresReceivingConfirmation: true,
+      aiCanReceive:           false,
+    });
+
+    // Invalidate AI snapshot so next suggestion reflects submitted state
+    if (input.aiPendingMetadata.tenantId) {
+      invalidateSnapshotCache(input.aiPendingMetadata.tenantId);
+    }
+  },
+
   async approveDraftOrder(orderId: string, tenantId: string): Promise<void> {
     const order = await getPurchaseOrder(orderId);
 

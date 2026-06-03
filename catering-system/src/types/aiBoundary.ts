@@ -109,7 +109,14 @@ export type BlockedReason =
   | 'PURCHASE_ORDER_PENDING_FORBIDDEN'
   | 'PURCHASE_ORDER_RECEIVED_FORBIDDEN'
   | 'MISSING_APPROVAL_ID'
-  | 'AI_PURCHASE_SUBMIT_FORBIDDEN';
+  | 'AI_PURCHASE_SUBMIT_FORBIDDEN'
+  // ── Human submit (Phase 7) ────────────────────────────────────────────────
+  | 'HUMAN_SUBMIT_REQUIRED'
+  | 'MISSING_HUMAN_SUBMITTER'
+  | 'PURCHASE_ORDER_DRAFT_REQUIRED'
+  | 'PURCHASE_ORDER_PENDING_ONLY'
+  | 'MISSING_SUBMIT_ID'
+  | 'RECEIVING_CONFIRMATION_REQUIRED';
 
 // ─── Operation validation ──────────────────────────────────────────────────────
 
@@ -533,4 +540,58 @@ export interface AIPurchaseOrderDraftMetadata {
   aiGenerated: true;
   /** Always false — AI cannot submit to PENDING */
   aiCanSubmit: false;
+}
+
+// ─── Human Submit / Purchase Order PENDING (Phase 7) ─────────────────────────
+
+/**
+ * Records a human's explicit submission of an AI-sourced DRAFT to PENDING.
+ *
+ * Invariants:
+ *  - fromStatus is always 'DRAFT'
+ *  - toStatus is always 'PENDING'
+ *  - aiCanSubmit is always false
+ *  - aiCanReceive is always false
+ *  - requiresReceivingConfirmation is always true
+ */
+export interface HumanSubmitPurchaseOrderPending {
+  submitId: string;
+  tenantId: TenantId;
+  purchaseOrderId: string;
+  draftSuggestionId: string;
+  suggestionId: SuggestionId;
+  sourceSnapshotId: SnapshotId;
+  auditTrailId: AuditTrailId;
+  approvalId: string;
+  feedbackId?: string;
+  overrideId?: string;
+  submittedByHumanUserId: string;
+  submittedAt: Date;
+  submitNote?: string;
+  fromStatus: 'DRAFT';
+  toStatus: 'PENDING';
+  aiCanSubmit: false;
+  aiCanReceive: false;
+  requiresReceivingConfirmation: true;
+}
+
+/**
+ * AI-origin metadata stamped when a DRAFT purchase order is submitted to PENDING.
+ * Extends the audit chain from approval → submission.
+ */
+export interface AIPurchaseOrderPendingMetadata {
+  source: 'ai_suggestion_human_submitted';
+  tenantId: TenantId;
+  sourceSnapshotId: SnapshotId;
+  suggestionId: SuggestionId;
+  draftSuggestionId: string;
+  auditTrailId: AuditTrailId;
+  approvalId: string;
+  submitId: string;
+  submittedByHumanUserId: string;
+  submittedAt: Date;
+  requiresReceivingConfirmation: true;
+  aiGenerated: true;
+  aiCanSubmit: false;
+  aiCanReceive: false;
 }

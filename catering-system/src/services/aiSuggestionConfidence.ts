@@ -2,13 +2,12 @@
  * aiSuggestionConfidence.ts
  *
  * Computes a confidence level for each AI-generated purchase suggestion.
- * Confidence is determined by data completeness, inventory validity, and
- * purchase history depth — never by business intent.
+ * Works with any object that satisfies ConfidenceInput — both SuggestionItem
+ * (intelligence hook) and PurchaseLineItem (purchaseService) qualify.
  *
  * Hard rule: BLOCKED suggestions must NOT produce DRAFT purchase orders.
  */
 
-import type { SuggestionItem } from '@/hooks/useIntelligenceInsights';
 import type { InventorySummary, PurchaseHistorySummary, AISystemSettings } from './aiContextService';
 
 // ─── Public types ─────────────────────────────────────────────────────────────
@@ -25,6 +24,15 @@ export interface SuggestionConfidence {
   canCreateDraft: boolean;
 }
 
+/** Minimal shape required by computeConfidence — satisfied by both SuggestionItem and PurchaseLineItem */
+export interface ConfidenceInput {
+  ingredientId: string;
+  suggestedQtyKg: number;
+  currentStockKg: number;
+  safetyLevelKg: number;
+  orderDemandKg: number;
+}
+
 // ─── Thresholds ───────────────────────────────────────────────────────────────
 
 /** Purchase history depth that qualifies as "sufficient" */
@@ -38,16 +46,16 @@ const DEFAULT_MAX_MULTIPLIER = 5;
 /**
  * Evaluates a purchase suggestion against inventory and history snapshots.
  *
- * Evaluation order (first match wins):
+ * Evaluation order (first BLOCKED check wins; otherwise build up positive signals):
  *  BLOCKED → LOW → MEDIUM → HIGH
  *
- * @param item        The suggestion to evaluate
+ * @param item        Any object satisfying ConfidenceInput (SuggestionItem or PurchaseLineItem)
  * @param inventoryMap Map of ingredientId → InventorySummary from aiContextService
  * @param historyMap  Map of ingredientId → PurchaseHistorySummary from aiContextService
- * @param settings    AI system settings (maxSuggestionMultiplier, etc.)
+ * @param settings    AI system settings (maxSuggestionMultiplier)
  */
 export function computeConfidence(
-  item: SuggestionItem,
+  item: ConfidenceInput,
   inventoryMap: Map<string, InventorySummary>,
   historyMap: Map<string, PurchaseHistorySummary>,
   settings?: Partial<AISystemSettings>,
@@ -58,7 +66,7 @@ export function computeConfidence(
   const inv = inventoryMap.get(item.ingredientId);
   const hist = historyMap.get(item.ingredientId);
 
-  // ── BLOCKED checks ────────────────────────────────────────────────────────
+  // ── BLOCKED checks (order matters — most data-critical first) ────────────
 
   if (!item.ingredientId) {
     return blocked('食材 ID 缺失，無法對應庫存紀錄');
@@ -69,45 +77,50 @@ export function computeConfidence(
   }
 
   if (inv.negativeStock) {
-    return blocked(`庫存為負數（${inv.currentStockKg.toFixed(3)} kg），資料異常，請先盤點修正`);
+    return blocked(
+      `庫存為負數（${inv.currentStockKg.toFixed(3)} kg），資料異常，請先盤點修正`,
+    );
   }
 
   if (!Number.isFinite(item.suggestedQtyKg) || item.suggestedQtyKg < 0) {
     return blocked('建議採購量計算結果無效（非有限數或負值）');
   }
 
+  // Qty overflow guard: block when suggestion exceeds N× the larger of safety/demand
   const safeMax = Math.max(item.safetyLevelKg, item.orderDemandKg) * maxMultiplier;
   if (safeMax > 0 && item.suggestedQtyKg > safeMax) {
     return blocked(
-      `建議採購量 ${item.suggestedQtyKg.toFixed(2)} kg 超過安全上限 ${safeMax.toFixed(2)} kg（${maxMultiplier}x），請人工確認`,
+      `建議採購量 ${item.suggestedQtyKg.toFixed(2)} kg 超過安全上限 ` +
+      `${safeMax.toFixed(2)} kg（${maxMultiplier}×），請人工確認`,
     );
   }
 
-  // ── Positive signals ──────────────────────────────────────────────────────
+  // ── Positive signal collection ────────────────────────────────────────────
 
   const hasHistory = (hist?.receivedOrderCount ?? 0) >= HISTORY_THRESHOLD;
   const hasCostData = inv.hasCostData;
   const hasOrderDemand = item.orderDemandKg > 0;
 
-  if (hasHistory) {
-    reasons.push(`近 90 天有 ${hist!.receivedOrderCount} 筆採購紀錄`);
-  } else {
-    reasons.push('近 90 天採購紀錄不足');
-  }
+  reasons.push(
+    hasHistory
+      ? `近 90 天有 ${hist!.receivedOrderCount} 筆採購紀錄`
+      : '近 90 天採購紀錄不足（少於 2 筆）',
+  );
 
-  if (hasCostData) {
-    reasons.push('食材單價資料完整');
-  } else {
-    reasons.push('食材單價缺失，成本估算僅供參考');
-  }
+  reasons.push(
+    hasCostData ? '食材單價資料完整' : '食材單價缺失，成本估算僅供參考',
+  );
 
-  if (hasOrderDemand) {
-    reasons.push(`訂單需求 ${item.orderDemandKg.toFixed(2)} kg`);
-  } else {
-    reasons.push('無對應訂單需求，建議來自安全庫存判斷');
-  }
+  reasons.push(
+    hasOrderDemand
+      ? `訂單需求 ${item.orderDemandKg.toFixed(2)} kg`
+      : '無對應訂單需求，建議來自安全庫存判斷',
+  );
 
-  reasons.push(`現有庫存 ${item.currentStockKg.toFixed(2)} kg，安全庫存 ${item.safetyLevelKg.toFixed(2)} kg`);
+  reasons.push(
+    `現有庫存 ${item.currentStockKg.toFixed(2)} kg，` +
+    `安全庫存 ${item.safetyLevelKg.toFixed(2)} kg`,
+  );
 
   // ── Level determination ───────────────────────────────────────────────────
 
@@ -147,6 +160,6 @@ export function buildConfidenceMaps(
 } {
   return {
     inventoryMap: new Map(inventory.map((inv) => [inv.ingredientId, inv])),
-    historyMap: new Map(purchaseHistory.map((h) => [h.ingredientId, h])),
+    historyMap:   new Map(purchaseHistory.map((h) => [h.ingredientId, h])),
   };
 }

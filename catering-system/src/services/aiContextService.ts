@@ -54,6 +54,10 @@ export interface PurchaseHistorySummary {
   receivedOrderCount: number;
 }
 
+/**
+ * Flattened view of AIAutomationSettings used by aiSuggestionConfidence.
+ * Sourced from configService.SystemSettings.aiAutomation.
+ */
 export interface AISystemSettings {
   lowMarginThreshold: number;
   wasteFactorWarning: number;
@@ -73,22 +77,11 @@ export interface AIContextSnapshot {
   generatedAt: Date;
 }
 
-// ─── Default settings (used when Firestore settings doc is absent) ────────────
-
-const DEFAULT_AI_SETTINGS: AISystemSettings = {
-  lowMarginThreshold: 0.20,
-  wasteFactorWarning: 0.30,
-  purchaseSuggestionEnabled: true,
-  autoDraftEnabled: true,
-  maxSuggestionMultiplier: 5,
-  requireHumanApproval: true,
-};
-
 // ─── buildAIContextSnapshot ───────────────────────────────────────────────────
 
 /**
  * Collects a sanitised operational snapshot for AI consumption.
- * Reads three collections in parallel; purchase history uses a 90-day window.
+ * Reads menus, ingredients, inventory, and 90-day purchase history in parallel.
  *
  * @param db        Firestore instance
  * @param tenantId  Used to load tenant-level settings thresholds
@@ -107,7 +100,7 @@ export async function buildAIContextSnapshot(
       getDocs(
         query(
           collection(db, 'purchaseOrders'),
-          where('status', '==', 'received'),
+          where('status', '==', 'RECEIVED'),
           where('receivedAt', '>=', Timestamp.fromDate(ninetyDaysAgo)),
           orderBy('receivedAt', 'desc'),
           limit(200),
@@ -145,14 +138,14 @@ export async function buildAIContextSnapshot(
     const safetyLevelKg = ingredient?.minStockLevel ?? 0;
     const unitCost = ingredient?.unitCost ?? 0;
     return {
-      ingredientId: snap.id,
+      ingredientId:   snap.id,
       ingredientName: inv.ingredientName,
       currentStockKg: inv.currentStock,
       safetyLevelKg,
-      belowSafety: inv.currentStock < safetyLevelKg,
+      belowSafety:   inv.currentStock < safetyLevelKg,
       negativeStock: inv.currentStock < 0,
-      wasteFactor: ingredient?.wasteFactor ?? 0,
-      hasCostData: unitCost > 0,
+      wasteFactor:   ingredient?.wasteFactor ?? 0,
+      hasCostData:   unitCost > 0,
     };
   });
 
@@ -170,35 +163,19 @@ export async function buildAIContextSnapshot(
 
   const purchaseHistory: PurchaseHistorySummary[] = Array.from(
     receivedCountMap.entries(),
-  ).map(([ingredientId, receivedOrderCount]) => ({
-    ingredientId,
-    receivedOrderCount,
-  }));
+  ).map(([ingredientId, receivedOrderCount]) => ({ ingredientId, receivedOrderCount }));
 
-  // ── Settings ─────────────────────────────────────────────────────────────
+  // ── Settings — map SystemSettings → AISystemSettings ─────────────────────
   const s = tenantSettings;
+  const ai = s?.aiAutomation;
   const settings: AISystemSettings = {
-    lowMarginThreshold: s?.profitMarginThreshold ?? DEFAULT_AI_SETTINGS.lowMarginThreshold,
-    wasteFactorWarning: s?.wasteFactorWarning ?? DEFAULT_AI_SETTINGS.wasteFactorWarning,
-    purchaseSuggestionEnabled:
-      (s as unknown as Record<string, unknown>)?.['aiAutomation.purchaseSuggestionEnabled'] as boolean ??
-      DEFAULT_AI_SETTINGS.purchaseSuggestionEnabled,
-    autoDraftEnabled:
-      (s as unknown as Record<string, unknown>)?.['aiAutomation.autoDraftEnabled'] as boolean ??
-      DEFAULT_AI_SETTINGS.autoDraftEnabled,
-    maxSuggestionMultiplier:
-      (s as unknown as Record<string, unknown>)?.['aiAutomation.maxSuggestionMultiplier'] as number ??
-      DEFAULT_AI_SETTINGS.maxSuggestionMultiplier,
-    requireHumanApproval:
-      (s as unknown as Record<string, unknown>)?.['aiAutomation.requireHumanApproval'] as boolean ??
-      DEFAULT_AI_SETTINGS.requireHumanApproval,
+    lowMarginThreshold:        s?.profitMarginThreshold      ?? 0.20,
+    wasteFactorWarning:        s?.wasteFactorWarning          ?? 0.30,
+    purchaseSuggestionEnabled: ai?.purchaseSuggestionEnabled  ?? true,
+    autoDraftEnabled:          ai?.autoDraftEnabled            ?? true,
+    maxSuggestionMultiplier:   ai?.maxSuggestionMultiplier     ?? 5,
+    requireHumanApproval:      ai?.requireHumanApproval        ?? true,
   };
 
-  return {
-    menus,
-    inventory,
-    purchaseHistory,
-    settings,
-    generatedAt: new Date(),
-  };
+  return { menus, inventory, purchaseHistory, settings, generatedAt: new Date() };
 }

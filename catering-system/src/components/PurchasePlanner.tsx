@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Firestore } from 'firebase/firestore';
-import { PackageSearch, RefreshCw, Save, Send } from 'lucide-react';
+import { AlertTriangle, Info, PackageSearch, RefreshCw, Save, Send, ShieldAlert } from 'lucide-react';
 
 import {
   ConcurrencyError,
@@ -10,6 +10,7 @@ import {
   updatePurchaseDraft,
 } from '@/services/purchaseService';
 import type { PurchaseDraft, PurchaseLineItem, SupplierGroup } from '@/services/types';
+import type { ConfidenceLevel } from '@/services/aiSuggestionConfidence';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -46,6 +47,20 @@ type FinalItem = PurchaseLineItem & {
 // ─── Pure helpers (no React) ──────────────────────────────────────────────────
 
 const r3 = (n: number) => Math.round(n * 1000) / 1000;
+
+const CONFIDENCE_LABELS: Record<ConfidenceLevel, string> = {
+  HIGH:    '高信心',
+  MEDIUM:  '中信心',
+  LOW:     '低信心',
+  BLOCKED: '封鎖',
+};
+
+const CONFIDENCE_COLORS: Record<ConfidenceLevel, string> = {
+  HIGH:    'bg-green-100 text-green-800 border-green-300',
+  MEDIUM:  'bg-yellow-100 text-yellow-800 border-yellow-300',
+  LOW:     'bg-orange-100 text-orange-800 border-orange-300',
+  BLOCKED: 'bg-red-100 text-red-800 border-red-300',
+};
 
 const fmtKg = (n: number) =>
   `${n % 1 === 0 ? n.toFixed(0) : n.toFixed(2)} kg`;
@@ -171,6 +186,12 @@ export function PurchasePlanner({ db, orderIds }: PurchasePlannerProps) {
 
   const totalCost = useMemo(
     () => r3(finalItems.reduce((sum, item) => sum + item.subtotal, 0)),
+    [finalItems],
+  );
+
+  /** true when any line item has confidence BLOCKED — prevents 正式發單 */
+  const hasBlockedItems = useMemo(
+    () => finalItems.some((item) => item.confidence?.level === 'BLOCKED'),
     [finalItems],
   );
 
@@ -330,6 +351,7 @@ export function PurchasePlanner({ db, orderIds }: PurchasePlannerProps) {
                 <TableHeader>
                   <TableRow>
                     <TableHead>食材名稱</TableHead>
+                    <TableHead className="text-center">信心</TableHead>
                     <TableHead className="text-right">目前庫存</TableHead>
                     <TableHead className="text-right">安全水位</TableHead>
                     <TableHead className="text-right">訂單需求</TableHead>
@@ -342,19 +364,55 @@ export function PurchasePlanner({ db, orderIds }: PurchasePlannerProps) {
                 <TableBody>
                   {items.map((item, idx) => {
                     const isEdited = item.ingredientId in editedQtys;
+                    const conf = item.confidence;
+                    const isBlocked = conf?.level === 'BLOCKED';
 
                     return (
                       <TableRow
                         key={item.ingredientId}
                         className={
-                          item.currentStockKg < item.safetyLevelKg
+                          isBlocked
                             ? 'bg-red-50 dark:bg-red-950/20'
-                            : idx % 2 !== 0
-                              ? 'bg-muted/30'
-                              : ''
+                            : item.currentStockKg < item.safetyLevelKg
+                              ? 'bg-orange-50 dark:bg-orange-950/20'
+                              : idx % 2 !== 0
+                                ? 'bg-muted/30'
+                                : ''
                         }
                       >
-                        <TableCell className="font-medium">{item.ingredientName}</TableCell>
+                        <TableCell className="font-medium">
+                          <div className="flex flex-col gap-0.5">
+                            <span>{item.ingredientName}</span>
+                            {isBlocked && conf?.blockReason && (
+                              <span className="flex items-center gap-1 text-xs text-red-600">
+                                <ShieldAlert className="h-3 w-3 shrink-0" />
+                                {conf.blockReason}
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+
+                        {/* Confidence badge */}
+                        <TableCell className="text-center">
+                          {conf ? (
+                            <span
+                              title={
+                                conf.blockReason
+                                  ? conf.blockReason
+                                  : conf.reasons.join(' · ')
+                              }
+                              className={`inline-flex cursor-help items-center gap-1 rounded border px-1.5 py-0.5 text-xs font-medium ${CONFIDENCE_COLORS[conf.level]}`}
+                            >
+                              {conf.level === 'BLOCKED'
+                                ? <ShieldAlert className="h-3 w-3" />
+                                : <Info className="h-3 w-3" />
+                              }
+                              {CONFIDENCE_LABELS[conf.level]}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
 
                         <TableCell className="text-right text-muted-foreground">
                           {fmtKg(item.currentStockKg)}
@@ -411,6 +469,17 @@ export function PurchasePlanner({ db, orderIds }: PurchasePlannerProps) {
             </section>
           ))}
 
+          {/* ── BLOCKED warning banner ── */}
+          {hasBlockedItems && (
+            <div className="flex items-start gap-2 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-700 dark:bg-red-950/30 dark:text-red-300">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <p>
+                部分食材被標記為「封鎖」，資料異常或採購量超出安全倍數，無法正式發單。
+                請修正後再送出，或手動移除封鎖項目。
+              </p>
+            </div>
+          )}
+
           {/* ── Footer summary + actions ── */}
           <div className="flex flex-col gap-4 rounded-lg border bg-muted/30 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -440,7 +509,8 @@ export function PurchasePlanner({ db, orderIds }: PurchasePlannerProps) {
 
               <Button
                 onClick={handleMarkOrdered}
-                disabled={busy}
+                disabled={busy || hasBlockedItems}
+                title={hasBlockedItems ? '有封鎖項目，請先處理再發單' : undefined}
                 aria-label="正式送出採購單"
               >
                 <Send size={14} className="mr-1.5" />

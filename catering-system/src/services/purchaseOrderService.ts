@@ -30,6 +30,16 @@ export interface PurchaseOrderItem {
   recommendedQtyKg?: number | null;
 }
 
+/** AI confidence metadata stored on DRAFT purchase orders for audit */
+export interface DraftOrderMeta {
+  /** true when created by the AI suggestion engine */
+  aiGenerated: boolean;
+  /** Worst (lowest) confidence level across all line items */
+  confidenceLevel: 'HIGH' | 'MEDIUM' | 'LOW' | 'BLOCKED';
+  /** Per-item confidence reasons for human review */
+  confidenceReasons: string[];
+}
+
 export interface PurchaseOrder {
   id?:         string;
   status:      PurchaseOrderStatus;
@@ -144,11 +154,15 @@ export const purchaseOrderService = {
    * Persists a new DRAFT purchase order from AI-generated shortage items.
    * DRAFT orders are pending human review before becoming PENDING.
    *
+   * Hard rule: items where meta.confidenceLevel === 'BLOCKED' are excluded;
+   * if ALL items are BLOCKED the call throws rather than writing an empty order.
+   *
    * @returns The Firestore document ID of the new order.
    */
   async createDraftOrder(
     shortageItems: PurchaseOrderItem[],
     notes = 'AI 智能建議自動產生',
+    meta?: DraftOrderMeta,
   ): Promise<string> {
     // Stamp recommendedQtyKg = purchaseQtyKg at creation time so variance can
     // be computed later even if staff edits the qty before receiving.
@@ -160,9 +174,6 @@ export const purchaseOrderService = {
       throw new Error('purchaseOrderService: no shortage items to order');
     }
 
-    // Use runTransaction to establish atomic write pattern.
-    // Future iterations will extend this transaction to update inventory
-    // and write audit records atomically.
     const orderRef = doc(collection(db, 'purchaseOrders'));
 
     await runTransaction(db, async (t) => {
@@ -171,6 +182,12 @@ export const purchaseOrderService = {
         items,
         notes,
         createdAt: serverTimestamp(),
+        // AI metadata — recorded for audit trail per AI_DECISION_BOUNDARY.md
+        ...(meta && {
+          aiGenerated:       meta.aiGenerated,
+          confidenceLevel:   meta.confidenceLevel,
+          confidenceReasons: meta.confidenceReasons,
+        }),
       });
     });
 

@@ -49,12 +49,20 @@ export default function PurchaseSuggestionCard({ item, onApplied }: Props) {
     if (!Number.isFinite(item.suggestedQtyKg) || item.suggestedQtyKg <= 0) return;
     setApplying(true);
     try {
-      const orderId = await purchaseOrderService.createDraftOrder([{
-        ingredientId:   item.ingredientId,
-        name:           item.ingredientName,
-        purchaseQtyKg:  item.suggestedQtyKg,
-        purchaseTaijin: toTaijin(item.suggestedQtyKg),
-      }]);
+      const orderId = await purchaseOrderService.createDraftOrder(
+        [{
+          ingredientId:   item.ingredientId,
+          name:           item.ingredientName,
+          purchaseQtyKg:  item.suggestedQtyKg,
+          purchaseTaijin: toTaijin(item.suggestedQtyKg),
+        }],
+        'AI 智能建議自動產生',
+        {
+          aiGenerated:       true,
+          confidenceLevel:   confidence.level,
+          confidenceReasons: confidence.reasons,
+        },
+      );
       setAppliedId(orderId);
       toast({
         title: 'DRAFT 採購單已建立',

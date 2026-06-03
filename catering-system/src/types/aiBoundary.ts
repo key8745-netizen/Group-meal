@@ -92,7 +92,50 @@ export type BlockedReason =
   | 'MISSING_SNAPSHOT_ID'
   | 'MISSING_AUDIT_TRAIL_ID'
   | 'AUDIT_VERSION_CONFLICT'
-  | 'LEGACY_QUANTITY_BLOCKED_FOR_AI';
+  | 'LEGACY_QUANTITY_BLOCKED_FOR_AI'
+  // ── Draft purchase suggestion (Phase 5) ──────────────────────────────────────
+  | 'MISSING_DRAFT_SUGGESTION_ID'
+  | 'DRAFT_REQUIRES_HUMAN_ACTOR'
+  | 'DRAFT_FROM_LOW_CONFIDENCE_BLOCKED'
+  | 'DRAFT_FROM_BLOCKED_SUGGESTION_BLOCKED'
+  | 'FEEDBACK_SUGGESTION_MISMATCH'
+  | 'OVERRIDE_SUGGESTION_MISMATCH'
+  | 'AI_DRAFT_CREATION_FORBIDDEN'
+  // ── Human approval / purchase order (Phase 6) ─────────────────────────────
+  | 'HUMAN_APPROVAL_REQUIRED'
+  | 'MISSING_HUMAN_APPROVER'
+  | 'PURCHASE_ORDER_DRAFT_ONLY'
+  | 'AI_PURCHASE_APPROVAL_FORBIDDEN'
+  | 'PURCHASE_ORDER_PENDING_FORBIDDEN'
+  | 'PURCHASE_ORDER_RECEIVED_FORBIDDEN'
+  | 'MISSING_APPROVAL_ID'
+  | 'AI_PURCHASE_SUBMIT_FORBIDDEN'
+  // ── Human submit (Phase 7) ────────────────────────────────────────────────
+  | 'HUMAN_SUBMIT_REQUIRED'
+  | 'MISSING_HUMAN_SUBMITTER'
+  | 'PURCHASE_ORDER_DRAFT_REQUIRED'
+  | 'PURCHASE_ORDER_PENDING_ONLY'
+  | 'MISSING_SUBMIT_ID'
+  | 'RECEIVING_CONFIRMATION_REQUIRED'
+  // ── Receiving boundary (Feature 002) ─────────────────────────────────────
+  | 'AI_RECEIVING_FORBIDDEN'
+  | 'AI_INVENTORY_UPDATE_FORBIDDEN'
+  | 'DUPLICATE_RECEIVING_ATTEMPT'
+  | 'PURCHASE_ORDER_ALREADY_RECEIVED'
+  | 'PURCHASE_ORDER_NOT_PENDING'
+  | 'MISSING_RECEIVING_TOKEN'
+  | 'MISSING_HUMAN_RECEIVER'
+  | 'MISSING_INVENTORY_TRANSACTION_ID'
+  | 'RECEIVING_DELTA_NOTE_REQUIRED'
+  | 'INVALID_RECEIVED_QTY'
+  | 'RECEIVED_QTY_GRAMS_REQUIRED'
+  | 'INVENTORY_TRANSACTION_FAILED'
+  | 'INVENTORY_UPDATE_FAILED'
+  | 'PURCHASE_ORDER_STATUS_TRANSITION_INVALID'
+  | 'PERFORMANCE_LOG_WRITE_FORBIDDEN'
+  | 'AI_RULE_MUTATION_FORBIDDEN'
+  | 'RECEIVING_LOCK_EXPIRED'
+  | 'RECEIVING_LOCK_ACTIVE';
 
 // ─── Operation validation ──────────────────────────────────────────────────────
 
@@ -300,4 +343,274 @@ export interface SuggestionConfidenceV2 {
   canCreateDraft: boolean;
   /** The snapshot this confidence evaluation is based on */
   sourceSnapshotId?: string;
+}
+
+// ─── Override / Feedback (Phase 4) ───────────────────────────────────────────
+
+/**
+ * Reason a human provides when overriding an AI purchase suggestion.
+ * Exhaustive union — no freeform strings.
+ */
+export type OverrideReason =
+  | 'too_high'
+  | 'too_low'
+  | 'supplier_limit'
+  | 'chef_override'
+  | 'unit_conversion_issue'
+  | 'ingredient_unavailable'
+  | 'seasonal_adjustment'
+  | 'other';
+
+/**
+ * Feedback record created when a human overrides an AI suggestion quantity.
+ * Never triggers downstream purchase flow — Phase 4 audit only.
+ */
+export interface AISuggestionFeedback {
+  feedbackId: string;
+  tenantId: TenantId;
+  suggestionId: SuggestionId;
+  sourceSnapshotId: SnapshotId;
+  auditTrailId: AuditTrailId;
+  ingredientId: string;
+  originalRecommendedQtyGrams: Grams;
+  finalQtyGrams: Grams;
+  overrideReason: OverrideReason;
+  note?: string;
+  actorType: 'human';
+  actorId: string;
+  createdAt: Date;
+}
+
+/**
+ * Immutable record of the human's final quantity decision.
+ * Linked to a suggestion via suggestionId + auditTrailId.
+ */
+export interface HumanOverride {
+  overrideId: string;
+  tenantId: TenantId;
+  suggestionId: SuggestionId;
+  auditTrailId: AuditTrailId;
+  ingredientId: string;
+  originalQtyGrams: Grams;
+  finalQtyGrams: Grams;
+  reason: OverrideReason;
+  note?: string;
+  createdBy: string;
+  createdAt: Date;
+}
+
+// ─── AI Purchase Suggestion (Phase 3) ────────────────────────────────────────
+
+/**
+ * A single ingredient line within an AI purchase suggestion.
+ * All quantities in Grams. usableForDraft is always false in Phase 3.
+ */
+export interface PurchaseSuggestionItem {
+  ingredientId: string;
+  name: string;
+  /** Quantity the system suggests purchasing */
+  suggestedQtyGrams: Grams;
+  currentStockGrams: Grams;
+  shortageGrams: Grams;
+  /** Average daily usage (30-day window) */
+  averageDailyUsageGrams?: Grams;
+  confidence: SuggestionConfidenceV2;
+}
+
+/**
+ * An AI-generated purchase suggestion derived from an AIContextSnapshot.
+ *
+ * Phase 3 invariant: usableForDraft is ALWAYS false.
+ * Phase 4 will add the human-approval path that sets usableForDraft conditionally.
+ *
+ * This object must never be written to purchaseOrders or inventory directly.
+ */
+export interface AIPurchaseSuggestion {
+  suggestionId: SuggestionId;
+  tenantId: TenantId;
+  /** The snapshot that was used to generate this suggestion */
+  sourceSnapshotId: SnapshotId;
+  generatedAt: Date;
+  /** Suggestion is stale and must not be actioned after this time */
+  expiresAt: Date;
+  items: PurchaseSuggestionItem[];
+  overallConfidence: SuggestionConfidenceV2;
+  /**
+   * Phase 3: always false.
+   * Phase 4 will allow true only after human approval via approveDraftOrder().
+   */
+  usableForDraft: false;
+  blockedReasons: BlockedReason[];
+  warnings: BlockedReason[];
+  /** Audit event produced at generation time */
+  auditEvent: AuditEvent;
+  /** Optional: links this suggestion to an audit trail chain (set externally) */
+  auditTrailId?: AuditTrailId;
+}
+
+// ─── Draft Purchase Suggestion (Phase 5) ──────────────────────────────────────
+
+/**
+ * Alias for SuggestionConfidenceV2 — used in DraftPurchaseSuggestion to
+ * explicitly signal that confidence is the per-item graded value.
+ */
+export type AISuggestionConfidence = SuggestionConfidenceV2;
+
+export type DraftPurchaseSuggestionStatus =
+  | 'DRAFT_PREPARED'
+  | 'BLOCKED'
+  | 'REJECTED'
+  | 'AWAITING_HUMAN_APPROVAL';
+
+/**
+ * A draft purchase suggestion object — NOT a purchase order.
+ *
+ * Phase 5 invariant: this object is never written to purchaseOrders.
+ * requiresHumanApproval is always true.
+ * approvedBy / approvedAt are Phase 6 fields and must not appear here.
+ *
+ * createdBy is always 'human' — AI cannot create a draft directly.
+ */
+export interface DraftPurchaseSuggestion {
+  draftSuggestionId: string;
+  tenantId: TenantId;
+  sourceSnapshotId: SnapshotId;
+  suggestionId: SuggestionId;
+  auditTrailId: AuditTrailId;
+  feedbackId?: string;
+  overrideId?: string;
+  ingredientId: string;
+  ingredientName?: string;
+  suggestedQtyGrams: Grams;
+  finalQtyGrams: Grams;
+  confidence: AISuggestionConfidence;
+  status: DraftPurchaseSuggestionStatus;
+  blockedReasons: BlockedReason[];
+  warnings: BlockedReason[];
+  requiresHumanApproval: true;
+  /** Phase 6 only — must be undefined in Phase 5 */
+  approvedBy?: never;
+  /** Phase 6 only — must be undefined in Phase 5 */
+  approvedAt?: never;
+  dataLineage: {
+    snapshotId: SnapshotId;
+    suggestionId: SuggestionId;
+    feedbackId?: string;
+    overrideId?: string;
+    sourceCollections: string[];
+    generatedAt: Date;
+  };
+  createdBy: 'human';
+  createdByUserId: string;
+  createdAt: Date;
+}
+
+// ─── Human Approval / Purchase Order DRAFT (Phase 6) ─────────────────────────
+
+/**
+ * Records a human's explicit approval to convert a DraftPurchaseSuggestion
+ * into a purchaseOrders DRAFT document.
+ *
+ * Invariants:
+ *  - aiCanApprove is always false
+ *  - requiresFinalSubmission is always true
+ *  - createsPurchaseOrderStatus is always 'DRAFT'
+ */
+export interface HumanApprovalForPurchaseDraft {
+  approvalId: string;
+  tenantId: TenantId;
+  draftSuggestionId: string;
+  suggestionId: SuggestionId;
+  sourceSnapshotId: SnapshotId;
+  auditTrailId: AuditTrailId;
+  feedbackId?: string;
+  overrideId?: string;
+  approvedByHumanUserId: string;
+  approvedAt: Date;
+  approvalNote?: string;
+  approvedQtyGrams: Grams;
+  /** Always 'DRAFT' — never PENDING or RECEIVED */
+  createsPurchaseOrderStatus: 'DRAFT';
+  /** Phase 6 invariant: AI can never approve */
+  aiCanApprove: false;
+  /** After DRAFT is created, a human must still submit before it becomes PENDING */
+  requiresFinalSubmission: true;
+}
+
+/**
+ * AI-origin metadata stamped on a purchaseOrders DRAFT document.
+ * The full audit chain from snapshot → suggestion → override → approval.
+ */
+export interface AIPurchaseOrderDraftMetadata {
+  source: 'ai_suggestion_human_approved';
+  tenantId: TenantId;
+  sourceSnapshotId: SnapshotId;
+  suggestionId: SuggestionId;
+  draftSuggestionId: string;
+  auditTrailId: AuditTrailId;
+  feedbackId?: string;
+  overrideId?: string;
+  approvalId: string;
+  approvedByHumanUserId: string;
+  approvedAt: Date;
+  /** Always true — tracks AI origin for human review */
+  requiresFinalSubmission: true;
+  /** Always true — documents that this order originated from AI suggestion */
+  aiGenerated: true;
+  /** Always false — AI cannot submit to PENDING */
+  aiCanSubmit: false;
+}
+
+// ─── Human Submit / Purchase Order PENDING (Phase 7) ─────────────────────────
+
+/**
+ * Records a human's explicit submission of an AI-sourced DRAFT to PENDING.
+ *
+ * Invariants:
+ *  - fromStatus is always 'DRAFT'
+ *  - toStatus is always 'PENDING'
+ *  - aiCanSubmit is always false
+ *  - aiCanReceive is always false
+ *  - requiresReceivingConfirmation is always true
+ */
+export interface HumanSubmitPurchaseOrderPending {
+  submitId: string;
+  tenantId: TenantId;
+  purchaseOrderId: string;
+  draftSuggestionId: string;
+  suggestionId: SuggestionId;
+  sourceSnapshotId: SnapshotId;
+  auditTrailId: AuditTrailId;
+  approvalId: string;
+  feedbackId?: string;
+  overrideId?: string;
+  submittedByHumanUserId: string;
+  submittedAt: Date;
+  submitNote?: string;
+  fromStatus: 'DRAFT';
+  toStatus: 'PENDING';
+  aiCanSubmit: false;
+  aiCanReceive: false;
+  requiresReceivingConfirmation: true;
+}
+
+/**
+ * AI-origin metadata stamped when a DRAFT purchase order is submitted to PENDING.
+ * Extends the audit chain from approval → submission.
+ */
+export interface AIPurchaseOrderPendingMetadata {
+  source: 'ai_suggestion_human_submitted';
+  tenantId: TenantId;
+  sourceSnapshotId: SnapshotId;
+  suggestionId: SuggestionId;
+  draftSuggestionId: string;
+  auditTrailId: AuditTrailId;
+  approvalId: string;
+  submitId: string;
+  submittedByHumanUserId: string;
+  submittedAt: Date;
+  requiresReceivingConfirmation: true;
+  aiGenerated: true;
+  aiCanSubmit: false;
+  aiCanReceive: false;
 }

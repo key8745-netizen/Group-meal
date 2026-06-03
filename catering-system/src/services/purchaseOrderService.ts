@@ -233,6 +233,173 @@ export const purchaseOrderService = {
    * @param orderId   Firestore document ID in purchaseOrders collection
    * @param tenantId  Used to check requireHumanApproval setting
    */
+  /**
+   * DRAFT-only helper for AI-origin purchase orders (Phase 6).
+   *
+   * Converts a human-approved PurchaseOrderDraftInput into a Firestore
+   * purchaseOrders document with status === 'DRAFT'.
+   *
+   * HARD RULES:
+   *  - Input must have status === 'DRAFT' (validated by validatePurchaseOrderDraftInput)
+   *  - approvedByHumanUserId must be present
+   *  - aiMetadata.aiCanSubmit must be false
+   *  - aiMetadata.requiresFinalSubmission must be true
+   *  - Does NOT modify inventory
+   *  - Does NOT transition to PENDING or RECEIVED
+   *
+   * @throws Error when input validation fails (never silently ignores)
+   */
+  async createDraftPurchaseOrderFromApprovedSuggestion(
+    input: import('./aiHumanApprovalService').PurchaseOrderDraftInput,
+  ): Promise<string> {
+    const { validatePurchaseOrderDraftInput } = await import('./aiHumanApprovalService');
+    const validationErrors = validatePurchaseOrderDraftInput(input);
+    if (validationErrors.length > 0) {
+      throw new Error(
+        `purchaseOrderService.createDraftPurchaseOrderFromApprovedSuggestion: ` +
+        `validation failed: ${validationErrors.join(', ')}`,
+      );
+    }
+
+    // Convert grams to kg for storage (existing PurchaseOrder schema uses kg)
+    const purchaseQtyKg = input.approvedQtyGrams / 1000;
+
+    const orderRef = doc(collection(db, 'purchaseOrders'));
+
+    await runTransaction(db, async (t) => {
+      t.set(orderRef, {
+        status:        'DRAFT',
+        items: [{
+          ingredientId:       input.ingredientId,
+          name:               input.ingredientName ?? input.ingredientId,
+          purchaseQtyKg,
+          purchaseTaijin:     Math.round((purchaseQtyKg / 0.6) * 100) / 100,
+          recommendedQtyKg:   purchaseQtyKg,
+        }],
+        notes:         input.notes,
+        createdAt:     serverTimestamp(),
+        // Full AI audit chain — stamped for human review
+        aiGenerated:         true,
+        aiCanSubmit:         false,
+        requiresFinalSubmission: true,
+        aiMetadata:    input.aiMetadata,
+      });
+    });
+
+    return orderRef.id;
+  },
+
+  /**
+   * Human-only DRAFT→PENDING transition for AI-origin purchase orders (Phase 7).
+   *
+   * HARD RULES:
+   *  - Only transitions DRAFT → PENDING (validated by validatePurchaseOrderPendingInput)
+   *  - submittedByHumanUserId must be present
+   *  - aiPendingMetadata.aiCanSubmit must be false
+   *  - Does NOT modify inventory
+   *  - Does NOT transition to RECEIVED
+   *  - Does NOT call inventoryService
+   *
+   * @throws Error when input validation fails
+   */
+  async submitAIDraftPurchaseOrderToPending(
+    input: import('./aiHumanSubmitService').PurchaseOrderPendingInput,
+  ): Promise<void> {
+    const { validatePurchaseOrderPendingInput } = await import('./aiHumanSubmitService');
+    const validationErrors = validatePurchaseOrderPendingInput(input);
+    if (validationErrors.length > 0) {
+      throw new Error(
+        `purchaseOrderService.submitAIDraftPurchaseOrderToPending: ` +
+        `validation failed: ${validationErrors.join(', ')}`,
+      );
+    }
+
+    const order = await getPurchaseOrder(input.purchaseOrderId);
+    if (order.status !== 'DRAFT') {
+      throw new Error(
+        `purchaseOrderService.submitAIDraftPurchaseOrderToPending: ` +
+        `order "${input.purchaseOrderId}" is ${order.status}, expected DRAFT`,
+      );
+    }
+
+    await updateDoc(doc(db, 'purchaseOrders', input.purchaseOrderId), {
+      status:                 'PENDING',
+      submittedBy:            input.submittedByHumanUserId,
+      submittedAt:            serverTimestamp(),
+      submitNote:             input.submitNote ?? null,
+      // Extended AI audit chain — receiving confirmation still required
+      aiPendingMetadata:      input.aiPendingMetadata,
+      requiresReceivingConfirmation: true,
+      aiCanReceive:           false,
+    });
+
+    // Invalidate AI snapshot so next suggestion reflects submitted state
+    if (input.aiPendingMetadata.tenantId) {
+      invalidateSnapshotCache(input.aiPendingMetadata.tenantId);
+    }
+  },
+
+  /**
+   * Human-only PENDING → RECEIVED transition for AI-sourced purchase orders (Phase 2).
+   *
+   * HARD RULES:
+   *  - callerType must be 'human' — AI callers are blocked before the transaction opens
+   *  - All six writes (lock, inventoryTransaction, inventory, PO status, audit, metric)
+   *    execute inside ONE Firestore runTransaction callback
+   *  - Duplicate receiving is blocked via idempotency lock
+   *  - Does NOT write performanceLogs / finalizedPerformanceLogs / operationalReports
+   *  - inventoryService.restockIngredient() is NOT called — increment() is used directly
+   *
+   * @param purchaseOrderId  The PENDING purchase order to receive
+   * @param ingredientId     The single ingredient on this AI-sourced order
+   * @param request          Human-supplied receiving confirmation
+   */
+  async receiveAISourcedPurchaseOrder(
+    purchaseOrderId: string,
+    ingredientId: string,
+    request: import('./receivingTransactionService').ReceivingTransactionInput['request'],
+  ): Promise<import('./receivingTransactionService').ReceivingTransactionResult> {
+    const {
+      receivePurchaseOrderWithTransaction,
+    } = await import('./receivingTransactionService');
+
+    const { collection: fsCollection } = await import('firebase/firestore');
+
+    const purchaseOrderRef = doc(db, 'purchaseOrders', purchaseOrderId);
+    const inventoryRef     = doc(db, 'inventory', ingredientId);
+    const receivingLockRef = doc(
+      db, 'receiving_locks', `${purchaseOrderId}_${request.receivingToken}`,
+    );
+    const inventoryTransactionRef = doc(
+      fsCollection(db, 'inventory', ingredientId, 'transactions'),
+    );
+    const auditTrailRef = doc(
+      fsCollection(db, 'ai_audit_trails', request.auditTrailId, 'events'),
+    );
+    const aiPerformanceMetricRef = doc(
+      fsCollection(db, 'ai_performance_metrics'),
+    );
+
+    const result = await receivePurchaseOrderWithTransaction({
+      request,
+      db:                      db as import('firebase/firestore').Firestore,
+      purchaseOrderRef,
+      inventoryRef,
+      receivingLockRef,
+      inventoryTransactionRef,
+      auditTrailRef,
+      aiPerformanceMetricRef,
+      now: new Date(),
+    });
+
+    if (result.success) {
+      // Invalidate AI snapshot so next suggestion reflects current stock
+      invalidateSnapshotCache(request.tenantId);
+    }
+
+    return result;
+  },
+
   async approveDraftOrder(orderId: string, tenantId: string): Promise<void> {
     const order = await getPurchaseOrder(orderId);
 

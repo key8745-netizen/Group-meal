@@ -14,13 +14,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-System Release Gate: Feature 001 + Feature 002 + Feature 003 Production Readiness Review
+Release Preparation: Feature 001 + Feature 002 + Feature 003
 
 ---
 
 ## Current Phase
 
-Pre-Release Full-System Validation
+Merge & Release Preparation
 
 ---
 
@@ -32,12 +32,14 @@ Pre-Release Full-System Validation
 * Feature 002 Final Commit: `2bf0769`
 * Feature 003: CLOSED
 * Feature 003 Final Commit: `1a5a381`
-* Feature 003 Final Tests: 264/264 pass
-* Feature 003 Final Integration Tests: 84/84 pass
-* Feature 003 Production Checklist: 20/20 pass
-* Feature 003 Grok Final Review: 95/100
-* `docs/AI_TEAM_WORKFLOW.md`: CREATED
-* ChatGPT Decision: Feature 003 CLOSED; run System Release Gate before Feature 004
+* System Release Gate: PASSED
+* System Release Gate Commit: `4473127`
+* Full-system Integration Tests: 223/223 pass
+* Critical Safety Gates: 16/16 pass
+* Production Readiness Checklist: 20/20 pass
+* Grok Final Release Gate Review: 96/100
+* Release Recommendation: RELEASE_READY
+* ChatGPT Decision: System Release Gate PASSED; Claude GO - Merge / Release Preparation only
 
 ---
 
@@ -47,25 +49,33 @@ Pre-Release Full-System Validation
 
 ---
 
+## Target Merge Branch
+
+`claude/fervent-dirac-HJT01`
+
+---
+
 ## Current Commit
 
-`1a5a381`
+`4473127`
 
 ---
 
 ## Allowed in this phase
 
-* Full-system integration tests across Feature 001 + Feature 002 + Feature 003
-* End-to-end validation from AI suggestion to prediction preview to purchase receiving
-* Audit trail continuity checks
-* Permission boundary regression tests
-* AI forbidden-action regression tests
-* Transaction and idempotency regression tests
-* Prediction preview non-executable regression tests
-* Production readiness checklist consolidation
-* Release risk register
-* Documentation cleanup
-* SSOT update
+* Prepare merge from `claude/busy-heisenberg-HcwYg` to `claude/fervent-dirac-HJT01`
+* Verify clean working tree
+* Verify branch diff
+* Run final tests
+* Run typecheck
+* Run build
+* Confirm no unexpected files changed
+* Confirm `docs/CURRENT_SSOT.md` is updated
+* Confirm `docs/AI_TEAM_WORKFLOW.md` exists
+* Confirm release notes / release summary
+* Confirm `docs/RELEASE_RISK_REGISTER.md` exists and is complete
+* Prepare merge report
+* Prepare release preparation report
 
 ---
 
@@ -73,17 +83,17 @@ Pre-Release Full-System Validation
 
 * Do not start Feature 004 yet
 * Do not introduce new business logic
-* Do not modify Feature 001 core flow unless required by failing tests
-* Do not modify Feature 002 inventory mutation logic unless required by failing tests
-* Do not modify Feature 003 prediction logic unless required by failing tests
-* Do not add Netlify Functions
 * Do not add UI
+* Do not add Netlify Functions
+* Do not modify Feature 001 core flow
+* Do not modify Feature 002 inventory mutation logic
+* Do not modify Feature 003 prediction logic
 * Do not bypass backend guards
 * Do not bypass idempotency locks
 * Do not write performanceLogs / finalizedPerformanceLogs / operationalReports
 * Do not allow AI approval, AI submit, AI receiving, or AI rule mutation
 * Do not allow prediction output to become executable purchase action
-* Do not return to old Feature phases unless explicitly required for a failing regression test
+* Do not change production behavior except merge/release preparation metadata and docs
 
 ---
 
@@ -105,9 +115,9 @@ Pre-Release Full-System Validation
 
 ## Team State
 
-* Claude: HOLD until System Release Gate instruction
+* Claude: GO - Merge / Release Preparation only
 * Gemini: HOLD
-* Grok: Prepare full-system release review if requested
+* Grok: HOLD / Prepare post-merge review if requested
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -115,10 +125,20 @@ Pre-Release Full-System Validation
 
 ## Next Expected Input
 
-ibi decision:
-1. Start System Release Gate
-2. Pause development and prepare merge/release
-3. Start Feature 004 planning after release gate
+Claude Merge / Release Preparation report:
+* source branch
+* target branch
+* current commit
+* merge readiness
+* changed files summary
+* final tests result
+* typecheck result
+* build result
+* release risk register status
+* release notes summary
+* confirmation that no new business logic was added
+* confirmation that no Feature 004 work was started
+* known limitations
 
 ---
 

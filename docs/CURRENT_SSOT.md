@@ -14,13 +14,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-System Integration Gate: Feature 001 + Feature 002 End-to-End Validation
+Feature 003 Pre-Spec Gap Analysis
 
 ---
 
 ## Current Phase
 
-Pre-Feature 003 Integration Gate
+Pre-Spec / Red Team Gap Analysis
 
 ---
 
@@ -30,14 +30,13 @@ Pre-Feature 003 Integration Gate
 - Feature 001 Final Commit: `48c57b0`
 - Feature 001 Final Tests: 581/581 pass
 - Feature 002: CLOSED
-- Feature 002 Phase 1 Commit: `ec0a874`
-- Feature 002 Phase 2 Commit: `425dd22`
-- Feature 002 Phase 3 Commit: `7ef739f`
 - Feature 002 Final Commit: `2bf0769`
-- Feature 002 SSOT Commit: `30b2b48`
 - Feature 002 Final Tests: 384/384 pass
 - Feature 002 Grok Final Review: 92/100
-- ChatGPT Decision: Feature 002 CLOSED; run integration gate before Feature 003
+- System Integration Gate: CONDITIONALLY PASSED
+- Integration Gate Commit: `3b0a3ee`
+- Integration Gate Tests: 662/662 pass (139 new integration assertions)
+- ChatGPT Decision: Integration Gate conditionally passed; Grok Gap Analysis before Feature 003 Spec
 
 ---
 
@@ -49,54 +48,63 @@ Pre-Feature 003 Integration Gate
 
 ## Current Commit
 
-`2bf0769`
+`3b0a3ee`
+
+---
+
+## Feature 003 Positioning
+
+Feature 003 is NOT a redo of Feature 001 suggestion logic.
+
+Feature 003 = **Predictive Purchasing Optimization Engine**
+
+```
+Feature 001: can generate suggestions
+Feature 003: makes suggestions smarter — but still cannot place orders
+```
+
+Feature 003 must be built on top of existing AIContextSummary and aiSuggestionService.
+It is a pure computation layer — no Firestore writes, no order execution, no rule mutation.
 
 ---
 
 ## Allowed in this phase
 
-- End-to-end integration tests across Feature 001 + Feature 002
-- Full flow verification:
-  - AI suggestion
-  - confidence grading
-  - human override
-  - draft purchase suggestion
-  - human approval
-  - purchaseOrders.status = DRAFT
-  - human submit
-  - purchaseOrders.status = PENDING
-  - human receiving confirmation
-  - purchaseOrders.status = RECEIVED
-  - inventory.currentStockGrams update
-  - inventoryTransaction creation
-  - ai_performance_metrics creation
-- Audit trail continuity checks
-- Idempotency checks
-- Retry / duplicate submit checks
-- Documentation cleanup
-- Production readiness checklist consolidation
-- SSOT update
+- Grok: Feature 003 Gap Analysis (data overflow, false positive, prediction boundary, learning contamination)
+- Gemini: Feature 003 Spec (after Grok Gap Analysis is complete)
+- SSOT update when instructed by ibi or ChatGPT
 
 ---
 
 ## Forbidden in this phase
 
-- Do not start Feature 003 yet
-- Do not introduce new business logic
-- Do not modify AI confidence rules unless required by failing tests
-- Do not modify inventory mutation logic unless required by failing tests
+- Do not let Claude start Feature 003 implementation
+- Do not rewrite or duplicate Feature 001 aiSuggestionService
+- Do not introduce new Firestore write paths
 - Do not add Netlify Functions
-- Do not bypass backend guards
-- Do not bypass idempotency locks
+- Do not modify AI confidence rules
+- Do not modify inventory mutation logic
+- Do not bypass Feature 001 / Feature 002 guards
 - Do not write performanceLogs / finalizedPerformanceLogs / operationalReports
-- Do not allow AI approval, AI submit, or AI receiving
+- Do not allow AI to auto-adjust purchasing thresholds or confidence rules
 - Do not return to Feature 001 or Feature 002 old phases
 
 ---
 
-## Required Guard Rails
+## Feature 003 Hard Rules (pre-decided, must appear in Spec)
 
-- All AI-origin purchase flows must remain human-in-the-loop.
+- Feature 003 is pure computation only — no Firestore reads of raw collections
+- Input must come from Summary Pattern (AIContextSummary, ai_performance_metrics summary, etc.)
+- Output is prediction + recommendation only — not an executable draft
+- All weight adjustments require human review before becoming settings
+- `aiCanMutateRules: false` must be enforced at output level
+- Audit trail event: `PREDICTION_GENERATED` or `PREDICTION_BLOCKED`
+- Data lineage must be traceable from prediction input to output
+
+---
+
+## Required Guard Rails (carry-forward from F001 + F002)
+
 - AI cannot approve, submit, receive, or mutate inventory.
 - All receiving writes must remain inside one transaction.
 - Duplicate receiving must remain blocked.
@@ -108,9 +116,9 @@ Pre-Feature 003 Integration Gate
 
 ## Team State
 
-- Claude: HOLD until integration gate instruction
-- Gemini: HOLD
-- Grok: Prepare integration gate review if requested
+- Claude: HOLD
+- Gemini: HOLD — prepare Feature 003 Spec after Grok Gap Analysis
+- Grok: GO — Feature 003 Gap Analysis
 - ChatGPT: Gatekeeper + SSOT maintainer
 - ibi: Final authority
 
@@ -118,13 +126,9 @@ Pre-Feature 003 Integration Gate
 
 ## Next Expected Input
 
-ibi decision:
-1. Start System Integration Gate
-2. Start Feature 003 planning
-3. Pause development and merge/release current branch
-
-Recommended next input:
-Claude integration gate report or instruction to run Feature 001 + Feature 002 E2E validation.
+1. Grok: Feature 003 Gap Analysis report (data overflow, emulator false positive, prediction boundary, learning contamination)
+2. Gemini: Feature 003 Spec (after Grok clears)
+3. ibi: decision to open Claude Feature 003 Phase 1
 
 ---
 

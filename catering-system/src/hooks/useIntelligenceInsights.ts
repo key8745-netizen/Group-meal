@@ -6,6 +6,12 @@ import { generatePurchaseSuggestion } from '@/services/purchaseService';
 import { configService } from '@/services/configService';
 import { UnitConverter } from '@/services/unitConverter';
 import type { Ingredient, InventoryDoc } from '@/services/types';
+import { buildAIContextSnapshot } from '@/services/aiContextService';
+import {
+  computeConfidence,
+  buildConfidenceMaps,
+  type SuggestionConfidence,
+} from '@/services/aiSuggestionConfidence';
 
 // VITE_TENANT_ID identifies the tenant in Firestore settings/{tenantId}.
 // Falls back to project ID for single-tenant deploys; set explicitly for multi-tenant.
@@ -29,7 +35,10 @@ export interface SuggestionItem {
   estimatedCost:  number;
   wasteFactor:    number;
   type:           SuggestionType;
+  confidence:     SuggestionConfidence;
 }
+
+export type { SuggestionConfidence };
 
 export interface UseIntelligenceInsightsResult {
   items:    SuggestionItem[];
@@ -55,14 +64,20 @@ export function useIntelligenceInsights(): UseIntelligenceInsightsResult {
       setLoading(true);
       setError(null);
       try {
-        const [insightData, suggestionData, ingredientSnaps, inventorySnaps, settings] =
+        const [insightData, suggestionData, ingredientSnaps, inventorySnaps, settings, aiContext] =
           await Promise.all([
             runDailyAnalysis(db),
             generatePurchaseSuggestion(db),
             getDocs(collection(db, 'ingredients')),
             getDocs(collection(db, 'inventory')),
             configService.getSettings(TENANT_ID),
+            buildAIContextSnapshot(db, TENANT_ID),
           ]);
+
+        const { inventoryMap: aiInventoryMap, historyMap } = buildConfidenceMaps(
+          aiContext.inventory,
+          aiContext.purchaseHistory,
+        );
 
         const wasteThreshold = settings.wasteFactorWarning ?? THRESHOLDS.highWasteFactor;
 
@@ -88,7 +103,7 @@ export function useIntelligenceInsights(): UseIntelligenceInsightsResult {
         const shortageIds = new Set<string>();
         for (const lineItem of suggestionData.items) {
           shortageIds.add(lineItem.ingredientId);
-          result.push({
+          const partialItem: Omit<SuggestionItem, 'confidence'> = {
             ingredientId:   lineItem.ingredientId,
             ingredientName: lineItem.ingredientName,
             currentStockKg: lineItem.currentStockKg,
@@ -98,6 +113,10 @@ export function useIntelligenceInsights(): UseIntelligenceInsightsResult {
             estimatedCost:  lineItem.estimatedCost,
             wasteFactor:    ingredientMap.get(lineItem.ingredientId)?.wasteFactor ?? 0,
             type:           'SHORTAGE',
+          };
+          result.push({
+            ...partialItem,
+            confidence: computeConfidence(partialItem as SuggestionItem, aiInventoryMap, historyMap, aiContext.settings),
           });
         }
 
@@ -113,7 +132,7 @@ export function useIntelligenceInsights(): UseIntelligenceInsightsResult {
           const safetyLevelKg = UnitConverter.toKg(ingredient.minStockLevel, ingredient.unit);
           if (inventory.currentStock <= safetyLevelKg) continue;
 
-          result.push({
+          const partialItem: Omit<SuggestionItem, 'confidence'> = {
             ingredientId:   id,
             ingredientName: ingredient.name,
             currentStockKg: inventory.currentStock,
@@ -123,6 +142,10 @@ export function useIntelligenceInsights(): UseIntelligenceInsightsResult {
             estimatedCost:  0,
             wasteFactor:    ingredient.wasteFactor ?? 0,
             type:           'WASTE_RISK',
+          };
+          result.push({
+            ...partialItem,
+            confidence: computeConfidence(partialItem as SuggestionItem, aiInventoryMap, historyMap, aiContext.settings),
           });
         }
 

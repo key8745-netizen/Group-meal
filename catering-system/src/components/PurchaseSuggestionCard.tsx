@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, Loader2, ShoppingCart, TrendingDown } from 'lucide-react';
+import { AlertTriangle, Loader2, ShoppingCart, TrendingDown, ShieldAlert, Info } from 'lucide-react';
 import type { SuggestionItem } from '@/hooks/useIntelligenceInsights';
 import { purchaseOrderService } from '@/services/purchaseOrderService';
 import { toTaijin } from '@/utils/unitConverter';
@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import type { ConfidenceLevel } from '@/services/aiSuggestionConfidence';
 
 interface Props {
   item:       SuggestionItem;
@@ -18,16 +19,33 @@ const fmtPct = (n: number) => `${(n * 100).toFixed(1)}%`;
 const fmtCurrency = (n: number) =>
   `NT$ ${n.toLocaleString('zh-TW', { maximumFractionDigits: 0 })}`;
 
+const CONFIDENCE_LABELS: Record<ConfidenceLevel, string> = {
+  HIGH:    '高信心',
+  MEDIUM:  '中信心',
+  LOW:     '低信心',
+  BLOCKED: '⚠ 封鎖',
+};
+
+const CONFIDENCE_COLORS: Record<ConfidenceLevel, string> = {
+  HIGH:    'bg-green-100 text-green-800 border-green-300',
+  MEDIUM:  'bg-yellow-100 text-yellow-800 border-yellow-300',
+  LOW:     'bg-orange-100 text-orange-800 border-orange-300',
+  BLOCKED: 'bg-red-100 text-red-800 border-red-300',
+};
+
 export default function PurchaseSuggestionCard({ item, onApplied }: Props) {
   const [applying,  setApplying]  = useState(false);
   const [appliedId, setAppliedId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const isShortage = item.type === 'SHORTAGE';
+  const confidence = item.confidence;
+  const [showReasons, setShowReasons] = useState(false);
 
   async function handleApply() {
     if (item.type !== 'SHORTAGE') return;
     if (applying || appliedId) return;
+    if (!confidence.canCreateDraft) return;
     if (!Number.isFinite(item.suggestedQtyKg) || item.suggestedQtyKg <= 0) return;
     setApplying(true);
     try {
@@ -67,18 +85,58 @@ export default function PurchaseSuggestionCard({ item, onApplied }: Props) {
             </Badge>
           </div>
 
-          {/* Apply button — only for SHORTAGE items */}
-          {isShortage && (
-            <Button size="sm" onClick={handleApply} disabled={applying || !!appliedId}>
-              {applying
-                ? <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                : <ShoppingCart className="mr-1 h-3 w-3" />
-              }
-              {appliedId ? '已建立' : '採購此項目'}
-            </Button>
-          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Confidence badge */}
+            <button
+              type="button"
+              onClick={() => setShowReasons((v) => !v)}
+              className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs font-medium ${CONFIDENCE_COLORS[confidence.level]}`}
+            >
+              <Info className="h-3 w-3" />
+              {CONFIDENCE_LABELS[confidence.level]}
+            </button>
+
+            {/* Apply button — only for SHORTAGE items that are not BLOCKED */}
+            {isShortage && confidence.level !== 'BLOCKED' && (
+              <Button size="sm" onClick={handleApply} disabled={applying || !!appliedId}>
+                {applying
+                  ? <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  : <ShoppingCart className="mr-1 h-3 w-3" />
+                }
+                {appliedId ? '已建立' : '採購此項目'}
+              </Button>
+            )}
+
+            {/* Blocked state — show shield icon instead of apply button */}
+            {isShortage && confidence.level === 'BLOCKED' && (
+              <span className="inline-flex items-center gap-1 text-xs text-red-600">
+                <ShieldAlert className="h-3.5 w-3.5" />
+                無法自動採購
+              </span>
+            )}
+          </div>
         </div>
       </CardHeader>
+
+      {/* ── Confidence reasoning panel (toggle) ── */}
+      {showReasons && (
+        <div className="mx-4 mb-2 rounded-md border border-dashed p-3 text-xs">
+          {confidence.blockReason ? (
+            <p className="text-red-700">
+              <span className="font-semibold">封鎖原因：</span>{confidence.blockReason}
+            </p>
+          ) : (
+            <ul className="space-y-1 text-muted-foreground">
+              {confidence.reasons.map((r, i) => (
+                <li key={i} className="flex gap-1.5">
+                  <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-50 translate-y-1" />
+                  {r}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* ── Body ── */}
       <CardContent className="pb-4 text-sm">
@@ -116,6 +174,12 @@ export default function PurchaseSuggestionCard({ item, onApplied }: Props) {
             {appliedId && (
               <p className="mt-2 text-xs text-green-600">
                 ✅ DRAFT 採購單已建立（#{appliedId.slice(0, 8)}…）
+              </p>
+            )}
+            {confidence.level === 'BLOCKED' && confidence.blockReason && (
+              <p className="mt-2 flex items-start gap-1 text-xs text-red-600">
+                <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                {confidence.blockReason}
               </p>
             )}
           </>

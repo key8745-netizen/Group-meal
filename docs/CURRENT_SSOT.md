@@ -14,13 +14,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Feature 002: Receiving & Inventory Update Boundary
+System Integration Gate: Feature 001 + Feature 002 End-to-End Validation
 
 ---
 
 ## Current Phase
 
-Phase 4: E2E Testing, Production Readiness, Final Polish
+Pre-Feature 003 Integration Gate
 
 ---
 
@@ -28,17 +28,16 @@ Phase 4: E2E Testing, Production Readiness, Final Polish
 
 - Feature 001: CLOSED
 - Feature 001 Final Commit: `48c57b0`
-- Feature 002 Gemini Spec: v1.2
-- Feature 002 Phase 1: PASSED
+- Feature 001 Final Tests: 581/581 pass
+- Feature 002: CLOSED
 - Feature 002 Phase 1 Commit: `ec0a874`
-- Feature 002 Phase 2: CONDITIONALLY PASSED
 - Feature 002 Phase 2 Commit: `425dd22`
-- Feature 002 Phase 3: CONDITIONALLY PASSED
 - Feature 002 Phase 3 Commit: `7ef739f`
-- Feature 002 Phase 3 Grok Review: 89/100
-- ChatGPT Decision: Claude GO - Feature 002 Phase 4 only
-- Feature 002 Phase 4: PENDING REVIEW
-- Feature 002 Phase 4 Commit: `2bf0769`
+- Feature 002 Final Commit: `2bf0769`
+- Feature 002 SSOT Commit: `30b2b48`
+- Feature 002 Final Tests: 384/384 pass
+- Feature 002 Grok Final Review: 92/100
+- ChatGPT Decision: Feature 002 CLOSED; run integration gate before Feature 003
 
 ---
 
@@ -56,61 +55,62 @@ Phase 4: E2E Testing, Production Readiness, Final Polish
 
 ## Allowed in this phase
 
-- Phase 3 risk fixes
-- Replace `Date.now()` receivingToken with UUID v4 or equivalent collision-resistant token
-- E2E / integration tests for receiving flow
-- Tests for direct service call bypassing UI
-- Tests for duplicate submit
-- Tests for network failure / retry safety
-- Tests for delta >15% without note blocked by backend
-- Tests for idempotency lock behavior
-- Tests confirming receiving writes remain in one transaction
-- Production readiness checklist
-- Documentation updates
+- End-to-end integration tests across Feature 001 + Feature 002
+- Full flow verification:
+  - AI suggestion
+  - confidence grading
+  - human override
+  - draft purchase suggestion
+  - human approval
+  - purchaseOrders.status = DRAFT
+  - human submit
+  - purchaseOrders.status = PENDING
+  - human receiving confirmation
+  - purchaseOrders.status = RECEIVED
+  - inventory.currentStockGrams update
+  - inventoryTransaction creation
+  - ai_performance_metrics creation
+- Audit trail continuity checks
+- Idempotency checks
+- Retry / duplicate submit checks
+- Documentation cleanup
+- Production readiness checklist consolidation
 - SSOT update
 
 ---
 
 ## Forbidden in this phase
 
+- Do not start Feature 003 yet
+- Do not introduce new business logic
+- Do not modify AI confidence rules unless required by failing tests
+- Do not modify inventory mutation logic unless required by failing tests
 - Do not add Netlify Functions
-- Do not introduce new production write paths
-- Do not bypass guarded receiving transaction service
-- Do not bypass `validateAIOperationOrThrow`
-- Do not bypass receiving validation
-- Do not bypass idempotency lock
-- Do not update inventory outside transaction
-- Do not create inventoryTransactions outside transaction
+- Do not bypass backend guards
+- Do not bypass idempotency locks
 - Do not write performanceLogs / finalizedPerformanceLogs / operationalReports
-- Do not remove irreversible receiving warnings
-- Do not allow AI auto-receiving
-- Do not add receiving lock cleanup jobs
-- Do not return to Feature 001
-- Do not return to Feature 002 v1.1 / old phases
+- Do not allow AI approval, AI submit, or AI receiving
+- Do not return to Feature 001 or Feature 002 old phases
 
 ---
 
 ## Required Guard Rails
 
-- UI must call only the guarded receiving transaction service.
-- Backend service must still block invalid calls even if UI is bypassed.
-- receivingToken must be collision-resistant.
-- Duplicate submit must be blocked by UI and backend idempotency.
-- Network failure / retry must not cause duplicate receiving.
-- Delta >15% without receiving note must be blocked by UI and backend.
-- All receiving writes must remain inside one `runTransaction`.
-- `inventory.currentStockGrams` must only update inside transaction.
-- `inventoryTransactions` must only be created inside transaction.
-- `purchaseOrders.status = RECEIVED` must only happen inside transaction.
-- No operational performance logs may be written in this feature phase.
+- All AI-origin purchase flows must remain human-in-the-loop.
+- AI cannot approve, submit, receive, or mutate inventory.
+- All receiving writes must remain inside one transaction.
+- Duplicate receiving must remain blocked.
+- Retry must not duplicate inventory updates.
+- Audit trail must remain traceable from snapshot to inventoryTransaction.
+- `ai_performance_metrics` must remain isolated from operational performance logs.
 
 ---
 
 ## Team State
 
-- Claude: GO - Feature 002 Phase 4 only
+- Claude: HOLD until integration gate instruction
 - Gemini: HOLD
-- Grok: Prepare Feature 002 Phase 4 code review
+- Grok: Prepare integration gate review if requested
 - ChatGPT: Gatekeeper + SSOT maintainer
 - ibi: Final authority
 
@@ -118,24 +118,13 @@ Phase 4: E2E Testing, Production Readiness, Final Polish
 
 ## Next Expected Input
 
-Claude Feature 002 Phase 4 report:
+ibi decision:
+1. Start System Integration Gate
+2. Start Feature 003 planning
+3. Pause development and merge/release current branch
 
-- branch name
-- commit hash
-- changed files
-- whether only allowed files were modified
-- tests result
-- typecheck result
-- build result
-- confirmation that receivingToken no longer uses `Date.now()` only
-- confirmation that direct service-call bypass tests pass
-- confirmation that duplicate submit tests pass
-- confirmation that network failure / retry tests pass
-- confirmation that delta >15% without note is blocked by backend
-- confirmation that all receiving writes remain in one transaction
-- confirmation that no Netlify Function was added
-- confirmation that no performanceLogs / finalizedPerformanceLogs / operationalReports were written
-- production readiness checklist summary
+Recommended next input:
+Claude integration gate report or instruction to run Feature 001 + Feature 002 E2E validation.
 
 ---
 

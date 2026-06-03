@@ -233,6 +233,62 @@ export const purchaseOrderService = {
    * @param orderId   Firestore document ID in purchaseOrders collection
    * @param tenantId  Used to check requireHumanApproval setting
    */
+  /**
+   * DRAFT-only helper for AI-origin purchase orders (Phase 6).
+   *
+   * Converts a human-approved PurchaseOrderDraftInput into a Firestore
+   * purchaseOrders document with status === 'DRAFT'.
+   *
+   * HARD RULES:
+   *  - Input must have status === 'DRAFT' (validated by validatePurchaseOrderDraftInput)
+   *  - approvedByHumanUserId must be present
+   *  - aiMetadata.aiCanSubmit must be false
+   *  - aiMetadata.requiresFinalSubmission must be true
+   *  - Does NOT modify inventory
+   *  - Does NOT transition to PENDING or RECEIVED
+   *
+   * @throws Error when input validation fails (never silently ignores)
+   */
+  async createDraftPurchaseOrderFromApprovedSuggestion(
+    input: import('./aiHumanApprovalService').PurchaseOrderDraftInput,
+  ): Promise<string> {
+    const { validatePurchaseOrderDraftInput } = await import('./aiHumanApprovalService');
+    const validationErrors = validatePurchaseOrderDraftInput(input);
+    if (validationErrors.length > 0) {
+      throw new Error(
+        `purchaseOrderService.createDraftPurchaseOrderFromApprovedSuggestion: ` +
+        `validation failed: ${validationErrors.join(', ')}`,
+      );
+    }
+
+    // Convert grams to kg for storage (existing PurchaseOrder schema uses kg)
+    const purchaseQtyKg = input.approvedQtyGrams / 1000;
+
+    const orderRef = doc(collection(db, 'purchaseOrders'));
+
+    await runTransaction(db, async (t) => {
+      t.set(orderRef, {
+        status:        'DRAFT',
+        items: [{
+          ingredientId:       input.ingredientId,
+          name:               input.ingredientName ?? input.ingredientId,
+          purchaseQtyKg,
+          purchaseTaijin:     Math.round((purchaseQtyKg / 0.6) * 100) / 100,
+          recommendedQtyKg:   purchaseQtyKg,
+        }],
+        notes:         input.notes,
+        createdAt:     serverTimestamp(),
+        // Full AI audit chain — stamped for human review
+        aiGenerated:         true,
+        aiCanSubmit:         false,
+        requiresFinalSubmission: true,
+        aiMetadata:    input.aiMetadata,
+      });
+    });
+
+    return orderRef.id;
+  },
+
   async approveDraftOrder(orderId: string, tenantId: string): Promise<void> {
     const order = await getPurchaseOrder(orderId);
 

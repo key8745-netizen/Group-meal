@@ -100,7 +100,16 @@ export type BlockedReason =
   | 'DRAFT_FROM_BLOCKED_SUGGESTION_BLOCKED'
   | 'FEEDBACK_SUGGESTION_MISMATCH'
   | 'OVERRIDE_SUGGESTION_MISMATCH'
-  | 'AI_DRAFT_CREATION_FORBIDDEN';
+  | 'AI_DRAFT_CREATION_FORBIDDEN'
+  // ── Human approval / purchase order (Phase 6) ─────────────────────────────
+  | 'HUMAN_APPROVAL_REQUIRED'
+  | 'MISSING_HUMAN_APPROVER'
+  | 'PURCHASE_ORDER_DRAFT_ONLY'
+  | 'AI_PURCHASE_APPROVAL_FORBIDDEN'
+  | 'PURCHASE_ORDER_PENDING_FORBIDDEN'
+  | 'PURCHASE_ORDER_RECEIVED_FORBIDDEN'
+  | 'MISSING_APPROVAL_ID'
+  | 'AI_PURCHASE_SUBMIT_FORBIDDEN';
 
 // ─── Operation validation ──────────────────────────────────────────────────────
 
@@ -468,4 +477,60 @@ export interface DraftPurchaseSuggestion {
   createdBy: 'human';
   createdByUserId: string;
   createdAt: Date;
+}
+
+// ─── Human Approval / Purchase Order DRAFT (Phase 6) ─────────────────────────
+
+/**
+ * Records a human's explicit approval to convert a DraftPurchaseSuggestion
+ * into a purchaseOrders DRAFT document.
+ *
+ * Invariants:
+ *  - aiCanApprove is always false
+ *  - requiresFinalSubmission is always true
+ *  - createsPurchaseOrderStatus is always 'DRAFT'
+ */
+export interface HumanApprovalForPurchaseDraft {
+  approvalId: string;
+  tenantId: TenantId;
+  draftSuggestionId: string;
+  suggestionId: SuggestionId;
+  sourceSnapshotId: SnapshotId;
+  auditTrailId: AuditTrailId;
+  feedbackId?: string;
+  overrideId?: string;
+  approvedByHumanUserId: string;
+  approvedAt: Date;
+  approvalNote?: string;
+  approvedQtyGrams: Grams;
+  /** Always 'DRAFT' — never PENDING or RECEIVED */
+  createsPurchaseOrderStatus: 'DRAFT';
+  /** Phase 6 invariant: AI can never approve */
+  aiCanApprove: false;
+  /** After DRAFT is created, a human must still submit before it becomes PENDING */
+  requiresFinalSubmission: true;
+}
+
+/**
+ * AI-origin metadata stamped on a purchaseOrders DRAFT document.
+ * The full audit chain from snapshot → suggestion → override → approval.
+ */
+export interface AIPurchaseOrderDraftMetadata {
+  source: 'ai_suggestion_human_approved';
+  tenantId: TenantId;
+  sourceSnapshotId: SnapshotId;
+  suggestionId: SuggestionId;
+  draftSuggestionId: string;
+  auditTrailId: AuditTrailId;
+  feedbackId?: string;
+  overrideId?: string;
+  approvalId: string;
+  approvedByHumanUserId: string;
+  approvedAt: Date;
+  /** Always true — tracks AI origin for human review */
+  requiresFinalSubmission: true;
+  /** Always true — documents that this order originated from AI suggestion */
+  aiGenerated: true;
+  /** Always false — AI cannot submit to PENDING */
+  aiCanSubmit: false;
 }

@@ -187,6 +187,66 @@ console.log('\n── aiContextSummaryService ───────────�
   check('safety stock shortage: salt = 50', r.shortageQtyGramsByIngredient['salt'], 50);
 }
 
+// ── source: 'ocr' item is always contaminated regardless of verified flag ─────
+{
+  const r = buildAIContextSummary({
+    tenantId: TENANT,
+    now: NOW,
+    activeMealPlans: [],
+    menus: [],
+    inventoryItems: [{
+      ingredientId: 'chicken',
+      name: 'Chicken',
+      currentStockKg: 3,
+      source: 'ocr',  // source=ocr always contaminated
+      verified: true, // even if verified flag is set
+    }],
+    recentPurchaseOrders: [],
+    performanceLogs: [],
+    settings: baseSettings,
+  });
+  checkTrue('source=ocr always contaminated: UNVERIFIED_OCR_SOURCE in blockedReasons',
+    r.blockedReasons.includes('UNVERIFIED_OCR_SOURCE'));
+  check('source=ocr: isVerified = false in inventorySummary',
+    r.inventorySummaryByIngredient['chicken']?.isVerified, false);
+}
+
+// ── asGrams() used: invalid grams (negative) produces no usable value ─────────
+{
+  // currentStockKg = -1 is invalid → kgToGrams throws → stock defaults to 0, blocked
+  const r = buildAIContextSummary({
+    tenantId: TENANT, now: NOW,
+    activeMealPlans: [],
+    menus: [],
+    inventoryItems: [{ ingredientId: 'invalid', currentStockKg: -1, verified: true }],
+    recentPurchaseOrders: [],
+    performanceLogs: [],
+    settings: baseSettings,
+  });
+  checkTrue('invalid currentStockKg: MISSING_GRAMS_FIELD in blockedReasons',
+    r.blockedReasons.includes('MISSING_GRAMS_FIELD'));
+}
+
+// ── summary contains no raw data fields ──────────────────────────────────────
+{
+  const r = buildAIContextSummary({
+    tenantId: TENANT, now: NOW, activeMealPlans: [], menus: [],
+    inventoryItems: [{ ingredientId: 'rice', currentStockKg: 1, verified: true, name: 'Rice' }],
+    recentPurchaseOrders: [], performanceLogs: [],
+    settings: baseSettings,
+  });
+  const forbidden = ['transactions', 'ocrText', 'rawBOM', 'customerData', 'rawLogs'];
+  for (const field of forbidden) {
+    check(`summary has no raw field: ${field}`, Object.keys(r).includes(field), false);
+  }
+  // inventorySummary should only have safe summary fields
+  const invSummary = r.inventorySummaryByIngredient['rice'];
+  const invForbidden = ['transactions', 'ocrText', 'rawData'];
+  for (const field of invForbidden) {
+    check(`inventorySummary[rice] has no raw field: ${field}`, Object.keys(invSummary ?? {}).includes(field), false);
+  }
+}
+
 // ── settingsSummary always has requireHumanApproval = true ───────────────────
 {
   const r = buildAIContextSummary({

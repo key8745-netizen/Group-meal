@@ -46,7 +46,8 @@ export interface InventoryItemInput {
   category?: string;
   isOcr?: boolean;
   verified?: boolean;
-  source?: 'manual' | 'imported' | 'system';
+  /** 'ocr' items are always excluded and flagged as contamination */
+  source?: 'manual' | 'imported' | 'system' | 'ocr';
   wasteFactor?: number;
 }
 
@@ -122,7 +123,13 @@ function buildActiveMealPlanSummary(
   };
 }
 
-function isUnverifiedOcr(item: { isOcr?: boolean; verified?: boolean }): boolean {
+function isUnverifiedOcr(item: {
+  isOcr?: boolean;
+  verified?: boolean;
+  source?: string;
+}): boolean {
+  // source === 'ocr' is always unverified regardless of the verified flag
+  if (item.source === 'ocr') return true;
   return item.isOcr === true && item.verified !== true;
 }
 
@@ -161,7 +168,7 @@ function buildInventoryIngredientSummary(
     safetyStockGrams,
     category:        item.category,
     isVerified,
-    source:          item.source ?? 'manual',
+    source:          (item.source === 'ocr' ? 'imported' : item.source) ?? 'manual',
     warnings,
     blockedReasons:  blocked,
   };

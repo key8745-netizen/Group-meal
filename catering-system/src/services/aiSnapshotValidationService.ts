@@ -14,7 +14,7 @@
  */
 
 import type {
-  AIContextSnapshot, AIOperationValidationResult, BlockedReason,
+  AIContextSnapshot, AIOperationValidationResult, BlockedReason, CallerType,
 } from '@/types/aiBoundary';
 import { SUMMARY_MODE_RECORD_LIMIT, DEBUG_MODE_RECORD_LIMIT, totalRecordCount } from './aiContextSnapshotService';
 
@@ -29,7 +29,8 @@ import { SUMMARY_MODE_RECORD_LIMIT, DEBUG_MODE_RECORD_LIMIT, totalRecordCount } 
  *  5. contaminationDetected === false → UNVERIFIED_OR_CONTAMINATED_SOURCE
  *  6. totalRecordCount ≤ limit → SNAPSHOT_TOO_LARGE
  *  7. summary exists → INCOMPLETE_BOM
- *  8. summary.blockedReasons empty → propagated from summary
+ *  8. summary.tenantId === snapshot.tenantId → TENANT_MISMATCH
+ *  9. summary.blockedReasons empty → propagated from summary
  */
 export function validateSnapshotForSuggestion(
   snapshot: AIContextSnapshot,
@@ -69,6 +70,11 @@ export function validateSnapshotForSuggestion(
   if (!snapshot.summary) {
     blocked.push('INCOMPLETE_BOM');
   } else {
+    // Tenant consistency: summary must belong to the same tenant as the snapshot
+    if (snapshot.tenantId && snapshot.summary.tenantId !== snapshot.tenantId) {
+      blocked.push('TENANT_MISMATCH');
+    }
+
     for (const r of snapshot.summary.blockedReasons) {
       if (!blocked.includes(r)) blocked.push(r);
     }
@@ -81,5 +87,36 @@ export function validateSnapshotForSuggestion(
     allowed:        blocked.length === 0,
     blockedReasons: blocked,
     warnings,
+  };
+}
+
+// ─── requireDebugModePermission ───────────────────────────────────────────────
+
+/**
+ * Returns allowed: true only when the caller has explicit admin permission to
+ * create a debug-mode snapshot.
+ *
+ * Rules:
+ *  - AI callers (callerType === 'ai') are always blocked from debug mode.
+ *  - Human callers without admin permission are also blocked.
+ *  - Debug snapshots created under this check still cannot be used for suggestions
+ *    (validateSnapshotForSuggestion will return SNAPSHOT_DEBUG_NOT_ALLOWED).
+ */
+export function requireDebugModePermission(input: {
+  callerType: CallerType;
+  hasAdminPermission?: boolean;
+}): AIOperationValidationResult {
+  const blocked: BlockedReason[] = [];
+
+  if (input.callerType === 'ai') {
+    blocked.push('SNAPSHOT_DEBUG_NOT_ALLOWED');
+  } else if (!input.hasAdminPermission) {
+    blocked.push('SNAPSHOT_DEBUG_NOT_ALLOWED');
+  }
+
+  return {
+    allowed:        blocked.length === 0,
+    blockedReasons: blocked,
+    warnings:       [],
   };
 }

@@ -16,9 +16,11 @@
  */
 
 import type {
-  AIContextSnapshot, AIContextSummary,
+  AIContextSnapshot, AIContextSummary, AIOperationRequest, AuditEvent,
   SnapshotId, TenantId, BlockedReason, CallerType,
 } from '@/types/aiBoundary';
+import { validateAIOperationOrThrow } from './aiBoundaryService';
+import { createAuditEvent } from './aiAuditTrailHelper';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -130,4 +132,73 @@ export function createAIContextSnapshot(
 /** Returns the sum of all per-collection record counts */
 export function totalRecordCount(recordCounts: Record<string, number>): number {
   return Object.values(recordCounts).reduce((sum, n) => sum + n, 0);
+}
+
+// ─── generateAIContextSnapshot ────────────────────────────────────────────────
+
+/**
+ * Return type for the authoritative snapshot generation entry point.
+ * Always includes a SNAPSHOT_GENERATED audit event alongside the snapshot.
+ */
+export interface GenerateAIContextSnapshotResult {
+  snapshot: AIContextSnapshot;
+  auditEvent: AuditEvent;
+}
+
+/**
+ * The ONLY authorised entry point for creating an AIContextSnapshot.
+ *
+ * Enforces the following guards (in order) before building the snapshot:
+ *  1. validateAIOperationOrThrow(operation) — identity checks, caller type,
+ *     tenant presence. Throws AIOperationBlockedError if any check fails.
+ *  2. Auto-promotes contaminationDetected if summary.blockedReasons includes
+ *     UNVERIFIED_OCR_SOURCE or UNVERIFIED_OR_CONTAMINATED_SOURCE.
+ *  3. Produces a SNAPSHOT_GENERATED audit event (Phase 2: in-memory only;
+ *     Phase 3: persist to ai_audit_trails before snapshot Firestore write).
+ *
+ * No other service or caller may construct an AIContextSnapshot directly.
+ * Pass this result's auditEvent to validateAuditAppend() before persisting.
+ */
+export function generateAIContextSnapshot(
+  operation: AIOperationRequest,
+  input: CreateAIContextSnapshotInput,
+): GenerateAIContextSnapshotResult {
+  // ── Backend guard (always first) ──────────────────────────────────────────
+  validateAIOperationOrThrow(operation);
+
+  // ── Promote contamination from summary blockedReasons ─────────────────────
+  const summaryContaminated =
+    input.summary.blockedReasons.includes('UNVERIFIED_OCR_SOURCE') ||
+    input.summary.blockedReasons.includes('UNVERIFIED_OR_CONTAMINATED_SOURCE');
+
+  const enhancedInput: CreateAIContextSnapshotInput = summaryContaminated
+    ? {
+        ...input,
+        contaminationDetected: true,
+        contaminationReasons: input.contaminationReasons.includes('UNVERIFIED_OR_CONTAMINATED_SOURCE')
+          ? input.contaminationReasons
+          : [...input.contaminationReasons, 'UNVERIFIED_OR_CONTAMINATED_SOURCE'],
+      }
+    : input;
+
+  const snapshot = createAIContextSnapshot(enhancedInput);
+
+  // ── Produce SNAPSHOT_GENERATED audit event ────────────────────────────────
+  const auditEvent = createAuditEvent({
+    eventType:    'SNAPSHOT_GENERATED',
+    actorType:    operation.callerType,
+    actorId:      operation.callerId,
+    at:           input.now,
+    toState:      'SNAPSHOT_READY',
+    eventVersion: 1,
+    metadata: {
+      snapshotId: snapshot.snapshotId,
+      tenantId:   snapshot.tenantId,
+      mode:       snapshot.mode,
+      cacheKey:   snapshot.cacheKey,
+      // Phase 3: add auditTrailId here once persisted
+    },
+  });
+
+  return { snapshot, auditEvent };
 }

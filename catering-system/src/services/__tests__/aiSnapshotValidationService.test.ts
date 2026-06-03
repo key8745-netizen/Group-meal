@@ -1,12 +1,12 @@
 /**
  * aiSnapshotValidationService.test.ts
  *
- * Validation tests for validateSnapshotForSuggestion().
+ * Validation tests for validateSnapshotForSuggestion() and requireDebugModePermission().
  * Run with: npx tsx src/services/__tests__/aiSnapshotValidationService.test.ts
  */
 
 import { createAIContextSnapshot } from '../aiContextSnapshotService';
-import { validateSnapshotForSuggestion } from '../aiSnapshotValidationService';
+import { validateSnapshotForSuggestion, requireDebugModePermission } from '../aiSnapshotValidationService';
 import { buildAIContextSummary } from '../aiContextSummaryService';
 import type { TenantId, AIContextSnapshot } from '../../types/aiBoundary';
 
@@ -108,7 +108,7 @@ console.log('\n── aiSnapshotValidationService ──────────
 
 // ── SNAPSHOT_TOO_LARGE ────────────────────────────────────────────────────────
 {
-  const snap = makeSnap({ recordCounts: { inventory: 600 } }); // > 500 limit
+  const snap = makeSnap({ recordCounts: { inventory: 600 } });
   const v = validateSnapshotForSuggestion(snap, NOW);
   check('too large: not allowed', v.allowed, false);
   checkTrue('too large: SNAPSHOT_TOO_LARGE', v.blockedReasons.includes('SNAPSHOT_TOO_LARGE'));
@@ -123,6 +123,15 @@ console.log('\n── aiSnapshotValidationService ──────────
   checkTrue('missing tenantId: MISSING_TENANT_ID', v.blockedReasons.includes('MISSING_TENANT_ID'));
 }
 
+// ── summary tenantId mismatch → TENANT_MISMATCH ───────────────────────────────
+{
+  const mismatchSummary = { ...makeCleanSummary(), tenantId: 'tenant-OTHER' as TenantId };
+  const snap = makeSnap({ summary: mismatchSummary });
+  const v = validateSnapshotForSuggestion(snap, NOW);
+  check('summary tenantId mismatch: not allowed', v.allowed, false);
+  checkTrue('summary tenantId mismatch: TENANT_MISMATCH', v.blockedReasons.includes('TENANT_MISMATCH'));
+}
+
 // ── summary warnings propagated ───────────────────────────────────────────────
 {
   const warnSummary = { ...makeCleanSummary(), warnings: ['LEGACY_KG_FALLBACK_USED' as const] };
@@ -130,6 +139,51 @@ console.log('\n── aiSnapshotValidationService ──────────
   const v = validateSnapshotForSuggestion(snap, NOW);
   check('summary warnings: allowed (warnings only)', v.allowed, true);
   checkTrue('summary warnings: LEGACY_KG_FALLBACK_USED in warnings', v.warnings.includes('LEGACY_KG_FALLBACK_USED'));
+}
+
+// ─── requireDebugModePermission ───────────────────────────────────────────────
+console.log('\n── requireDebugModePermission ─────────────────────────────────');
+
+// ── AI caller → always blocked ────────────────────────────────────────────────
+{
+  const r = requireDebugModePermission({ callerType: 'ai', hasAdminPermission: true });
+  check('AI caller debug: not allowed', r.allowed, false);
+  checkTrue('AI caller debug: SNAPSHOT_DEBUG_NOT_ALLOWED', r.blockedReasons.includes('SNAPSHOT_DEBUG_NOT_ALLOWED'));
+}
+
+// ── human without admin → blocked ────────────────────────────────────────────
+{
+  const r = requireDebugModePermission({ callerType: 'human', hasAdminPermission: false });
+  check('human no admin: not allowed', r.allowed, false);
+  checkTrue('human no admin: SNAPSHOT_DEBUG_NOT_ALLOWED', r.blockedReasons.includes('SNAPSHOT_DEBUG_NOT_ALLOWED'));
+}
+
+// ── human with admin → allowed ────────────────────────────────────────────────
+{
+  const r = requireDebugModePermission({ callerType: 'human', hasAdminPermission: true });
+  check('human with admin: allowed', r.allowed, true);
+  check('human with admin: no blocked', r.blockedReasons, []);
+}
+
+// ── system with admin → allowed ───────────────────────────────────────────────
+{
+  const r = requireDebugModePermission({ callerType: 'system', hasAdminPermission: true });
+  check('system with admin: allowed', r.allowed, true);
+}
+
+// ── system without admin → blocked ───────────────────────────────────────────
+{
+  const r = requireDebugModePermission({ callerType: 'system', hasAdminPermission: false });
+  check('system no admin: not allowed', r.allowed, false);
+  checkTrue('system no admin: SNAPSHOT_DEBUG_NOT_ALLOWED', r.blockedReasons.includes('SNAPSHOT_DEBUG_NOT_ALLOWED'));
+}
+
+// ── debug snapshot still fails validateSnapshotForSuggestion regardless ───────
+{
+  const snap = makeSnap({ mode: 'debug' });
+  const v = validateSnapshotForSuggestion(snap, NOW);
+  check('debug snap always blocked for suggestion (even with admin)', v.allowed, false);
+  checkTrue('debug snap: SNAPSHOT_DEBUG_NOT_ALLOWED in validation', v.blockedReasons.includes('SNAPSHOT_DEBUG_NOT_ALLOWED'));
 }
 
 console.log(`\n${'─'.repeat(60)}`);

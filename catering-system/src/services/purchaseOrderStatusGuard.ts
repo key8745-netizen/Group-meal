@@ -71,10 +71,11 @@ export function validatePurchaseOrderStatusTransition(
   const allowed = ALLOWED_TRANSITIONS[fromStatus] ?? [];
 
   if (!allowed.includes(toStatus)) {
-    if (fromStatus === toStatus) {
-      blocked.push('PURCHASE_ORDER_STATUS_TRANSITION_INVALID');
-    } else if (fromStatus === 'RECEIVED') {
+    if (fromStatus === 'RECEIVED') {
+      // Any transition attempt FROM RECEIVED is semantically "already received"
       blocked.push('PURCHASE_ORDER_ALREADY_RECEIVED');
+    } else if (fromStatus === toStatus) {
+      blocked.push('PURCHASE_ORDER_STATUS_TRANSITION_INVALID');
     } else if (fromStatus === 'PENDING' && toStatus === 'DRAFT') {
       blocked.push('PURCHASE_ORDER_STATUS_TRANSITION_INVALID');
     } else if (fromStatus === 'DRAFT' && toStatus === 'RECEIVED') {

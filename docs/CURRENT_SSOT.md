@@ -20,67 +20,96 @@ Feature 002: Receiving & Inventory Update Boundary
 
 ## Current Phase
 
-Phase 1: Types / Guard / Validation / Transaction Dry-run
+Phase 2: Real Transaction Implementation
 
 ---
 
 ## Current Basis
 
 - Feature 001: CLOSED
-- Feature 001 Final Commit: 48c57b0
+- Feature 001 Final Commit: `48c57b0`
 - Feature 001 Tests: 581/581 pass
 - Feature 002 Gemini Spec: v1.2
 - Feature 002 Grok Review: 94/100
-- ChatGPT Decision: Claude GO - Feature 002 Phase 1 only
+- Feature 002 Phase 1: PASSED
+- Feature 002 Phase 1 Commit: `ec0a874`
+- Feature 002 Phase 1 Grok Code Review: 91/100
+- ChatGPT Decision: Claude GO - Feature 002 Phase 2 only
 
 ---
 
 ## Current Branch
 
-claude/busy-heisenberg-HcwYg
+`claude/busy-heisenberg-HcwYg`
 
 ---
 
 ## Current Commit
 
-ec0a874
+`ec0a874`
 
 ---
 
 ## Allowed in this phase
 
-- receivingBoundary types
-- purchaseOrder status guard
-- receiving validation service
-- idempotency lock helper
-- transaction dry-run plan
-- ai_performance_metrics type/schema
-- tests
-- docs
+- Real receiving transaction service
+- Firestore `runTransaction` implementation
+- Idempotency lock read/create inside transaction
+- Inventory transaction creation inside transaction
+- `inventory.currentStockGrams` update inside transaction
+- `purchaseOrders.status = RECEIVED` update inside transaction
+- Audit event append inside transaction
+- `ai_performance_metrics` creation inside transaction
+- Receiving validation integration
+- Purchase order status transition guard integration
+- Tests
+- Docs
 
 ---
 
 ## Forbidden in this phase
 
-- Do not write production Firestore data
-- Do not execute real runTransaction writes
-- Do not modify inventoryService
-- Do not modify inventory.currentStockGrams
-- Do not create real inventoryTransactions
 - Do not connect UI
 - Do not add Netlify Functions
-- Do not return to Feature 001 Phase 8
+- Do not allow AI caller to receive
+- Do not allow AI caller to update inventory
+- Do not write `performanceLogs`
+- Do not write `finalizedPerformanceLogs`
+- Do not write `operationalReports`
+- Do not split receiving into multiple independent writes
+- Do not update purchaseOrder to RECEIVED outside the transaction
+- Do not update inventory outside the transaction
+- Do not create inventoryTransactions outside the transaction
+- Do not allow DRAFT → RECEIVED
+- Do not allow duplicate receiving
+- Do not bypass idempotency lock
+- Do not bypass `validateAIOperationOrThrow`
+- Do not return to Feature 001 phases
 - Do not return to Feature 002 v1.1
-- Do not implement real receiving
-- Do not update purchaseOrders.status to RECEIVED
+
+---
+
+## Required Guard Rails
+
+- All writes must happen inside one Firestore `runTransaction` callback.
+- The transaction must read and validate purchaseOrder, inventory, and receiving lock before writing.
+- Idempotency lock key must be based on `purchaseOrderId + receivingToken`.
+- Duplicate receiving must be blocked.
+- Already RECEIVED purchaseOrder must be blocked.
+- `callerType === 'ai'` must be blocked.
+- Receiving delta greater than 15% without valid `receivingNote` must be blocked and rollback.
+- Inventory update must use atomic increment semantics or transaction-safe equivalent.
+- AI performance feedback must only write `ai_performance_metrics`.
+- `performanceLogs` and finalized operational logs are forbidden in this feature phase.
+- All `purchaseOrders.status` transitions must call the status transition guard.
 
 ---
 
 ## Team State
 
-- Claude: GO - Feature 002 Phase 1 only
+- Claude: GO - Feature 002 Phase 2 only
 - Gemini: HOLD
-- Grok: Prepare Feature 002 Phase 1 code review
+- Grok: Prepare Feature 002 Phase 2 code review
 - ChatGPT: Gatekeeper + SSOT maintainer
 - ibi: Final authority
 
@@ -88,7 +117,7 @@ ec0a874
 
 ## Next Expected Input
 
-Claude Feature 002 Phase 1 report:
+Claude Feature 002 Phase 2 report:
 
 - branch name
 - commit hash
@@ -97,11 +126,16 @@ Claude Feature 002 Phase 1 report:
 - tests result
 - typecheck result
 - build result
-- confirmation that no production data was written
-- confirmation that no real runTransaction write was executed
-- confirmation that inventoryService was not modified
-- confirmation that inventory.currentStockGrams was not modified
-- confirmation that no real inventoryTransactions were created
+- confirmation that all receiving writes are in one `runTransaction`
+- confirmation that idempotency lock is created inside the same transaction
+- confirmation that duplicate receiving is blocked
+- confirmation that AI caller is blocked
+- confirmation that delta >15% without note is blocked
+- confirmation that `inventory.currentStockGrams` is updated only inside transaction
+- confirmation that inventory transaction is created only inside transaction
+- confirmation that purchaseOrder status is updated to RECEIVED only inside transaction
+- confirmation that no `performanceLogs` / `finalizedPerformanceLogs` / `operationalReports` are written
+- confirmation that no UI / Netlify Function was added
 
 ---
 

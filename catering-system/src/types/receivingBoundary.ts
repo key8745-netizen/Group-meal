@@ -185,5 +185,14 @@ export interface ReceivingTransactionDryRunPlan {
 /** Receiving delta above this fraction (absolute) requires a receivingNote */
 export const RECEIVING_DELTA_NOTE_THRESHOLD = 0.15;
 
-/** Default TTL for idempotency locks in milliseconds (10 minutes) */
+/** Max lifetime for an ACTIVE (in-flight) idempotency lock (10 minutes) */
 export const RECEIVING_LOCK_TTL_MS = 10 * 60 * 1000;
+
+/**
+ * Retention TTL for CONSUMED locks (30 minutes).
+ * CONSUMED locks are kept as idempotency proof so duplicate requests
+ * within this window return DUPLICATE_RECEIVING_ATTEMPT immediately.
+ * Stale CONSUMED locks past this TTL may be cleaned up by a maintenance job
+ * (not implemented in Phase 2 — see FEATURE_002_RECEIVING_BOUNDARY_PHASE2.md).
+ */
+export const RECEIVING_CONSUMED_LOCK_RETENTION_MS = 30 * 60 * 1000;

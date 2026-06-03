@@ -339,6 +339,67 @@ export const purchaseOrderService = {
     }
   },
 
+  /**
+   * Human-only PENDING → RECEIVED transition for AI-sourced purchase orders (Phase 2).
+   *
+   * HARD RULES:
+   *  - callerType must be 'human' — AI callers are blocked before the transaction opens
+   *  - All six writes (lock, inventoryTransaction, inventory, PO status, audit, metric)
+   *    execute inside ONE Firestore runTransaction callback
+   *  - Duplicate receiving is blocked via idempotency lock
+   *  - Does NOT write performanceLogs / finalizedPerformanceLogs / operationalReports
+   *  - inventoryService.restockIngredient() is NOT called — increment() is used directly
+   *
+   * @param purchaseOrderId  The PENDING purchase order to receive
+   * @param ingredientId     The single ingredient on this AI-sourced order
+   * @param request          Human-supplied receiving confirmation
+   */
+  async receiveAISourcedPurchaseOrder(
+    purchaseOrderId: string,
+    ingredientId: string,
+    request: import('./receivingTransactionService').ReceivingTransactionInput['request'],
+  ): Promise<import('./receivingTransactionService').ReceivingTransactionResult> {
+    const {
+      receivePurchaseOrderWithTransaction,
+    } = await import('./receivingTransactionService');
+
+    const { collection: fsCollection } = await import('firebase/firestore');
+
+    const purchaseOrderRef = doc(db, 'purchaseOrders', purchaseOrderId);
+    const inventoryRef     = doc(db, 'inventory', ingredientId);
+    const receivingLockRef = doc(
+      db, 'receiving_locks', `${purchaseOrderId}_${request.receivingToken}`,
+    );
+    const inventoryTransactionRef = doc(
+      fsCollection(db, 'inventory', ingredientId, 'transactions'),
+    );
+    const auditTrailRef = doc(
+      fsCollection(db, 'ai_audit_trails', request.auditTrailId, 'events'),
+    );
+    const aiPerformanceMetricRef = doc(
+      fsCollection(db, 'ai_performance_metrics'),
+    );
+
+    const result = await receivePurchaseOrderWithTransaction({
+      request,
+      db:                      db as import('firebase/firestore').Firestore,
+      purchaseOrderRef,
+      inventoryRef,
+      receivingLockRef,
+      inventoryTransactionRef,
+      auditTrailRef,
+      aiPerformanceMetricRef,
+      now: new Date(),
+    });
+
+    if (result.success) {
+      // Invalidate AI snapshot so next suggestion reflects current stock
+      invalidateSnapshotCache(request.tenantId);
+    }
+
+    return result;
+  },
+
   async approveDraftOrder(orderId: string, tenantId: string): Promise<void> {
     const order = await getPurchaseOrder(orderId);
 

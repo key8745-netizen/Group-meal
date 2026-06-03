@@ -302,6 +302,60 @@ export interface SuggestionConfidenceV2 {
   sourceSnapshotId?: string;
 }
 
+// ─── Override / Feedback (Phase 4) ───────────────────────────────────────────
+
+/**
+ * Reason a human provides when overriding an AI purchase suggestion.
+ * Exhaustive union — no freeform strings.
+ */
+export type OverrideReason =
+  | 'too_high'
+  | 'too_low'
+  | 'supplier_limit'
+  | 'chef_override'
+  | 'unit_conversion_issue'
+  | 'ingredient_unavailable'
+  | 'seasonal_adjustment'
+  | 'other';
+
+/**
+ * Feedback record created when a human overrides an AI suggestion quantity.
+ * Never triggers downstream purchase flow — Phase 4 audit only.
+ */
+export interface AISuggestionFeedback {
+  feedbackId: string;
+  tenantId: TenantId;
+  suggestionId: SuggestionId;
+  sourceSnapshotId: SnapshotId;
+  auditTrailId: AuditTrailId;
+  ingredientId: string;
+  originalRecommendedQtyGrams: Grams;
+  finalQtyGrams: Grams;
+  overrideReason: OverrideReason;
+  note?: string;
+  actorType: 'human';
+  actorId: string;
+  createdAt: Date;
+}
+
+/**
+ * Immutable record of the human's final quantity decision.
+ * Linked to a suggestion via suggestionId + auditTrailId.
+ */
+export interface HumanOverride {
+  overrideId: string;
+  tenantId: TenantId;
+  suggestionId: SuggestionId;
+  auditTrailId: AuditTrailId;
+  ingredientId: string;
+  originalQtyGrams: Grams;
+  finalQtyGrams: Grams;
+  reason: OverrideReason;
+  note?: string;
+  createdBy: string;
+  createdAt: Date;
+}
+
 // ─── AI Purchase Suggestion (Phase 3) ────────────────────────────────────────
 
 /**

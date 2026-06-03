@@ -111,6 +111,7 @@ export function createPredictionEnhancedSuggestionPreview(input: {
   const auditTrailId = suggestion.auditTrailId ?? prediction.auditTrailId;
 
   const preview: PredictionEnhancedSuggestionPreview = {
+    _kind:                        'preview',
     previewId:                    generatePreviewId(),
     tenantId:                     suggestion.tenantId,
     suggestionId:                 suggestion.suggestionId,

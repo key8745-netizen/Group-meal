@@ -20,7 +20,7 @@ Feature 003: Predictive Purchasing Optimization Engine
 
 ## Current Phase
 
-Phase 2: Integration with Feature 001 Suggestion Service + Dry-run Prediction Output
+Phase 3: Enhanced Prediction Logic, Human Config Recommendation, Final Hardening
 
 ---
 
@@ -39,7 +39,12 @@ Phase 2: Integration with Feature 001 Suggestion Service + Dry-run Prediction Ou
 * Feature 003 Phase 1 SSOT Commit: `d5c82fa`
 * Feature 003 Phase 1 Tests: 110/110 pass
 * Feature 003 Phase 1 Grok Code Review: 93/100
-* ChatGPT Decision: Claude GO - Feature 003 Phase 2 only
+* Feature 003 Phase 2: PASSED
+* Feature 003 Phase 2 Commit: `98817e7`
+* Feature 003 Phase 2 SSOT Commit: `791863c`
+* Feature 003 Phase 2 Tests: 153/153 pass
+* Feature 003 Phase 2 Grok Code Review: 92/100
+* ChatGPT Decision: Claude GO - Feature 003 Phase 3 only
 
 ---
 
@@ -51,26 +56,25 @@ Phase 2: Integration with Feature 001 Suggestion Service + Dry-run Prediction Ou
 
 ## Current Commit
 
-`98817e7` — Feature 003 Phase 2 complete (153/153 tests, typecheck clean, build clean)
+`98817e7`
 
 ---
 
 ## Allowed in this phase
 
-* Integrate Feature 003 prediction pure functions with existing Feature 001 suggestion output in dry-run mode
-* Create dry-run prediction adapter
-* Create prediction-enhanced suggestion preview object
-* Preserve `sourceSnapshotId`
-* Preserve `auditTrailId`
-* Preserve `suggestionId`
-* Add `predictionId`
-* Add `PredictionOutput` to dataLineage as non-executable metadata
-* Add tests for Feature 001 → Feature 003 continuity
-* Add tests for auditTrailId / sourceSnapshotId propagation
-* Add tests confirming no Firestore read/write
-* Add tests confirming no executable draft purchase suggestion is created
-* Add docs explaining `dataQualityScore` formula and human-approved config recommendation behavior
-* SSOT update
+* Enhanced prediction factor logic
+* Final hardening of PredictionEnhancedSuggestionPreview type safety
+* Literal hard-lock: `executable: false`
+* Literal hard-lock: `aiCanWrite: false`
+* Literal hard-lock: `aiCanMutateRules: false`
+* Human-approved model config recommendation improvements
+* Recommendation-only model config output
+* Advanced tests for Feature 001 → Feature 003 continuity
+* Advanced tests for dry-run output immutability
+* Advanced tests for prediction output not becoming executable
+* Documentation for `dataQualityScore` formula weights and rationale
+* Documentation for human-approved config recommendation behavior
+* Docs / SSOT update
 
 ---
 
@@ -84,40 +88,41 @@ Phase 2: Integration with Feature 001 Suggestion Service + Dry-run Prediction Ou
 * Do not call purchaseOrderService
 * Do not call inventoryService
 * Do not modify settings
+* Do not apply model config
 * Do not write performanceLogs / finalizedPerformanceLogs / operationalReports
 * Do not modify Feature 001 core flow
 * Do not modify Feature 002 core flow
 * Do not create executable draft purchase suggestion
-* Do not apply model config
+* Do not let prediction output become an executable purchase action
 * Do not auto-adjust wasteFactorWarning
 * Do not auto-adjust confidence rules
 * Do not allow AI to mutate rules
-* Do not make prediction output actionable without human approval
 
 ---
 
 ## Required Guard Rails
 
-* Prediction integration must remain dry-run only.
-* Prediction output must be metadata, not an executable purchase action.
-* Existing Feature 001 suggestion logic must remain intact.
-* Feature 003 may enrich a suggestion preview, but must not change purchase flow behavior.
-* All prediction outputs must include `predictionId`, `sourceSnapshotId`, and `auditTrailId`.
-* `dataLineage.usedRawDocuments` must remain false.
-* `aiCanWrite` must remain false.
-* `aiCanMutateRules` must remain false.
-* Missing `maxPurchaseLimitGrams` must remain BLOCKED.
-* `tenantConsistencyCheck` must remain enforced.
-* All quantities must use `Grams` / `asGrams`.
-* Model config recommendation must require human approval and cannot be applied in this phase.
+* Feature 003 remains pure computation.
+* Prediction output remains dry-run only.
+* Prediction preview must never be executable.
+* Existing Feature 001 suggestion logic must remain unchanged.
+* Prediction may enrich a preview, but must not change purchase flow behavior.
+* `PredictionEnhancedSuggestionPreview.executable` must be literal `false`.
+* `aiCanWrite` must be literal `false`.
+* `aiCanMutateRules` must be literal `false`.
+* `dataLineage.usedRawDocuments` must be literal `false`.
+* All outputs must preserve `sourceSnapshotId`, `auditTrailId`, `suggestionId`, and `predictionId`.
+* Human-approved model config recommendation must remain recommendation-only.
+* No settings write is allowed.
+* No executable draft purchase suggestion is allowed.
 
 ---
 
 ## Team State
 
-* Claude: GO - Feature 003 Phase 2 only
+* Claude: GO - Feature 003 Phase 3 only
 * Gemini: HOLD
-* Grok: Prepare Feature 003 Phase 2 code review
+* Grok: Prepare Feature 003 Phase 3 code review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -125,7 +130,7 @@ Phase 2: Integration with Feature 001 Suggestion Service + Dry-run Prediction Ou
 
 ## Next Expected Input
 
-Claude Feature 003 Phase 2 report:
+Claude Feature 003 Phase 3 report:
 * branch name
 * commit hash
 * changed files
@@ -138,9 +143,10 @@ Claude Feature 003 Phase 2 report:
 * confirmation that no Netlify Function was added
 * confirmation that purchaseOrderService / inventoryService were not called
 * confirmation that Feature 001 / Feature 002 core flows were not modified
-* confirmation that prediction output is dry-run only
-* confirmation that no executable draft purchase suggestion is created
-* confirmation that sourceSnapshotId / auditTrailId / suggestionId continuity is tested
+* confirmation that prediction preview is never executable
+* confirmation that model config recommendation is not applied
+* confirmation that aiCanWrite / aiCanMutateRules remain false
+* confirmation that dataLineage.usedRawDocuments remains false
 * known limitations
 
 ---

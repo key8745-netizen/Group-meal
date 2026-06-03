@@ -123,6 +123,8 @@ export interface PredictionOutput {
 // ─── ModelConfigRecommendation ────────────────────────────────────────────────
 
 export interface ModelConfigRecommendation {
+  /** Type discriminator — permanently 'recommendation'; signals this is never an apply action. */
+  readonly _kind: 'recommendation';
   recommendationId: string;
   tenantId: TenantId;
   auditTrailId: AuditTrailId;
@@ -172,13 +174,17 @@ export type PredictionConfidenceTier = PredictionOutput['confidenceTier'];
  * prediction engine output. Must never become an executable purchase action.
  *
  * HARD RULES:
- *  1. executable is permanently false.
- *  2. aiCanWrite is permanently false.
- *  3. aiCanMutateRules is permanently false.
- *  4. dataLineage.usedRawDocuments is permanently false.
- *  5. This object must not be used to create or approve a purchase order.
+ *  1. _kind is permanently 'preview' — type discriminator; never an action.
+ *  2. executable is permanently false.
+ *  3. aiCanWrite is permanently false.
+ *  4. aiCanMutateRules is permanently false.
+ *  5. dataLineage.usedRawDocuments is permanently false.
+ *  6. This object must not be used to create or approve a purchase order.
+ *  7. No createDraft, submit, approve, or receive fields are allowed.
  */
 export interface PredictionEnhancedSuggestionPreview {
+  /** Type discriminator — permanently 'preview'; signals this is never an action object. */
+  readonly _kind: 'preview';
   previewId: string;
   tenantId: TenantId;
   suggestionId: SuggestionId;

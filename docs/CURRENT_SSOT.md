@@ -14,13 +14,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Release Preparation: Feature 001 + Feature 002 + Feature 003
+Post-Merge Verification / Production Deployment Checklist
 
 ---
 
 ## Current Phase
 
-Merge & Release Preparation
+Post-Merge Validation
 
 ---
 
@@ -34,22 +34,22 @@ Merge & Release Preparation
 * Feature 003 Final Commit: `1a5a381`
 * System Release Gate: PASSED
 * System Release Gate Commit: `4473127`
+* Merge / Release Preparation: PASSED
+* Merge Preparation Commit: `95a79ec`
+* Merge Commit (target branch): `948e639`
+* Source Branch: `claude/busy-heisenberg-HcwYg`
+* Target Branch: `claude/fervent-dirac-HJT01`
+* Merge Conflicts: None
 * Full-system Integration Tests: 223/223 pass
 * Critical Safety Gates: 16/16 pass
 * Production Readiness Checklist: 20/20 pass
 * Grok Final Release Gate Review: 96/100
 * Release Recommendation: RELEASE_READY
-* ChatGPT Decision: System Release Gate PASSED; Claude GO - Merge / Release Preparation only
+* ChatGPT Decision: Merge APPROVED; Claude — Report merge result
 
 ---
 
 ## Current Branch
-
-`claude/busy-heisenberg-HcwYg`
-
----
-
-## Target Merge Branch
 
 `claude/fervent-dirac-HJT01`
 
@@ -57,25 +57,20 @@ Merge & Release Preparation
 
 ## Current Commit
 
-`4473127`
+`948e639`
 
 ---
 
 ## Allowed in this phase
 
-* Prepare merge from `claude/busy-heisenberg-HcwYg` to `claude/fervent-dirac-HJT01`
-* Verify clean working tree
-* Verify branch diff
-* Run final tests
-* Run typecheck
-* Run build
-* Confirm no unexpected files changed
-* Confirm `docs/CURRENT_SSOT.md` is updated
-* Confirm `docs/AI_TEAM_WORKFLOW.md` exists
-* Confirm release notes / release summary
-* Confirm `docs/RELEASE_RISK_REGISTER.md` exists and is complete
-* Prepare merge report
-* Prepare release preparation report
+* Post-merge test run on target branch
+* Post-merge typecheck on target branch
+* Post-merge build on target branch
+* Verify docs/CURRENT_SSOT.md reflects post-merge state
+* Verify docs/AI_TEAM_WORKFLOW.md exists
+* Verify docs/RELEASE_RISK_REGISTER.md exists and complete
+* Produce merge report
+* Push target branch
 
 ---
 
@@ -93,7 +88,7 @@ Merge & Release Preparation
 * Do not write performanceLogs / finalizedPerformanceLogs / operationalReports
 * Do not allow AI approval, AI submit, AI receiving, or AI rule mutation
 * Do not allow prediction output to become executable purchase action
-* Do not change production behavior except merge/release preparation metadata and docs
+* Do not change production behavior
 
 ---
 
@@ -107,17 +102,17 @@ Merge & Release Preparation
 * Audit trail must remain traceable across snapshot, suggestion, prediction, purchase order, receiving, and inventory transaction.
 * Duplicate receiving must remain blocked.
 * Retry must not duplicate inventory updates.
-* `ai_performance_metrics` must remain isolated from operational performance logs.
-* `docs/CURRENT_SSOT.md` remains the only current-state source of truth.
-* `docs/AI_TEAM_WORKFLOW.md` governs role workflow but does not replace `CURRENT_SSOT.md`.
+* ai_performance_metrics must remain isolated from operational performance logs.
+* docs/CURRENT_SSOT.md remains the only current-state source of truth.
+* docs/AI_TEAM_WORKFLOW.md governs role workflow but does not replace CURRENT_SSOT.md.
 
 ---
 
 ## Team State
 
-* Claude: GO - Merge / Release Preparation only
+* Claude: Report merge result
 * Gemini: HOLD
-* Grok: HOLD / Prepare post-merge review if requested
+* Grok: HOLD / Prepare post-merge quick review if requested
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -125,20 +120,10 @@ Merge & Release Preparation
 
 ## Next Expected Input
 
-Claude Merge / Release Preparation report:
-* source branch
-* target branch
-* current commit
-* merge readiness
-* changed files summary
-* final tests result
-* typecheck result
-* build result
-* release risk register status
-* release notes summary
-* confirmation that no new business logic was added
-* confirmation that no Feature 004 work was started
-* known limitations
+ibi decision:
+1. Confirm merge and begin Feature 004 planning
+2. Request Grok post-merge quick review
+3. Pause
 
 ---
 

@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { collection, onSnapshot, orderBy, query, Timestamp } from 'firebase/firestore';
-import { CheckCircle, ChevronDown, ChevronRight, ClipboardCopy, Link2, Package } from 'lucide-react';
+import { CheckCircle, ChevronDown, ChevronRight, ClipboardCopy, Link2, Package, ShieldCheck } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
   purchaseOrderService,
   type PurchaseOrder,
   type PurchaseOrderStatus,
 } from '@/services/purchaseOrderService';
+
+const TENANT_ID: string =
+  (import.meta.env.VITE_TENANT_ID as string | undefined) ??
+  (import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined) ??
+  'umas-booking-manager';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -68,12 +73,12 @@ function ShareButton({ orderId }: { orderId: string }) {
   );
 }
 
-function OrderCard({ order, onComplete }: {
+function OrderCard({ order, onApprove, onComplete }: {
   order: PurchaseOrder;
+  onApprove: (id: string) => void;
   onComplete: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const isPending = order.status === 'PENDING' || order.status === 'DRAFT';
 
   return (
     <div className="overflow-hidden rounded-lg border">
@@ -96,7 +101,22 @@ function OrderCard({ order, onComplete }: {
 
         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
           <ShareButton orderId={order.id!} />
-          {isPending && (
+
+          {/* DRAFT: must go through human approval before purchasing */}
+          {order.status === 'DRAFT' && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-xs"
+              onClick={() => onApprove(order.id!)}
+            >
+              <ShieldCheck size={13} />
+              核准草稿
+            </Button>
+          )}
+
+          {/* PENDING: human confirms physical receipt and triggers restock */}
+          {order.status === 'PENDING' && (
             <Button
               size="sm"
               className="gap-1.5 text-xs"
@@ -171,7 +191,24 @@ export function PurchaseOrderList() {
     return unsub;
   }, []);
 
-  // ── Complete handler ─────────────────────────────────────────────────────
+  // ── Approve DRAFT → PENDING (requires human action) ─────────────────────
+  async function handleApprove(orderId: string) {
+    setCompleting((prev) => new Set(prev).add(orderId));
+    try {
+      await purchaseOrderService.approveDraftOrder(orderId, TENANT_ID);
+      toast({ title: '草稿已核准', description: `採購單 #${orderId.slice(-8)} 已轉為待採購。` });
+    } catch (err) {
+      toast({
+        variant:     'destructive',
+        title:       '核准失敗',
+        description: err instanceof Error ? err.message : '請稍後再試。',
+      });
+    } finally {
+      setCompleting((prev) => { const s = new Set(prev); s.delete(orderId); return s; });
+    }
+  }
+
+  // ── Complete PENDING → RECEIVED ───────────────────────────────────────────
   async function handleComplete(orderId: string) {
     setCompleting((prev) => new Set(prev).add(orderId));
     try {
@@ -250,6 +287,7 @@ export function PurchaseOrderList() {
             <OrderCard
               key={order.id}
               order={order}
+              onApprove={completing.has(order.id!) ? () => {} : handleApprove}
               onComplete={completing.has(order.id!) ? () => {} : handleComplete}
             />
           ))}

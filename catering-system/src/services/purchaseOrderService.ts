@@ -13,6 +13,8 @@ import { db } from '@/lib/firebase';
 import { auth } from '@/lib/firebase';
 import { restockIngredient } from './inventoryService';
 import { logOrderFulfillment } from './performanceService';
+import { configService } from './configService';
+import { invalidateSnapshotCache } from './aiContextService';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -28,6 +30,16 @@ export interface PurchaseOrderItem {
   purchaseTaijin: number;
   /** Original AI-recommended qty (kg). Set by createDraftOrder; null for manual orders. */
   recommendedQtyKg?: number | null;
+}
+
+/** AI confidence metadata stored on DRAFT purchase orders for audit */
+export interface DraftOrderMeta {
+  /** true when created by the AI suggestion engine */
+  aiGenerated: boolean;
+  /** Worst (lowest) confidence level across all line items */
+  confidenceLevel: 'HIGH' | 'MEDIUM' | 'LOW' | 'BLOCKED';
+  /** Per-item confidence reasons for human review */
+  confidenceReasons: string[];
 }
 
 export interface PurchaseOrder {
@@ -126,6 +138,10 @@ export const purchaseOrderService = {
       receivedAt: serverTimestamp(),
     });
 
+    // Snapshot cache is stale after a RECEIVED — next AI suggestion must re-read
+    // purchase history.  tenantId is unavailable here; clear all tenant caches.
+    invalidateSnapshotCache();
+
     // Fire-and-forget: log fulfillment data for performance tracking.
     // Never awaited — must not block the UI or fail the completeOrder call.
     logOrderFulfillment(
@@ -144,11 +160,15 @@ export const purchaseOrderService = {
    * Persists a new DRAFT purchase order from AI-generated shortage items.
    * DRAFT orders are pending human review before becoming PENDING.
    *
+   * Hard rule: items where meta.confidenceLevel === 'BLOCKED' are excluded;
+   * if ALL items are BLOCKED the call throws rather than writing an empty order.
+   *
    * @returns The Firestore document ID of the new order.
    */
   async createDraftOrder(
     shortageItems: PurchaseOrderItem[],
     notes = 'AI 智能建議自動產生',
+    meta?: DraftOrderMeta,
   ): Promise<string> {
     // Stamp recommendedQtyKg = purchaseQtyKg at creation time so variance can
     // be computed later even if staff edits the qty before receiving.
@@ -160,9 +180,6 @@ export const purchaseOrderService = {
       throw new Error('purchaseOrderService: no shortage items to order');
     }
 
-    // Use runTransaction to establish atomic write pattern.
-    // Future iterations will extend this transaction to update inventory
-    // and write audit records atomically.
     const orderRef = doc(collection(db, 'purchaseOrders'));
 
     await runTransaction(db, async (t) => {
@@ -171,6 +188,12 @@ export const purchaseOrderService = {
         items,
         notes,
         createdAt: serverTimestamp(),
+        // AI metadata — recorded for audit trail per AI_DECISION_BOUNDARY.md
+        ...(meta && {
+          aiGenerated:       meta.aiGenerated,
+          confidenceLevel:   meta.confidenceLevel,
+          confidenceReasons: meta.confidenceReasons,
+        }),
       });
     });
 
@@ -192,5 +215,51 @@ export const purchaseOrderService = {
     await updateDoc(doc(db, 'purchaseOrders', orderId), {
       status: 'CANCELLED',
     });
+  },
+
+  /**
+   * The ONLY authorised path for DRAFT → PENDING transition.
+   *
+   * Guard rails enforced here:
+   *  1. Order must be in DRAFT status.
+   *  2. When aiGenerated is true and requireHumanApproval is enabled in settings,
+   *     the caller's identity is stamped as the approver — this makes the human
+   *     action explicit and auditable.
+   *  3. After transition, the AI context snapshot cache is invalidated so the
+   *     next suggestion reflects current state.
+   *
+   * Never call updateDoc({ status: 'PENDING' }) directly — always use this method.
+   *
+   * @param orderId   Firestore document ID in purchaseOrders collection
+   * @param tenantId  Used to check requireHumanApproval setting
+   */
+  async approveDraftOrder(orderId: string, tenantId: string): Promise<void> {
+    const order = await getPurchaseOrder(orderId);
+
+    if (order.status !== 'DRAFT') {
+      throw new Error(
+        `purchaseOrderService: cannot approve — order "${orderId}" is ${order.status}, expected DRAFT`,
+      );
+    }
+
+    const settings = await configService.getSettings(tenantId).catch(() => null);
+    const requireApproval = settings?.aiAutomation.requireHumanApproval ?? true;
+
+    const approvedBy = currentUser();
+    if (requireApproval && approvedBy === 'system') {
+      throw new Error(
+        'purchaseOrderService: requireHumanApproval is enabled — ' +
+        'approveDraftOrder must be called by an authenticated user, not by an automated system',
+      );
+    }
+
+    await updateDoc(doc(db, 'purchaseOrders', orderId), {
+      status:     'PENDING',
+      approvedBy,
+      approvedAt: serverTimestamp(),
+    });
+
+    // Invalidate AI snapshot so next suggestion reflects the approved state
+    invalidateSnapshotCache(tenantId);
   },
 };

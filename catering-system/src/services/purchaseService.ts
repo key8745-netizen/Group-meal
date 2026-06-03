@@ -24,6 +24,9 @@ import type {
 } from './types';
 import { calculateOrderRequirements } from './orderService';
 import { UnitConverter } from './unitConverter';
+import { buildAIContextSnapshot } from './aiContextService';
+import { computeConfidence, buildConfidenceMaps } from './aiSuggestionConfidence';
+import { configService } from './configService';
 
 /** Round to 3 decimal places to avoid floating-point drift */
 const r3 = (n: number) => Math.round(n * 1000) / 1000;
@@ -51,17 +54,28 @@ export class ConcurrencyError extends Error {
  * Formula per ingredient:
  *   suggestedQty = max(0, safetyLevelKg + orderDemandKg − currentStockKg)
  *
+ * Each line item carries a `confidence` evaluation (HIGH/MEDIUM/LOW/BLOCKED).
  * Ingredients with suggestedQty ≤ 0 are excluded from the result.
- * Line items are grouped by primarySupplierId for downstream PO splitting.
+ * Returns empty draft when `aiAutomation.purchaseSuggestionEnabled` is false.
  *
  * @param db       Firestore instance
  * @param orderIds Specific order IDs to include. When omitted, all orders
  *                 with status 'confirmed' or 'in-production' are used.
+ * @param tenantId Used to load AI automation settings (kill switch + multiplier)
  */
 export async function generatePurchaseSuggestion(
   db: Firestore,
   orderIds?: string[],
+  tenantId?: string,
 ): Promise<PurchaseDraft> {
+  // ── Kill switch: check AI automation settings first ───────────────────────
+  if (tenantId) {
+    const settings = await configService.getSettings(tenantId).catch(() => null);
+    if (settings && !settings.aiAutomation.purchaseSuggestionEnabled) {
+      return buildEmptyDraft();
+    }
+  }
+
   // ── Step 1: Read full inventory ───────────────────────────────────────────
   const inventorySnaps = await getDocs(collection(db, 'inventory'));
 
@@ -74,11 +88,14 @@ export async function generatePurchaseSuggestion(
     inventoryMap.set(snap.id, snap.data() as InventoryDoc);
   });
 
-  // ── Step 2: Ingredient master data (minStockLevel, unitCost, supplierIds) ─
+  // ── Step 2: Ingredient master data + AI context (parallel) ───────────────
   const ingredientIds = Array.from(inventoryMap.keys());
-  const ingredientSnaps = await Promise.all(
-    ingredientIds.map((id) => getDoc(doc(db, 'ingredients', id))),
-  );
+  const [ingredientSnaps, aiContext] = await Promise.all([
+    Promise.all(ingredientIds.map((id) => getDoc(doc(db, 'ingredients', id)))),
+    tenantId
+      ? buildAIContextSnapshot(db, tenantId).catch(() => null)
+      : Promise.resolve(null),
+  ]);
 
   const ingredientMap = new Map<string, Ingredient>();
   ingredientSnaps.forEach((snap) => {
@@ -86,6 +103,10 @@ export async function generatePurchaseSuggestion(
       ingredientMap.set(snap.id, { id: snap.id, ...snap.data() } as Ingredient);
     }
   });
+
+  const { inventoryMap: aiInventoryMap, historyMap } = aiContext
+    ? buildConfidenceMaps(aiContext.inventory, aiContext.purchaseHistory)
+    : { inventoryMap: new Map(), historyMap: new Map() };
 
   // ── Step 3: Aggregate order demand ────────────────────────────────────────
   const { allOrderItems, resolvedOrderIds } = await collectOrderItems(db, orderIds);
@@ -100,7 +121,7 @@ export async function generatePurchaseSuggestion(
     });
   }
 
-  // ── Step 4: Build line items ──────────────────────────────────────────────
+  // ── Step 4: Build line items with confidence ──────────────────────────────
   const lineItems: PurchaseLineItem[] = [];
 
   for (const [id, inventory] of inventoryMap) {
@@ -116,18 +137,27 @@ export async function generatePurchaseSuggestion(
 
     if (suggestedQtyKg <= 0) continue;
 
-    lineItems.push({
-      ingredientId: id,
-      ingredientName: ingredient.name,
+    const lineItem: PurchaseLineItem = {
+      ingredientId:      id,
+      ingredientName:    ingredient.name,
       currentStockKg,
       safetyLevelKg,
       orderDemandKg,
       suggestedQtyKg,
-      unitCost: ingredient.unitCost,
-      estimatedCost: r3(suggestedQtyKg * ingredient.unitCost),
+      unitCost:          ingredient.unitCost,
+      estimatedCost:     r3(suggestedQtyKg * ingredient.unitCost),
       primarySupplierId: ingredient.supplierIds?.[0] ?? null,
-      supplierIds: ingredient.supplierIds ?? [],
-    });
+      supplierIds:       ingredient.supplierIds ?? [],
+    };
+
+    lineItem.confidence = computeConfidence(
+      lineItem,
+      aiInventoryMap,
+      historyMap,
+      aiContext?.settings,
+    );
+
+    lineItems.push(lineItem);
   }
 
   // ── Step 5: Group by primary supplier ─────────────────────────────────────

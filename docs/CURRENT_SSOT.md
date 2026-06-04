@@ -20,7 +20,7 @@ Feature 005: Human-Approved Model Config Apply Execution
 
 ## Current Phase
 
-Phase 3: Transaction Readiness Hardening + Audit Metadata Cross-validation
+Phase 4: Final Transaction Readiness + Audit Boundary Hardening
 
 ---
 
@@ -39,7 +39,10 @@ Phase 3: Transaction Readiness Hardening + Audit Metadata Cross-validation
 * Feature 005 Phase 2: PASSED
 * Feature 005 Phase 2 Commit: `78c9a95`
 * Feature 005 Phase 2 Grok Code Review: 92/100
-* ChatGPT Decision: Claude GO — Feature 005 Phase 3 only
+* Feature 005 Phase 3: PASSED
+* Feature 005 Phase 3 Commit: `57c506b`
+* Feature 005 Phase 3 Grok Code Review: 91/100
+* ChatGPT Decision: Claude GO — Feature 005 Phase 4 only
 
 ---
 
@@ -51,32 +54,31 @@ Phase 3: Transaction Readiness Hardening + Audit Metadata Cross-validation
 
 ## Current Commit
 
-`78c9a95`
+`57c506b`
 
 ---
 
-## Phase 3 Priority Risks
+## Phase 4 Priority Risks
 
-Grok identified two medium risks that must be handled in Phase 3:
-1. Rollback token alignment with future transaction / idempotency lock strategy.
-2. Feature 003 → Feature 005 audit metadata cross-validation completeness.
-These are now mandatory Phase 3 work items.
+Grok identified two remaining medium risks that must be handled in Phase 4:
+1. Rollback token alignment with future transaction lock storage and conflict resolution.
+2. Audit metadata boundary completeness for rollbackReason / rollbackTargetVersion edge cases.
+These are mandatory Phase 4 work items.
 
 ---
 
 ## Allowed in this phase
 
-* Strengthen rollbackToken transaction-readiness design
-* Strengthen rollbackToken idempotency lock plan validation
-* Add rollback conflict simulation tests
-* Add duplicate rollback token / duplicate lock plan tests
-* Add rollbackTargetVersion + expectedCurrentVersion + newVersion consistency tests
-* Add Feature 003 → Feature 005 audit metadata cross-validation
-* Validate configBeforeHash / configAfterHash / diffHash continuity
-* Validate rollbackReason propagation into rollback audit event plan
-* Validate sourceRecommendationId / approvalId / auditTrailId continuity
-* Strengthen transaction plan safety assertions
-* Strengthen idempotency lock plan semantics
+* Final rollbackToken transaction-readiness hardening
+* Final rollback idempotency lock plan tests
+* Final rollback conflict resolution flow modeling
+* Document rollback as a new atomic human-approved change
+* Add rollbackReason boundary tests (empty / whitespace / max length / unicode / special chars / control chars)
+* Add rollbackTargetVersion boundary tests
+* Add audit metadata cross-feature consistency assertions (including rollbackReasonHash)
+* Strengthen rollback audit event plan metadata
+* Strengthen apply / rollback transaction plan safety assertions
+* Add dry-run release gate checklist
 * Add docs
 * Add tests
 * SSOT update
@@ -112,7 +114,7 @@ These are now mandatory Phase 3 work items.
 
 ## Required Guard Rails
 
-* Phase 3 must remain dry-run transaction readiness only.
+* Phase 4 must remain dry-run transaction readiness only.
 * Transaction plans must remain non-executable.
 * `executable` must remain `false`.
 * `aiCanExecute` must remain `false`.
@@ -121,10 +123,13 @@ These are now mandatory Phase 3 work items.
 * No real settings mutation may occur.
 * No real settingsHistory write may occur.
 * Rollback must remain modeled as a new human-approved change.
+* Rollback must not delete or overwrite settings history.
 * rollbackToken must bind tenantId, approvalId, rollbackTargetVersion, expectedCurrentVersion, newVersion, auditTrailId, and rollbackReason.
-* rollback idempotency lock plan must explicitly model duplicate/conflict handling.
-* audit event plan must include configBeforeHash, configAfterHash, diffHash, rollbackReason where applicable.
-* Feature 003 recommendation continuity must be preserved through Feature 005 transaction plan.
+* rollback idempotency lock plan must explicitly model duplicate, replay, version conflict, and approval reuse conflict behavior.
+* rollbackReason must reject empty value and must define max length (500 chars) and special character behavior.
+* rollbackTargetVersion must be validated against expectedCurrentVersion / newVersion semantics.
+* audit event plan must include configBeforeHash, configAfterHash, diffHash, rollbackReason, rollbackTargetVersion, expectedCurrentVersion, and newVersion where applicable.
+* Feature 003 recommendation continuity must remain preserved through Feature 005 transaction plan.
 * Tenant hard guard must execute before all other validation.
 * AI caller must be blocked.
 * Human approval must remain required.
@@ -136,9 +141,9 @@ These are now mandatory Phase 3 work items.
 
 ## Team State
 
-* Claude: GO — Feature 005 Phase 3 only
+* Claude: GO — Feature 005 Phase 4 only
 * Gemini: HOLD / support clarification only
-* Grok: Prepare Feature 005 Phase 3 code review
+* Grok: Prepare Feature 005 Phase 4 code review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -146,7 +151,7 @@ These are now mandatory Phase 3 work items.
 
 ## Next Expected Input
 
-Claude Feature 005 Phase 3 report:
+Claude Feature 005 Phase 4 report:
 * branch name
 * commit hash
 * changed files
@@ -161,11 +166,12 @@ Claude Feature 005 Phase 3 report:
 * confirmation that no Netlify Function was added
 * confirmation that no real apply / rollback exists
 * confirmation that no real approval / apply / rollback records are created
-* confirmation that rollbackToken transaction readiness is hardened
-* confirmation that rollback idempotency lock conflict simulation is tested
-* confirmation that audit metadata cross-validation is implemented
-* confirmation that configBeforeHash / configAfterHash / diffHash continuity is validated
-* confirmation that rollbackReason is carried into rollback audit event plan
+* confirmation that rollbackToken transaction lock plan is finalized
+* confirmation that rollback atomic semantics are documented
+* confirmation that rollbackReason boundary tests are added
+* confirmation that rollbackTargetVersion boundary tests are added
+* confirmation that audit metadata cross-feature consistency is implemented
+* confirmation that dry-run release gate checklist is complete
 * known limitations
 
 ---

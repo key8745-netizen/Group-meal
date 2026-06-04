@@ -67,6 +67,7 @@ export interface IdempotencyLockPlanInput {
   rollbackTargetVersion?: ConfigVersion;
   expectedCurrentVersion?: ConfigVersion;
   newVersion?: ConfigVersion;
+  rollbackReasonHash?: string;
 }
 
 export function buildIdempotencyLockPlan(input: IdempotencyLockPlanInput): IdempotencyLockPlan {
@@ -81,6 +82,10 @@ export function buildIdempotencyLockPlan(input: IdempotencyLockPlanInput): Idemp
     rollbackTargetVersion: input.rollbackTargetVersion,
     expectedCurrentVersion: input.expectedCurrentVersion,
     newVersion: input.newVersion,
+    rollbackReasonHash: input.rollbackReasonHash,
+    replayPolicy: 'IDEMPOTENT_REPLAY_BLOCKED',
+    versionConflictPolicy: 'VERSION_CONFLICT_BLOCKED',
+    approvalReusePolicy: 'APPROVAL_REUSE_BLOCKED',
     status: 'PLANNED',
     duplicatePolicy: 'BLOCKED_DUPLICATE',
     conflictPolicy: 'VERSION_CONFLICT_BLOCKED',
@@ -92,6 +97,7 @@ export type IdempotencyConflictType =
   | 'IDEMPOTENT_REPLAY_BLOCKED'
   | 'VERSION_CONFLICT'
   | 'APPROVAL_REUSE_BLOCKED'
+  | 'VERSION_CHAIN_CONFLICT'
   | 'NO_CONFLICT';
 
 export interface IdempotencyConflictResult {
@@ -127,6 +133,14 @@ export function simulateIdempotencyConflict(
       existing.approvalId === incoming.approvalId &&
       existing.token !== incoming.token) {
     return { conflict: 'APPROVAL_REUSE_BLOCKED', blockedReason: 'IDEMPOTENCY_APPROVAL_REUSE_BLOCKED' };
+  }
+  // Rollback chain conflict: existing.rollbackTargetVersion IS the incoming.expectedCurrentVersion
+  // (chained rollback: the target we just rolled back TO is now the "current" for a new rollback)
+  if (existing.rollbackTargetVersion &&
+      incoming.expectedCurrentVersion &&
+      existing.rollbackTargetVersion === incoming.expectedCurrentVersion &&
+      existing.token !== incoming.token) {
+    return { conflict: 'VERSION_CHAIN_CONFLICT', blockedReason: 'IDEMPOTENCY_VERSION_CHAIN_CONFLICT' };
   }
   return { conflict: 'NO_CONFLICT', blockedReason: null };
 }

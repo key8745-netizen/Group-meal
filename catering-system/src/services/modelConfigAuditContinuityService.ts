@@ -1,4 +1,5 @@
 import type { BlockedReason } from '../types/aiBoundary';
+import { hashCanonicalObject } from './modelConfigCanonicalHashService';
 import type {
   ModelConfigRecommendationId,
   ModelConfigApprovalId,
@@ -32,6 +33,7 @@ export interface RollbackAuditMetadata {
   expectedCurrentVersion: ConfigVersion;
   newVersion: ConfigVersion;
   rollbackReason: string;
+  rollbackReasonHash: string;
   rollbackToken: RollbackToken;
 }
 
@@ -70,8 +72,15 @@ export function validateRollbackAuditMetadataContinuity(
   if ((plan.expectedCurrentVersion as string) !== (auditEvent.expectedCurrentVersion as string)) blocked.push('AUDIT_CONTINUITY_VERSION_MISMATCH');
   if ((plan.newVersion as string) !== (auditEvent.newVersion as string)) blocked.push('AUDIT_CONTINUITY_VERSION_MISMATCH');
   if (plan.rollbackReason !== auditEvent.rollbackReason) blocked.push('AUDIT_CONTINUITY_ROLLBACK_REASON_MISMATCH');
+  if (plan.rollbackReasonHash !== auditEvent.rollbackReasonHash) blocked.push('AUDIT_CONTINUITY_ROLLBACK_REASON_MISMATCH');
   if ((plan.rollbackToken as string) !== (auditEvent.rollbackToken as string)) blocked.push('AUDIT_CONTINUITY_ROLLBACK_TOKEN_MISMATCH');
   return { valid: blocked.length === 0, blockedReasons: blocked };
+}
+
+export function computeRollbackReasonHash(rollbackReason: string): string {
+  const result = hashCanonicalObject({ rollbackReason });
+  if (!result.ok) throw new Error(`Cannot hash rollbackReason: ${result.reason}`);
+  return result.hash;
 }
 
 export interface RecommendationContinuityResult {

@@ -100,6 +100,10 @@ export interface IdempotencyLockPlan {
   expectedCurrentVersion?: ConfigVersion;
   newVersion?: ConfigVersion;
   approvalId?: ModelConfigApprovalId;
+  rollbackReasonHash?: string;
+  replayPolicy: 'IDEMPOTENT_REPLAY_BLOCKED';
+  versionConflictPolicy: 'VERSION_CONFLICT_BLOCKED';
+  approvalReusePolicy: 'APPROVAL_REUSE_BLOCKED';
   status: 'PLANNED';
   duplicatePolicy: 'BLOCKED_DUPLICATE';
   conflictPolicy: 'VERSION_CONFLICT_BLOCKED';

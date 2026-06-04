@@ -2,6 +2,7 @@ import {
   validateApplyAuditMetadataContinuity,
   validateRollbackAuditMetadataContinuity,
   validateRecommendationToTransactionPlanContinuity,
+  computeRollbackReasonHash,
 } from '../modelConfigAuditContinuityService';
 import type { TenantId, AuditTrailId } from '../../types/aiBoundary';
 import {
@@ -100,6 +101,7 @@ const baseRollbackMeta = {
   expectedCurrentVersion: v2,
   newVersion: v1,
   rollbackReason: 'config regression detected',
+  rollbackReasonHash: 'placeholder-hash-for-existing-tests',
   rollbackToken,
 };
 

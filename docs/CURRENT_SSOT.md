@@ -14,13 +14,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Feature 005: Human-Approved Model Config Apply Execution
+Feature 006: Real Model Config Apply Transaction Boundary
 
 ---
 
 ## Current Phase
 
-Phase 1: Pure Logic & Validation
+Phase 4: COMPLETED — awaiting Grok review
 
 ---
 
@@ -29,45 +29,67 @@ Phase 1: Pure Logic & Validation
 * Feature 001: CLOSED
 * Feature 002: CLOSED
 * Feature 003: CLOSED
-* Feature 004 dry-run version: CLOSED
+* Feature 004: CLOSED
+* Feature 005: CLOSED
 * Production Release: COMPLETED
 * Post-Release Monitoring: PASSED
-* Feature 005 Spec v1.1: PASSED
-* Feature 005 Spec v1.1 Grok Review: 94/100
-* ChatGPT Decision: Claude GO — Feature 005 Phase 1 only
+* Feature 006 Spec v1.2: PASSED
+* Feature 006 Phase 1: PASSED
+* Feature 006 Phase 1 Commit: `f74513e`
+* Feature 006 Phase 1 Grok Code Review: 92/100
+* Feature 006 Phase 2: PASSED
+* Feature 006 Phase 2 Commit: `6ed438f`
+* Feature 006 Phase 2 Grok Code Review: 92/100
+* Feature 006 Phase 3: PASSED
+* Feature 006 Phase 3 Commit: `403231f`
+* Feature 006 Phase 3 Grok Code Review: 92/100
+* ChatGPT Decision: Claude GO - Feature 006 Phase 4 only
+* Feature 006 Phase 4: PASSED
+* Feature 006 Phase 4 Commit: `bd063da`
 
 ---
 
 ## Current Branch
 
-`claude/busy-heisenberg-HcwYg`
+`claude/fervent-dirac-HJT01`
 
 ---
 
 ## Current Commit
 
-`395d3bf`
+`bd063da`
+
+---
+
+## Phase 4 Priority Risks
+
+Grok identified two remaining medium risks that must be handled in Phase 4:
+1. Lock cleanup query criteria and maintenance audit payload completeness:
+   * Phase 3 documented cleanup owner / trigger / TTL.
+   * Phase 4 must define concrete dry-run query criteria and maintenance audit payload structure.
+2. Multi-version rollback snapshot mapping:
+   * Phase 3 modeled settingsHistory snapshot mapping.
+   * Phase 4 must validate multi-version rollback chains and version consistency.
+
+These are mandatory Phase 4 work items.
 
 ---
 
 ## Allowed in this phase
 
-* TypeScript interfaces for real model config apply boundary
-* Persisted approval validators
-* Apply preflight validator
-* Rollback preflight validator
-* Transaction plan builder
-* Rollback transaction plan helper
-* Idempotency lock schema helper
-* applyToken generation / validation helper
-* rollbackToken generation / validation helper
-* settingsHistory version schema helper
-* immutable version metadata helper
-* canonical JSON / SHA-256 hash helper hardening
-* audit event pure helper
-* static import / forbidden syntax guard config
-* tests
-* docs
+* Final transaction-readiness hardening
+* Lock cleanup query criteria modeling
+* Lock cleanup dry-run query plan helper
+* Maintenance audit event payload helper
+* Maintenance audit event payload tests
+* Multi-version settingsHistory snapshot mapping
+* Multi-version rollback chain validation
+* Version chain consistency tests
+* Historical hash propagation tests
+* Dry-run release gate checklist
+* Final boundary regression tests
+* Docs
+* Tests
 * SSOT update
 
 ---
@@ -86,12 +108,15 @@ Phase 1: Pure Logic & Validation
 * Do not create real rollback records
 * Do not actually apply config
 * Do not actually rollback config
-* Do not add UI
+* Do not create real cleanup jobs
+* Do not add Cloud Functions
 * Do not add Netlify Functions
+* Do not add UI
 * Do not modify Feature 001 core flow
 * Do not modify Feature 002 inventory mutation logic
 * Do not modify Feature 003 prediction logic
 * Do not modify Feature 004 dry-run boundary
+* Do not modify Feature 005 dry-run execution boundary
 * Do not allow AI to apply config
 * Do not allow AI to mutate settings or rules
 * Do not change `wasteFactorWarning` automatically
@@ -101,32 +126,38 @@ Phase 1: Pure Logic & Validation
 
 ## Required Guard Rails
 
-* Phase 1 must remain pure logic only.
-* Claude may define transaction plans but must not execute transactions.
-* Claude may define schemas and validators but must not persist records.
-* AI caller must be blocked from any future apply / rollback plan.
+* Phase 4 must remain transaction-readiness only.
+* No real Firestore read/write may occur.
+* No real cleanup job may be created.
+* No real transaction may be executed.
+* Transaction plans must remain non-executable.
+* Cleanup plans must remain non-executable.
+* `executable` must remain `false`.
+* `aiCanExecute` must remain `false`.
+* Idempotency locks remain plan-only.
+* Cleanup query criteria must be descriptive only.
+* Cleanup query criteria must not contain executable Firestore query objects.
+* Maintenance audit event payload must be pure data only.
+* Maintenance audit event must not be written.
+* settingsHistory snapshot mapping must be deterministic.
+* Multi-version rollback chain must validate version chain semantics.
+* historicalConfigHash mismatch must be BLOCKED.
+* Missing settingsHistory snapshot must be BLOCKED.
+* Deleted / overwritten / mutable history snapshot must be BLOCKED.
+* Lock cleanup owner must not be AI.
+* Lock cleanup must not delete active locks.
+* AI caller must be blocked.
 * Tenant hard guard must execute before all other validation.
-* `tenantId` mismatch must be BLOCKED.
-* Missing `approvalId` must be BLOCKED.
-* Missing `auditTrailId` must be BLOCKED.
-* Missing `expectedCurrentVersion` must be BLOCKED.
-* Missing `applyToken` must be BLOCKED.
-* Missing `rollbackToken` must be BLOCKED for rollback plans.
-* rollback must be modeled as a new human-approved change.
-* rollback must not delete or overwrite settings history.
-* settingsHistory must be modeled as immutable append-only.
-* `configBeforeHash`, `configAfterHash`, and `diffHash` must be deterministic.
-* canonical JSON must define behavior for nested arrays, BigInt, NaN, Infinity, Date, undefined, function, symbol, and circular references.
-* applyToken / rollbackToken must be deterministic and bind to tenantId, version, auditTrailId, and diff / rollback target.
-* Phase 1 must include tests proving no Firestore imports, no `runTransaction`, no UI, and no Netlify Function changes.
+* Admin SDK / Service Account must not bypass business guard.
+* All helpers must be pure and covered by tests.
 
 ---
 
 ## Team State
 
-* Claude: GO — Feature 005 Phase 1 only
+* Claude: GO - Feature 006 Phase 4 only
 * Gemini: HOLD / support clarification only
-* Grok: Prepare Feature 005 Phase 1 code review
+* Grok: Prepare Feature 006 Phase 4 code review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -134,26 +165,7 @@ Phase 1: Pure Logic & Validation
 
 ## Next Expected Input
 
-Claude Feature 005 Phase 1 report:
-* branch name
-* commit hash
-* changed files
-* whether only allowed files were modified
-* tests result
-* typecheck result
-* build result
-* confirmation that no Firestore read/write exists
-* confirmation that no firebase-admin / google-cloud-firestore import exists
-* confirmation that no runTransaction exists
-* confirmation that no UI was added
-* confirmation that no Netlify Function was added
-* confirmation that no real apply / rollback exists
-* confirmation that no real approval / apply / rollback records are created
-* confirmation that tenant hard guard is first validation step
-* confirmation that applyToken / rollbackToken generation rules are implemented
-* confirmation that canonical JSON extreme cases are tested
-* confirmation that settingsHistory is modeled as immutable append-only
-* known limitations
+Grok Feature 006 Phase 4 code review.
 
 ---
 

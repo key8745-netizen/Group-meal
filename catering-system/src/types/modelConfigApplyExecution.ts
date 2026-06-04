@@ -95,6 +95,18 @@ export interface IdempotencyLockPlan {
   tenantId: TenantId;
   auditTrailId: AuditTrailId;
   readonly planOnly: true;
+  // Phase 3 additions:
+  rollbackTargetVersion?: ConfigVersion;
+  expectedCurrentVersion?: ConfigVersion;
+  newVersion?: ConfigVersion;
+  approvalId?: ModelConfigApprovalId;
+  rollbackReasonHash?: string;
+  replayPolicy: 'IDEMPOTENT_REPLAY_BLOCKED';
+  versionConflictPolicy: 'VERSION_CONFLICT_BLOCKED';
+  approvalReusePolicy: 'APPROVAL_REUSE_BLOCKED';
+  status: 'PLANNED';
+  duplicatePolicy: 'BLOCKED_DUPLICATE';
+  conflictPolicy: 'VERSION_CONFLICT_BLOCKED';
 }
 
 export interface AuditEventPlan {
@@ -103,11 +115,16 @@ export interface AuditEventPlan {
   tenantId: TenantId;
   auditTrailId: AuditTrailId;
   approvalId: ModelConfigApprovalId;
+  sourceRecommendationId: ModelConfigRecommendationId | null;
   previousVersion: ConfigVersion;
   newVersion: ConfigVersion;
+  rollbackTargetVersion: ConfigVersion | null;
   diffHash: DiffHash | null;
+  configBeforeHash: DiffHash | null;
+  configAfterHash: DiffHash | null;
   applyToken: ApplyToken | null;
   rollbackToken: RollbackToken | null;
+  rollbackReason: string | null;
   readonly aiCanExecute: false;
   readonly executable: false;
 }

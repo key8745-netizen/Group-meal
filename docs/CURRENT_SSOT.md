@@ -14,13 +14,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Production Release Completed: Feature 001 + Feature 002 + Feature 003
+Feature 004: Model Config Apply Boundary
 
 ---
 
 ## Current Phase
 
-Post-Release Monitoring
+Planning / Spec Design
 
 ---
 
@@ -29,21 +29,13 @@ Post-Release Monitoring
 * Feature 001: CLOSED
 * Feature 002: CLOSED
 * Feature 003: CLOSED
-* System Release Gate: PASSED
-* Merge: COMPLETED
-* Production Deployment Checklist: PASSED
-* Production Deployment: COMPLETED
-* Post-Release Quick Check: PASSED
+* Production Release: COMPLETED
+* Post-Release Monitoring First Window: PASSED
 * Deployed Branch: `claude/fervent-dirac-HJT01`
 * Deployed Commit: `ffbabe8`
-* Deployment Target: Netlify auto-deploy
-* Full Test Suite: 1026/1026 pass
-* Smoke Tests: 9 critical gates pass
-* Typecheck: PASS
-* Build: PASS
-* Grok Post-Release Quick Check: 96/100
-* Final Recommendation: DEPLOYMENT_COMPLETE
-* ChatGPT Decision: Production Release Completed; begin Post-Release Monitoring before Feature 004
+* Post-Release Monitoring Review: 96/100
+* Final Recommendation: MONITORING_OK
+* ChatGPT Decision: Begin Feature 004 Planning only; Claude HOLD
 
 ---
 
@@ -61,87 +53,57 @@ Post-Release Monitoring
 
 ## Allowed in this phase
 
-* Post-release monitoring
-* Production smoke verification
-* Monitoring AI suggestion accuracy
-* Monitoring receiving success rate
-* Monitoring audit trail completeness
-* Monitoring production error rate
-* Monitoring duplicate receiving / retry behavior
-* Monitoring prediction dry-run safety
-* Monitoring ai_performance_metrics isolation
-* Documentation updates
-* Release notes updates
-* SSOT update
-* Feature 004 planning only after monitoring baseline is reviewed
+* Feature 004 requirements discussion
+* Gemini produces Feature 004 Spec
+* Grok reviews Feature 004 Spec
+* Define safe human-approved model config apply flow
+* Define config recommendation approval boundary
+* Define audit trail requirements
+* Define settings mutation guard
+* Define rollback / versioning strategy
+* Define forbidden actions
+* Docs / SSOT update
 
 ---
 
 ## Forbidden in this phase
 
-* Do not start Feature 004 implementation yet
-* Do not introduce new business logic
+* Do not let Claude implement code
+* Do not modify production code
 * Do not add UI
 * Do not add Netlify Functions
+* Do not modify settings
+* Do not apply model config
+* Do not allow AI to apply model config
+* Do not allow AI to mutate rules
+* Do not change wasteFactorWarning automatically
 * Do not modify Feature 001 core flow
 * Do not modify Feature 002 inventory mutation logic
 * Do not modify Feature 003 prediction logic
-* Do not modify settings behavior
-* Do not add new Firestore write paths
+* Do not introduce new Firestore write paths
 * Do not bypass backend guards
-* Do not bypass idempotency locks
-* Do not write performanceLogs / finalizedPerformanceLogs / operationalReports
-* Do not allow AI approval, AI submit, AI receiving, or AI rule mutation
-* Do not allow prediction output to become executable purchase action
+* Do not bypass audit trail
 
 ---
 
 ## Required Guard Rails
 
-* Feature 001 human-in-the-loop purchase boundary must remain intact.
-* Feature 002 receiving and inventory update must remain transaction-only.
-* Feature 003 prediction engine must remain pure computation.
-* AI cannot approve, submit, receive, mutate inventory, write settings, or apply model config.
-* Prediction output must remain dry-run and non-executable.
-* Audit trail must remain traceable across snapshot, suggestion, prediction, purchase order, receiving, and inventory transaction.
-* Duplicate receiving must remain blocked.
-* Retry must not duplicate inventory updates.
-* ai_performance_metrics must remain isolated from operational performance logs.
-* Post-release monitoring must not introduce new behavior.
-
----
-
-## Post-Release Monitoring Focus
-
-Monitor for the first production week:
-* AI suggestion accuracy
-* Prediction preview reasonableness
-* Human override frequency
-* Draft purchase suggestion creation success
-* DRAFT → PENDING submit success
-* PENDING → RECEIVED receiving success
-* Duplicate receiving blocked count
-* Retry safety
-* Audit trail completeness
-* ai_performance_metrics isolation
-* Production runtime errors
-* Firebase / Netlify deployment stability
-
----
-
-## Known Accepted Risks
-
-* PredictionInputSummary real construction layer remains future work.
-* Per-item prediction bridging remains future work.
-* Vite chunk size warning is pre-existing and not introduced by this release.
+* Feature 004 must preserve human final control.
+* AI may recommend model config changes but cannot apply them.
+* Any config apply must require explicit human approval.
+* Any config apply must be auditable.
+* Any settings mutation must be versioned.
+* Any settings mutation must support rollback or previous-version traceability.
+* AI cannot mutate settings, thresholds, confidence rules, or weighting formula.
+* Feature 004 Spec must be reviewed by Grok before Claude can implement.
 
 ---
 
 ## Team State
 
-* Claude: HOLD / Post-release monitoring support only
-* Gemini: HOLD / Feature 004 planning later
-* Grok: HOLD / Prepare post-release monitoring review if requested
+* Claude: HOLD
+* Gemini: GO - Produce Feature 004 Spec
+* Grok: GO - Prepare Feature 004 Spec Review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -149,13 +111,15 @@ Monitor for the first production week:
 
 ## Next Expected Input
 
-ibi decision:
-1. Start first-week post-release monitoring review
-2. Prepare Feature 004 planning after monitoring baseline
-3. Pause development and observe production
-
-Recommended next input:
-Claude post-release monitoring report after first observation window.
+Gemini Feature 004 Spec.
+Spec should define:
+* model config recommendation approval flow
+* human approval schema
+* settings mutation boundary
+* versioning / rollback strategy
+* audit events
+* AI forbidden actions
+* Claude Phase 1 implementation scope
 
 ---
 

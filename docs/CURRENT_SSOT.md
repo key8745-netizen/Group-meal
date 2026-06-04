@@ -14,32 +14,32 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Release Preparation: Feature 001 + Feature 002 + Feature 003
+Feature 004: Model Config Apply Boundary
 
 ---
 
 ## Current Phase
 
-Merge & Release Preparation
+Phase 2: Feature 003 Recommendation Integration + Dry-run Apply Plan — COMPLETED
 
 ---
 
 ## Current Basis
 
 * Feature 001: CLOSED
-* Feature 001 Final Commit: `48c57b0`
 * Feature 002: CLOSED
-* Feature 002 Final Commit: `2bf0769`
 * Feature 003: CLOSED
-* Feature 003 Final Commit: `1a5a381`
-* System Release Gate: PASSED
-* System Release Gate Commit: `4473127`
-* Full-system Integration Tests: 223/223 pass
-* Critical Safety Gates: 16/16 pass
-* Production Readiness Checklist: 20/20 pass
-* Grok Final Release Gate Review: 96/100
-* Release Recommendation: RELEASE_READY
-* ChatGPT Decision: System Release Gate PASSED; Claude GO - Merge / Release Preparation only
+* Production Release: COMPLETED
+* Post-Release Monitoring First Window: PASSED
+* Feature 004 Spec v1.2: CONDITIONALLY PASSED
+* Feature 004 Phase 1: PASSED
+* Feature 004 Phase 1 Commit: `340ee9d`
+* Feature 004 Phase 1 Tests: 1184/1184 pass
+* Feature 004 Phase 1 Grok Code Review: 94/100
+* ChatGPT Decision: Claude GO - Feature 004 Phase 2 only
+* Feature 004 Phase 2: COMPLETED
+* Feature 004 Phase 2 Tests: 52/52 pass (210 total across Phases 1+2)
+* Feature 004 Phase 2 typecheck: CLEAN
 
 ---
 
@@ -49,75 +49,91 @@ Merge & Release Preparation
 
 ---
 
-## Target Merge Branch
-
-`claude/fervent-dirac-HJT01`
-
----
-
 ## Current Commit
 
-`4473127`
+pending push
 
 ---
 
 ## Allowed in this phase
 
-* Prepare merge from `claude/busy-heisenberg-HcwYg` to `claude/fervent-dirac-HJT01`
-* Verify clean working tree
-* Verify branch diff
-* Run final tests
-* Run typecheck
-* Run build
-* Confirm no unexpected files changed
-* Confirm `docs/CURRENT_SSOT.md` is updated
-* Confirm `docs/AI_TEAM_WORKFLOW.md` exists
-* Confirm release notes / release summary
-* Confirm `docs/RELEASE_RISK_REGISTER.md` exists and is complete
-* Prepare merge report
-* Prepare release preparation report
+* Integrate Feature 003 ModelConfigRecommendation with Feature 004 dry-run apply planning
+* Create dry-run apply plan from recommendation + simulated human approval
+* Create dry-run rollback plan from version metadata
+* Simulate human approval object without writing it
+* Validate recommendation → approval → apply plan continuity
+* Validate sourceRecommendationId
+* Validate humanApprovalId
+* Validate auditTrailId
+* Validate tenantId
+* Validate config diff and diffHash
+* Validate configBeforeHash / configAfterHash
+* Validate applyToken / rollbackToken
+* Strengthen canonical JSON edge-case tests
+* Strengthen rollback token / idempotency planning tests
+* Add docs
+* Add tests
+* SSOT update
 
 ---
 
 ## Forbidden in this phase
 
-* Do not start Feature 004 yet
-* Do not introduce new business logic
+* Do not write Firestore
+* Do not read Firestore
+* Do not import firebase-admin
+* Do not import google-cloud-firestore
+* Do not call runTransaction
+* Do not modify settings
+* Do not write settingsHistory
+* Do not create real approval records
+* Do not create real apply records
+* Do not create real rollback records
+* Do not actually apply config
+* Do not actually rollback config
 * Do not add UI
 * Do not add Netlify Functions
 * Do not modify Feature 001 core flow
 * Do not modify Feature 002 inventory mutation logic
 * Do not modify Feature 003 prediction logic
-* Do not bypass backend guards
-* Do not bypass idempotency locks
-* Do not write performanceLogs / finalizedPerformanceLogs / operationalReports
-* Do not allow AI approval, AI submit, AI receiving, or AI rule mutation
-* Do not allow prediction output to become executable purchase action
-* Do not change production behavior except merge/release preparation metadata and docs
+* Do not allow AI to apply config
+* Do not allow AI to mutate rules
+* Do not change wasteFactorWarning automatically
+* Do not introduce new production write paths
 
 ---
 
 ## Required Guard Rails
 
-* Feature 001 human-in-the-loop purchase boundary must remain intact.
-* Feature 002 receiving and inventory update must remain transaction-only.
-* Feature 003 prediction engine must remain pure computation.
-* AI cannot approve, submit, receive, mutate inventory, write settings, or apply model config.
-* Prediction output must remain dry-run and non-executable.
-* Audit trail must remain traceable across snapshot, suggestion, prediction, purchase order, receiving, and inventory transaction.
-* Duplicate receiving must remain blocked.
-* Retry must not duplicate inventory updates.
-* `ai_performance_metrics` must remain isolated from operational performance logs.
-* `docs/CURRENT_SSOT.md` remains the only current-state source of truth.
-* `docs/AI_TEAM_WORKFLOW.md` governs role workflow but does not replace `CURRENT_SSOT.md`.
+* Phase 2 must remain dry-run only.
+* All integration output must be non-executable.
+* ModelConfigRecommendation may be consumed only as input to dry-run planning.
+* Simulated human approval must not become a persisted approval record.
+* Apply plan must have executable: false.
+* Rollback plan must have executable: false.
+* aiCanApply must remain false.
+* aiCanRollback must remain false.
+* Human approval must remain required for any future real apply / rollback.
+* Tenant hard guard must execute before all other validation.
+* tenantId mismatch must be BLOCKED.
+* Missing sourceRecommendationId must be BLOCKED.
+* Missing humanApprovalId must be BLOCKED.
+* Missing auditTrailId must be BLOCKED.
+* applyToken / rollbackToken remain validation-only.
+* No real transaction may be executed in Phase 2.
+* Config diff must remain deterministic.
+* diffHash must remain reproducible using SHA-256.
+* Rollback must remain dry-run and version-aware.
+* Rollback must not delete or overwrite settings history.
+* All helpers must be covered by unit tests.
 
 ---
 
 ## Team State
 
-* Claude: GO - Merge / Release Preparation only
-* Gemini: HOLD
-* Grok: HOLD / Prepare post-merge review if requested
+* Claude: GO - Feature 004 Phase 2 only
+* Gemini: HOLD / support clarification only
+* Grok: Prepare Feature 004 Phase 2 code review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -125,20 +141,7 @@ Merge & Release Preparation
 
 ## Next Expected Input
 
-Claude Merge / Release Preparation report:
-* source branch
-* target branch
-* current commit
-* merge readiness
-* changed files summary
-* final tests result
-* typecheck result
-* build result
-* release risk register status
-* release notes summary
-* confirmation that no new business logic was added
-* confirmation that no Feature 004 work was started
-* known limitations
+Grok Feature 004 Phase 2 code review → ChatGPT gatekeeper decision.
 
 ---
 

@@ -20,7 +20,7 @@ Feature 004: Model Config Apply Boundary
 
 ## Current Phase
 
-Planning / Spec Design — Grok Red Team Review (Spec v1.0)
+Phase 1: Pure Logic & Validation
 
 ---
 
@@ -31,11 +31,9 @@ Planning / Spec Design — Grok Red Team Review (Spec v1.0)
 * Feature 003: CLOSED
 * Production Release: COMPLETED
 * Post-Release Monitoring First Window: PASSED
-* Deployed Branch: `claude/fervent-dirac-HJT01`
-* Deployed Commit: `ffbabe8`
-* Gemini Feature 004 Spec v1.0: SUBMITTED
-* ChatGPT Initial Review: Direction OK — not implementation-ready; Grok review required
-* Claude: HOLD — cannot implement until Grok passes Spec + Gemini v1.1 issued if required
+* Feature 004 Spec: CONDITIONALLY PASSED
+* Grok Feature 004 Spec Review: 93/100
+* ChatGPT Decision: Claude GO - Feature 004 Phase 1 only; Gemini v1.1 not required
 
 ---
 
@@ -47,67 +45,78 @@ Planning / Spec Design — Grok Red Team Review (Spec v1.0)
 
 ## Current Commit
 
-`3f1c9b3`
-
----
-
-## Known Spec v1.0 Gaps (ChatGPT Initial Review)
-
-1. `AI_CALLER_BLOCKED` definition insufficient — Admin SDK / Service Account must also be blocked at service guard level
-2. Phase 1 scope not hard enough — must be pure dry-run only; no Firestore read/write, no approvals, no settings write
-3. Firestore schema missing critical fields — tenantId, configVersion, sourceRecommendationId, approvalId, approvedByHumanUserId, appliedByHumanUserId, previousVersion, newVersion, rollbackTargetVersion, auditTrailId, status machine
-4. Rollback design too simplified — rollback must also require human approval, audit trail, version conflict check, and produce new version or immutable rollback event
-5. `weights sum = 1.0` may be incorrect — must clarify if weights are normalized (sum=1) or independent multipliers (each bounded, no sum constraint)
-6. Audit trail metadata incomplete — missing previousVersion, newVersion, diffHash, approvedByHumanUserId, appliedByHumanUserId, approvalReason, rollbackReference, configBeforeHash, configAfterHash, aiCanApply=false, requiresHumanApproval=true
+`ffbabe8`
 
 ---
 
 ## Allowed in this phase
 
-* Grok red team review of Feature 004 Spec v1.0
-* Gemini produce Spec v1.1 if required by Grok
-* Feature 004 requirements discussion
-* Docs / SSOT update
+* TypeScript interfaces for model config apply boundary
+* Pure validators
+* Config diff calculator
+* Canonical JSON hash helper
+* SHA-256 diff hash helper
+* Version schema helper
+* Apply plan dry-run helper
+* Rollback plan dry-run helper
+* applyToken / rollbackToken validation
+* Tenant hard guard helpers
+* Weight bounds validator
+* Audit event pure helper
+* Unit tests
+* Documentation
+* SSOT update
 
 ---
 
 ## Forbidden in this phase
 
-* Do not let Claude implement code
-* Do not modify production code
+* Do not write Firestore
+* Do not read Firestore
+* Do not import firebase-admin
+* Do not import google-cloud-firestore
+* Do not call runTransaction
+* Do not modify settings
+* Do not write settingsHistory
+* Do not create real approval records
+* Do not apply config
+* Do not rollback config
 * Do not add UI
 * Do not add Netlify Functions
-* Do not modify settings
-* Do not apply model config
-* Do not allow AI to apply model config
+* Do not modify Feature 001 core flow
+* Do not modify Feature 002 inventory mutation logic
+* Do not modify Feature 003 prediction logic
+* Do not allow AI to apply config
 * Do not allow AI to mutate rules
-* Do not modify Feature 001 / 002 / 003 core flow
-* Do not introduce new Firestore write paths
-* Do not bypass backend guards
-* Do not bypass audit trail
+* Do not change wasteFactorWarning automatically
+* Do not introduce new production write paths
 
 ---
 
 ## Required Guard Rails
 
-* Feature 004 must preserve human final control.
-* AI may recommend model config changes but cannot apply them.
-* Any config apply must require explicit human approval.
-* Any config apply must be auditable.
-* Any settings mutation must be versioned.
-* Any settings mutation must support rollback or previous-version traceability.
-* Rollback itself must require human approval and be auditable.
-* AI cannot mutate settings, thresholds, confidence rules, or weighting formula.
-* AI blocked even if using Admin SDK / Service Account — service guard must enforce.
-* Feature 004 Spec must pass Grok review before Claude can implement.
+* Phase 1 must remain pure logic only.
+* AI caller must be blocked from apply / rollback planning.
+* Human approval must be required for any future apply.
+* tenantId mismatch must be blocked as the first validation step.
+* applyToken / rollbackToken must be validated for idempotency planning only.
+* No real transaction may be executed in Phase 1.
+* Config diff must use canonicalized JSON with deterministic key ordering.
+* diffHash must be reproducible using SHA-256.
+* Weight validation must support per-factor bounds.
+* If normalized weights are used, epsilon tolerance must be defined.
+* If independent multipliers are used, per-factor bounds must apply and sum-to-1 must not be required.
+* Rollback must be modeled as human-approved, auditable, and version-aware.
+* Rollback must not directly delete or overwrite settings history.
+* All helpers must be covered by unit tests.
 
 ---
 
 ## Team State
 
-* Claude: HOLD
-* Gemini: HOLD — await Grok review result; produce v1.1 if required
-* Grok: GO — Red Team Review Spec v1.0
+* Claude: GO - Feature 004 Phase 1 only
+* Gemini: HOLD / support clarification only
+* Grok: Prepare Feature 004 Phase 1 code review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -115,16 +124,22 @@ Planning / Spec Design — Grok Red Team Review (Spec v1.0)
 
 ## Next Expected Input
 
-Grok Red Team Review of Feature 004 Spec v1.0.
-Output format:
-* Total score
-* Passed items
-* High-risk issues
-* Medium-risk issues
-* Low-risk notes
-* Whether to permit Claude Phase 1 (Permit / Conditional on v1.1 / Block)
-* Required fixes
-* Recommended next steps
+Claude Feature 004 Phase 1 report:
+* branch name
+* commit hash
+* changed files
+* tests result
+* typecheck result
+* build result
+* confirmation that no Firestore read/write exists
+* confirmation that no firebase-admin / google-cloud-firestore import exists
+* confirmation that no real apply / rollback exists
+* confirmation that no runTransaction exists
+* confirmation that tenant hard guard is first validation step
+* confirmation that canonical diff hash is deterministic
+* confirmation that applyToken / rollbackToken are validation-only
+* confirmation that weight bounds and epsilon rules are implemented
+* known limitations
 
 ---
 

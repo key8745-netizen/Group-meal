@@ -20,7 +20,7 @@ Feature 006: Real Model Config Apply Transaction Boundary
 
 ## Current Phase
 
-Planning / Spec Design
+Phase 1: Pure Logic & Validation
 
 ---
 
@@ -39,6 +39,8 @@ Planning / Spec Design
 * Feature 005 Release Gate Checklist: 24/24 pass
 * Feature 005 Monitoring Grok Review: 93/100
 * ChatGPT Decision: Begin Feature 006 Planning only; Claude HOLD
+* Feature 006 Phase 1: PASSED
+* Feature 006 Phase 1 Commit: TBD
 
 ---
 

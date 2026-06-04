@@ -36,7 +36,7 @@ export function simulateModelConfigRollbackPlan(
   });
 
   return {
-    _kind: 'model_config_rollback_plan',
+    _kind: 'model_config_rollback_plan_dry_run',
     planId: input.planId,
     tenantId: input.tenantId,
     currentVersion: (input.currentVersion ?? '') as ConfigVersion,

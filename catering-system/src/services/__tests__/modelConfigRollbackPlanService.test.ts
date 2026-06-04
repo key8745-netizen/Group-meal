@@ -29,7 +29,7 @@ function expect(label: string, cond: boolean) {
 console.log('--- modelConfigRollbackPlanService ---');
 
 const plan = simulateModelConfigRollbackPlan(base());
-expect('_kind is model_config_rollback_plan', plan._kind === 'model_config_rollback_plan');
+expect('_kind is model_config_rollback_plan_dry_run', plan._kind === 'model_config_rollback_plan_dry_run');
 expect('executable is false', plan.executable === false);
 expect('aiCanRollback is false', plan.aiCanRollback === false);
 expect('humanApprovalRequired is true', plan.humanApprovalRequired === true);

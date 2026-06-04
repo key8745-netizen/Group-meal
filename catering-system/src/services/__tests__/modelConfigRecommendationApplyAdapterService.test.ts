@@ -11,7 +11,7 @@ import {
   asModelConfigRecommendationId,
   asDiffHash,
 } from '../../types/modelConfigApply';
-import type { ModelConfigVersion, HumanModelConfigApproval } from '../../types/modelConfigApply';
+import type { ModelConfigVersion, SimulatedHumanModelConfigApproval } from '../../types/modelConfigApply';
 import type { ModelConfigRecommendation } from '../../types/predictionEngine';
 import type { TenantId, AuditTrailId } from '../../types/aiBoundary';
 
@@ -60,8 +60,11 @@ const BASE_RECOMMENDATION: ModelConfigRecommendation = {
   createdAt: NOW,
 };
 
-const BASE_APPROVAL: HumanModelConfigApproval = {
-  _kind: 'model_config_approval',
+// Phase 3: BASE_APPROVAL is SimulatedHumanModelConfigApproval (type-isolated from persisted HumanModelConfigApproval)
+const BASE_APPROVAL: SimulatedHumanModelConfigApproval = {
+  _kind: 'simulated_human_model_config_approval',
+  persisted: false,
+  executable: false,
   approvalId: APPROVAL_ID,
   tenantId: T1,
   sourceRecommendationId: REC_ID,
@@ -97,7 +100,10 @@ const { approval } = createSimulatedHumanApproval({
   diffHash: DIFF_HASH,
   now: NOW,
 });
-expect('creates approval with correct _kind', approval!._kind === 'model_config_approval');
+expect('_kind is simulated_human_model_config_approval', approval!._kind === 'simulated_human_model_config_approval');
+expect('_kind is NOT model_config_approval (type-isolated)', (approval!._kind as string) !== 'model_config_approval');
+expect('persisted is false', approval!.persisted === false);
+expect('executable is false', approval!.executable === false);
 expect('aiCanApprove is false', approval!.aiCanApprove === false);
 expect('tenantId correct', approval!.tenantId === T1);
 expect('sourceRecommendationId correct', approval!.sourceRecommendationId === REC_ID);
@@ -135,7 +141,7 @@ const result = createApplyPlanFromRecommendation({
   now: NOW,
 });
 
-expect('applyPlan._kind correct', result.applyPlan._kind === 'model_config_apply_plan');
+expect('applyPlan._kind is model_config_apply_plan_dry_run', result.applyPlan._kind === 'model_config_apply_plan_dry_run');
 expect('applyPlan.executable is false', result.applyPlan.executable === false);
 expect('applyPlan.aiCanApply is false', result.applyPlan.aiCanApply === false);
 expect('applyPlan.requiresHumanApproval is true', result.applyPlan.requiresHumanApproval === true);
@@ -145,7 +151,7 @@ expect('applyPlan.configBeforeHash !== configAfterHash', result.applyPlan.config
 expect('applyPlan.diffHash is 64 chars', result.applyPlan.diffHash.length === 64);
 
 expect('rollbackPlan returned', result.rollbackPlan !== null);
-expect('rollbackPlan._kind correct', result.rollbackPlan!._kind === 'model_config_rollback_plan');
+expect('rollbackPlan._kind is model_config_rollback_plan_dry_run', result.rollbackPlan!._kind === 'model_config_rollback_plan_dry_run');
 expect('rollbackPlan.executable is false', result.rollbackPlan!.executable === false);
 expect('rollbackPlan.aiCanRollback is false', result.rollbackPlan!.aiCanRollback === false);
 expect('rollbackPlan.humanApprovalRequired is true', result.rollbackPlan!.humanApprovalRequired === true);
@@ -154,6 +160,8 @@ expect('rollbackPlan.currentVersion is V2', result.rollbackPlan!.currentVersion 
 
 expect('auditEvent.eventType is APPLY_PLAN_CREATED', result.auditEvent.eventType === 'MODEL_CONFIG_APPLY_PLAN_CREATED');
 expect('auditEvent.aiCanApply false', result.auditEvent.metadata.aiCanApply === false);
+expect('auditEvent.aiCanRollback false', result.auditEvent.metadata.aiCanRollback === false);
+expect('auditEvent.executable false', result.auditEvent.metadata.executable === false);
 expect('auditEvent.requiresHumanApproval true', result.auditEvent.metadata.requiresHumanApproval === true);
 expect('blockedReasons empty', result.blockedReasons.length === 0);
 
@@ -192,7 +200,7 @@ expect('config tenant mismatch → ADAPTER_APPROVAL_TENANT_MISMATCH', r2.blocked
 console.log('\n[recommendationId mismatch]');
 
 const wrongRecId = asModelConfigRecommendationId('rec-WRONG');
-const wrongApproval: HumanModelConfigApproval = {
+const wrongApproval: SimulatedHumanModelConfigApproval = {
   ...BASE_APPROVAL, sourceRecommendationId: wrongRecId,
 };
 const r3 = createApplyPlanFromRecommendation({
@@ -208,7 +216,7 @@ expect('rec ID mismatch → ADAPTER_RECOMMENDATION_ID_MISMATCH', r3.blockedReaso
 
 console.log('\n[audit trail mismatch]');
 
-const wrongAuditApproval: HumanModelConfigApproval = {
+const wrongAuditApproval: SimulatedHumanModelConfigApproval = {
   ...BASE_APPROVAL, auditTrailId: 'audit-WRONG' as AuditTrailId,
 };
 const r4 = createApplyPlanFromRecommendation({
@@ -224,7 +232,6 @@ expect('audit trail mismatch → ADAPTER_AUDIT_TRAIL_MISMATCH', r4.blockedReason
 
 console.log('\n[AI guard invariants]');
 
-// All results must always carry the guard invariants regardless of path
 expect('happy path: applyPlan.aiCanApply === false (literal)', result.applyPlan.aiCanApply === false);
 expect('blocked path: applyPlan.aiCanApply === false (literal)', r1.applyPlan.aiCanApply === false);
 expect('happy path: applyPlan.executable === false (literal)', result.applyPlan.executable === false);
@@ -241,7 +248,7 @@ const rollback = createRollbackPlanFromApplyPlan({
   rollbackReason: 'accuracy dropped',
   now: NOW,
 });
-expect('rollback._kind correct', rollback._kind === 'model_config_rollback_plan');
+expect('rollback._kind is model_config_rollback_plan_dry_run', rollback._kind === 'model_config_rollback_plan_dry_run');
 expect('rollback.executable is false', rollback.executable === false);
 expect('rollback.aiCanRollback is false', rollback.aiCanRollback === false);
 expect('rollback.humanApprovalRequired is true', rollback.humanApprovalRequired === true);

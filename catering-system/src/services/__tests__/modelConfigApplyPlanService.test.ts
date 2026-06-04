@@ -35,7 +35,7 @@ function expect(label: string, cond: boolean) {
 console.log('--- modelConfigApplyPlanService ---');
 
 const plan = simulateModelConfigApplyPlan(base());
-expect('_kind is model_config_apply_plan', plan._kind === 'model_config_apply_plan');
+expect('_kind is model_config_apply_plan_dry_run', plan._kind === 'model_config_apply_plan_dry_run');
 expect('executable is false', plan.executable === false);
 expect('aiCanApply is false', plan.aiCanApply === false);
 expect('requiresHumanApproval is true', plan.requiresHumanApproval === true);

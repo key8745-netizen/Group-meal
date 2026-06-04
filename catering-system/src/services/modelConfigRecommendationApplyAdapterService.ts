@@ -5,7 +5,7 @@ import type {
   ModelConfigApplyPlan,
   ModelConfigRollbackPlan,
   ModelConfigVersion,
-  HumanModelConfigApproval,
+  SimulatedHumanModelConfigApproval,
   ApplyToken,
   RollbackToken,
   ConfigVersion,
@@ -34,7 +34,7 @@ export interface CreateSimulatedHumanApprovalInput {
 }
 
 export interface SimulatedHumanApprovalResult {
-  approval: HumanModelConfigApproval | null;
+  approval: SimulatedHumanModelConfigApproval | null;
   blockedReasons: BlockedReason[];
 }
 
@@ -59,8 +59,10 @@ export function createSimulatedHumanApproval(
     `approval-${input.tenantId}-${input.sourceRecommendationId}-${now.getTime()}`,
   );
 
-  const approval: HumanModelConfigApproval = {
-    _kind: 'model_config_approval',
+  const approval: SimulatedHumanModelConfigApproval = {
+    _kind: 'simulated_human_model_config_approval',
+    persisted: false as const,
+    executable: false as const,
     approvalId,
     tenantId: input.tenantId,
     sourceRecommendationId: input.sourceRecommendationId,
@@ -87,7 +89,7 @@ export interface ApplyPlanFromRecommendationResult {
 
 export interface CreateApplyPlanFromRecommendationInput {
   recommendation: ModelConfigRecommendation;
-  simulatedApproval: HumanModelConfigApproval;
+  simulatedApproval: SimulatedHumanModelConfigApproval;
   currentConfigVersion: ModelConfigVersion;
   planId: string;
   rollbackPlanId: string;
@@ -206,6 +208,10 @@ export function createApplyPlanFromRecommendation(
     appliedByHumanUserId: null,
     rollbackReason: null,
     rollbackReference: null,
+    applyToken: isBlocked ? null : finalApplyPlan.applyToken,
+    configBeforeHash: isBlocked ? null : finalApplyPlan.configBeforeHash,
+    configAfterHash: isBlocked ? null : finalApplyPlan.configAfterHash,
+    proposedNewVersion: proposedVersion,
     now,
   });
 

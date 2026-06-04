@@ -106,10 +106,31 @@ export interface HumanModelConfigApproval {
   aiCanApprove: false;
 }
 
+// ─── Simulated Human Approval (type-isolated, never persisted) ────────────────
+
+export interface SimulatedHumanModelConfigApproval {
+  readonly _kind: 'simulated_human_model_config_approval';
+  /** Hard invariant: this is never a persisted database record */
+  readonly persisted: false;
+  /** Hard invariant: this cannot be used to execute any apply action */
+  readonly executable: false;
+  approvalId: ModelConfigApprovalId;
+  tenantId: TenantId;
+  sourceRecommendationId: ModelConfigRecommendationId;
+  approvedByHumanUserId: string;
+  approvalReason: string;
+  approvedAt: Date;
+  auditTrailId: AuditTrailId;
+  targetVersion: ConfigVersion;
+  diffHash: DiffHash;
+  /** Hard invariant: AI can never approve config changes */
+  aiCanApprove: false;
+}
+
 // ─── Apply Plan (dry-run only) ────────────────────────────────────────────────
 
 export interface ModelConfigApplyPlan {
-  readonly _kind: 'model_config_apply_plan';
+  readonly _kind: 'model_config_apply_plan_dry_run';
   planId: string;
   tenantId: TenantId;
   sourceRecommendationId: ModelConfigRecommendationId;
@@ -134,7 +155,7 @@ export interface ModelConfigApplyPlan {
 // ─── Rollback Plan (dry-run only) ─────────────────────────────────────────────
 
 export interface ModelConfigRollbackPlan {
-  readonly _kind: 'model_config_rollback_plan';
+  readonly _kind: 'model_config_rollback_plan_dry_run';
   planId: string;
   tenantId: TenantId;
   currentVersion: ConfigVersion;
@@ -173,11 +194,19 @@ export interface ModelConfigAuditEvent {
   blockedReasons: BlockedReason[];
   metadata: {
     aiCanApply: false;
+    aiCanRollback: false;
     requiresHumanApproval: true;
     approvedByHumanUserId: string | null;
     appliedByHumanUserId: string | null;
     rollbackReason: string | null;
     rollbackReference: ConfigVersion | null;
+    applyToken: ApplyToken | null;
+    rollbackToken: RollbackToken | null;
+    configBeforeHash: DiffHash | null;
+    configAfterHash: DiffHash | null;
+    proposedNewVersion: ConfigVersion | null;
+    rollbackTargetVersion: ConfigVersion | null;
+    executable: false;
   };
   createdAt: Date;
 }

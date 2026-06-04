@@ -20,7 +20,7 @@ Feature 004: Model Config Apply Boundary
 
 ## Current Phase
 
-Phase 3: Enhanced Apply Plan Logic, Simulated Approval Isolation, Rollback Simulation, Final Hardening — COMPLETED
+Phase 4: Final Dry-run Integration & Release Gate Preparation
 
 ---
 
@@ -40,11 +40,11 @@ Phase 3: Enhanced Apply Plan Logic, Simulated Approval Isolation, Rollback Simul
 * Feature 004 Phase 2 Commit: `58623a9`
 * Feature 004 Phase 2 Tests: 52 assertions (210 cumulative)
 * Feature 004 Phase 2 Grok Code Review: 93/100
-* Feature 004 Phase 3: COMPLETED
-* Feature 004 Phase 3 Tests: pending commit
-* Feature 004 Phase 3 typecheck: CLEAN
-* Feature 004 Phase 3 build: PASS
-* ChatGPT Decision: Claude GO - Feature 004 Phase 3 only
+* Feature 004 Phase 3: PASSED
+* Feature 004 Phase 3 Commit: `9b20e4c`
+* Feature 004 Phase 3 Tests: 276 assertions
+* Feature 004 Phase 3 Grok Code Review: 94/100
+* ChatGPT Decision: Claude GO - Feature 004 Phase 4 only
 
 ---
 
@@ -56,23 +56,20 @@ Phase 3: Enhanced Apply Plan Logic, Simulated Approval Isolation, Rollback Simul
 
 ## Current Commit
 
-pending push
+`2421ea3`
 
 ---
 
 ## Allowed in this phase
 
-* Enhanced dry-run apply plan logic
-* Enhanced dry-run rollback plan logic
-* Simulated approval type isolation
-* Discriminator / literal type hard-locks for simulated approval
-* Discriminator / literal type hard-locks for dry-run apply plan
-* Discriminator / literal type hard-locks for dry-run rollback plan
-* Rollback token / idempotency planning hardening
-* Advanced canonical JSON edge-case tests
-* Advanced applyToken / rollbackToken binding tests
-* Advanced continuity tests from Feature 003 recommendation to Feature 004 dry-run plan
-* Audit event payload hardening
+* Final dry-run integration tests
+* Final Feature 003 recommendation → Feature 004 dry-run plan continuity tests
+* Final simulated approval isolation tests
+* Final apply plan non-executable tests
+* Final rollback plan non-executable tests
+* Branded / nominal typing hardening for simulated approval if needed
+* Rollback token / future transaction alignment documentation
+* Feature 004 dry-run release gate checklist
 * Documentation
 * Tests
 * SSOT update
@@ -107,33 +104,29 @@ pending push
 
 ## Required Guard Rails
 
-* Phase 3 must remain dry-run only.
+* Phase 4 must remain dry-run only.
+* Feature 004 must not become production apply.
+* No real approval record may be created.
+* No real settings mutation may occur.
+* No real rollback may occur.
 * All integration output must remain non-executable.
-* Simulated approval must be clearly distinct from persisted approval.
-* Simulated approval must not be usable as a real approval record.
+* Simulated approval must remain clearly distinct from persisted approval.
 * Apply plan must have `executable: false`.
 * Rollback plan must have `executable: false`.
 * `aiCanApply` must remain false.
 * `aiCanRollback` must remain false.
-* Human approval must remain required for any future real apply / rollback.
 * Tenant hard guard must execute before all other validation.
-* `tenantId` mismatch must be BLOCKED.
 * `applyToken` / `rollbackToken` remain validation-only.
-* No real transaction may be executed in Phase 3.
-* Rollback token must bind to tenantId, targetVersion, auditTrailId, and rollback reason.
+* No real transaction may be executed in Phase 4.
 * Config diff must remain deterministic.
-* `diffHash` must remain reproducible using SHA-256.
-* Rollback must remain dry-run and version-aware.
-* Rollback must not delete or overwrite settings history.
-* All helpers must be covered by unit tests.
 
 ---
 
 ## Team State
 
-* Claude: GO - Feature 004 Phase 3 only
+* Claude: GO - Feature 004 Phase 4 only
 * Gemini: HOLD / support clarification only
-* Grok: Prepare Feature 004 Phase 3 code review
+* Grok: Prepare Feature 004 Phase 4 code review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -141,7 +134,7 @@ pending push
 
 ## Next Expected Input
 
-Grok Feature 004 Phase 3 code review → ChatGPT gatekeeper decision.
+Claude Feature 004 Phase 4 report.
 
 ---
 

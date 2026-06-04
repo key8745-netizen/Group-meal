@@ -4,21 +4,27 @@ import type {
   ModelConfigDiff,
   ConfigVersion,
   DiffHash,
+  ApplyToken,
+  RollbackToken,
 } from '../types/modelConfigApply';
-import { asDiffHash, asConfigVersion } from '../types/modelConfigApply';
+import { asDiffHash, asConfigVersion, asApplyToken, asRollbackToken } from '../types/modelConfigApply';
 
 // ─── Canonical JSON ───────────────────────────────────────────────────────────
 
-export function canonicalizeObject(value: unknown): unknown {
+export function canonicalizeObject(value: unknown, seen?: WeakSet<object>): unknown {
   if (value === null || typeof value !== 'object') return value;
-  if (Array.isArray(value)) return value.map(canonicalizeObject);
+  if (value instanceof Date) return value.toISOString();
+  const seenSet = seen ?? new WeakSet<object>();
+  if (seenSet.has(value as object)) throw new Error('Circular reference in canonical JSON');
+  seenSet.add(value as object);
+  if (Array.isArray(value)) return (value as unknown[]).map(v => canonicalizeObject(v, seenSet));
   const obj = value as Record<string, unknown>;
   return Object.keys(obj)
     .sort()
     .reduce<Record<string, unknown>>((acc, key) => {
       const v = obj[key];
       if (v !== undefined && typeof v !== 'function' && typeof v !== 'symbol') {
-        acc[key] = canonicalizeObject(v);
+        acc[key] = canonicalizeObject(v, seenSet);
       }
       return acc;
     }, {});
@@ -130,6 +136,34 @@ export function sha256Hash(input: string): DiffHash {
 
 export function hashWeights(weights: ModelWeights | Partial<ModelWeights>): DiffHash {
   return sha256Hash(canonicalJson(weights));
+}
+
+// ─── Token Binding ────────────────────────────────────────────────────────────
+
+export interface ApplyTokenPayload {
+  tenantId: string;
+  sourceRecommendationId: string;
+  humanApprovalId: string;
+  previousVersion: string;
+  proposedNewVersion: string;
+  auditTrailId: string;
+  diffHash: string;
+}
+
+export function generateApplyToken(payload: ApplyTokenPayload): ApplyToken {
+  return asApplyToken(sha256Hash(canonicalJson(payload)) as string);
+}
+
+export interface RollbackTokenPayload {
+  tenantId: string;
+  rollbackTargetVersion: string;
+  currentVersion: string;
+  auditTrailId: string;
+  rollbackReason: string;
+}
+
+export function generateRollbackToken(payload: RollbackTokenPayload): RollbackToken {
+  return asRollbackToken(sha256Hash(canonicalJson(payload)) as string);
 }
 
 // ─── Diff Calculator ──────────────────────────────────────────────────────────

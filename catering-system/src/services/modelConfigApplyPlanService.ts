@@ -50,7 +50,7 @@ export function simulateModelConfigApplyPlan(input: SimulateApplyPlanInput): Mod
 
   if (!validation.valid || !input.previousVersion || !input.proposedVersion) {
     return {
-      _kind: 'model_config_apply_plan',
+      _kind: 'model_config_apply_plan_dry_run',
       planId: input.planId,
       tenantId: input.tenantId,
       sourceRecommendationId: (input.sourceRecommendationId ?? '') as ModelConfigRecommendationId,
@@ -83,7 +83,7 @@ export function simulateModelConfigApplyPlan(input: SimulateApplyPlanInput): Mod
   });
 
   return {
-    _kind: 'model_config_apply_plan',
+    _kind: 'model_config_apply_plan_dry_run',
     planId: input.planId,
     tenantId: input.tenantId,
     sourceRecommendationId: input.sourceRecommendationId as ModelConfigRecommendationId,

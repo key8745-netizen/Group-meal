@@ -37,6 +37,10 @@ for (const eventType of allEvents) {
   expect(`${eventType}: aiCanApply false`, ev.metadata.aiCanApply === false);
   expect(`${eventType}: requiresHumanApproval true`, ev.metadata.requiresHumanApproval === true);
   expect(`${eventType}: blockedReasons array`, Array.isArray(ev.blockedReasons));
+  expect(`${eventType}: aiCanRollback false`, ev.metadata.aiCanRollback === false);
+  expect(`${eventType}: executable false`, ev.metadata.executable === false);
+  expect(`${eventType}: applyToken null`, ev.metadata.applyToken === null);
+  expect(`${eventType}: rollbackToken null`, ev.metadata.rollbackToken === null);
 }
 
 // Full fields

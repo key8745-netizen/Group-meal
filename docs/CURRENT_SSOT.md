@@ -14,13 +14,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Feature 004: Model Config Apply Boundary
+Post-Release Monitoring: Feature 004 Dry-run Model Config Apply Boundary
 
 ---
 
 ## Current Phase
 
-Phase 1: Pure Logic & Validation
+Post-Release Monitoring / Feature 005 Planning Pending
 
 ---
 
@@ -31,56 +31,78 @@ Phase 1: Pure Logic & Validation
 * Feature 003: CLOSED
 * Production Release: COMPLETED
 * Post-Release Monitoring First Window: PASSED
-* Feature 004 Spec: CONDITIONALLY PASSED
-* Grok Feature 004 Spec Review: 93/100
-* ChatGPT Decision: Claude GO - Feature 004 Phase 1 only; Gemini v1.1 not required
+* Feature 004 Spec v1.2: CONDITIONALLY PASSED
+* Feature 004 Phase 1: PASSED
+* Feature 004 Phase 1 Commit: `340ee9d`
+* Feature 004 Phase 1 Tests: 1184/1184 pass
+* Feature 004 Phase 1 Grok Code Review: 94/100
+* Feature 004 Phase 2: PASSED
+* Feature 004 Phase 2 Commit: `58623a9`
+* Feature 004 Phase 2 Tests: 210/210 pass
+* Feature 004 Phase 2 Grok Code Review: 93/100
+* Feature 004 Phase 3: PASSED
+* Feature 004 Phase 3 Commit: `9b20e4c`
+* Feature 004 Phase 3 Tests: 276 assertions pass
+* Feature 004 Phase 3 Grok Code Review: 94/100
+* Feature 004 Phase 4: PASSED
+* Feature 004 Phase 4 Commit: `52ef10e`
+* Feature 004 Phase 4 Tests: 414 assertions pass
+* Feature 004 Dry-run Release Gate Checklist: 23/23 pass
+* Feature 004 Phase 4 Grok Code Review: 95/100
+* ChatGPT Decision: Feature 004 dry-run version CLOSED; begin Post-Release Monitoring before Feature 005
 
 ---
 
 ## Current Branch
 
-`claude/fervent-dirac-HJT01`
+`claude/busy-heisenberg-HcwYg`
 
 ---
 
 ## Current Commit
 
-`ffbabe8`
+`52ef10e`
+
+---
+
+## Feature 004 Status
+
+Feature 004 is CLOSED as a dry-run model config apply boundary.
+Feature 004 does not implement real settings mutation.
+Feature 004 does not implement real approval persistence.
+Feature 004 does not implement real apply.
+Feature 004 does not implement real rollback.
+Feature 004 does not add UI.
+Feature 004 does not add Netlify Functions.
 
 ---
 
 ## Allowed in this phase
 
-* TypeScript interfaces for model config apply boundary
-* Pure validators
-* Config diff calculator
-* Canonical JSON hash helper
-* SHA-256 diff hash helper
-* Version schema helper
-* Apply plan dry-run helper
-* Rollback plan dry-run helper
-* applyToken / rollbackToken validation
-* Tenant hard guard helpers
-* Weight bounds validator
-* Audit event pure helper
-* Unit tests
-* Documentation
+* Post-release monitoring
+* Dry-run behavior observation
+* Documentation updates
 * SSOT update
+* Risk register update
+* Feature 005 planning discussion only
+* Gemini may prepare Feature 005 spec only after ibi / ChatGPT approval
+* Grok may prepare Feature 005 spec review only after Gemini spec exists
 
 ---
 
 ## Forbidden in this phase
 
+* Do not start Feature 005 implementation
+* Do not let Claude implement code
 * Do not write Firestore
-* Do not read Firestore
-* Do not import firebase-admin
-* Do not import google-cloud-firestore
-* Do not call runTransaction
-* Do not modify settings
-* Do not write settingsHistory
+* Do not read Firestore unless a future approved phase explicitly allows it
+* Do not modify `settings`
+* Do not write `settingsHistory`
 * Do not create real approval records
-* Do not apply config
-* Do not rollback config
+* Do not create real apply records
+* Do not create real rollback records
+* Do not actually apply config
+* Do not actually rollback config
 * Do not add UI
 * Do not add Netlify Functions
 * Do not modify Feature 001 core flow
@@ -88,35 +110,42 @@ Phase 1: Pure Logic & Validation
 * Do not modify Feature 003 prediction logic
 * Do not allow AI to apply config
 * Do not allow AI to mutate rules
-* Do not change wasteFactorWarning automatically
+* Do not change `wasteFactorWarning` automatically
 * Do not introduce new production write paths
 
 ---
 
 ## Required Guard Rails
 
-* Phase 1 must remain pure logic only.
-* AI caller must be blocked from apply / rollback planning.
-* Human approval must be required for any future apply.
-* tenantId mismatch must be blocked as the first validation step.
-* applyToken / rollbackToken must be validated for idempotency planning only.
-* No real transaction may be executed in Phase 1.
-* Config diff must use canonicalized JSON with deterministic key ordering.
-* diffHash must be reproducible using SHA-256.
-* Weight validation must support per-factor bounds.
-* If normalized weights are used, epsilon tolerance must be defined.
-* If independent multipliers are used, per-factor bounds must apply and sum-to-1 must not be required.
-* Rollback must be modeled as human-approved, auditable, and version-aware.
-* Rollback must not directly delete or overwrite settings history.
-* All helpers must be covered by unit tests.
+* Feature 004 dry-run boundary must remain intact.
+* AI cannot apply config.
+* AI cannot mutate settings or rules.
+* Simulated approval must not become persisted approval.
+* Dry-run apply plan must not become executable.
+* Dry-run rollback plan must not become executable.
+* `aiCanApply` must remain false.
+* `aiCanRollback` must remain false.
+* Any future real apply mechanism must be a new Feature with Gemini spec, Grok red-team review, and ChatGPT gatekeeping.
+* Any future real rollback mechanism must be a new Feature with human approval, transaction safety, idempotency lock, version conflict guard, and audit trail.
+
+---
+
+## Known Accepted Risks / Future Work
+
+* Real model config apply is not implemented.
+* Real rollback is not implemented.
+* UI approval flow is not implemented.
+* Persisted approval record is not implemented.
+* Rollback token is currently planning-only and must be connected to transaction/idempotency in a future Feature.
+* Simulated approval and persisted approval isolation must be preserved if real approval is introduced later.
 
 ---
 
 ## Team State
 
-* Claude: GO - Feature 004 Phase 1 only
-* Gemini: HOLD / support clarification only
-* Grok: Prepare Feature 004 Phase 1 code review
+* Claude: HOLD / post-release monitoring support only
+* Gemini: HOLD / Feature 005 planning later
+* Grok: HOLD / Prepare monitoring review if requested
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -124,22 +153,13 @@ Phase 1: Pure Logic & Validation
 
 ## Next Expected Input
 
-Claude Feature 004 Phase 1 report:
-* branch name
-* commit hash
-* changed files
-* tests result
-* typecheck result
-* build result
-* confirmation that no Firestore read/write exists
-* confirmation that no firebase-admin / google-cloud-firestore import exists
-* confirmation that no real apply / rollback exists
-* confirmation that no runTransaction exists
-* confirmation that tenant hard guard is first validation step
-* confirmation that canonical diff hash is deterministic
-* confirmation that applyToken / rollbackToken are validation-only
-* confirmation that weight bounds and epsilon rules are implemented
-* known limitations
+ibi decision:
+1. Start Feature 004 post-release monitoring review
+2. Pause development and observe production
+3. Begin Feature 005 planning after monitoring baseline
+
+Recommended next step:
+Run a short post-release monitoring window for Feature 004 dry-run behavior before opening Feature 005.
 
 ---
 

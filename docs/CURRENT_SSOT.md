@@ -20,7 +20,7 @@ Feature 006: Real Model Config Apply Transaction Boundary
 
 ## Current Phase
 
-Phase 3: Lock Cleanup Pseudo-implementation + settingsHistory Snapshot Mapping
+Phase 4: COMPLETED — awaiting Grok review
 
 ---
 
@@ -40,7 +40,12 @@ Phase 3: Lock Cleanup Pseudo-implementation + settingsHistory Snapshot Mapping
 * Feature 006 Phase 2: PASSED
 * Feature 006 Phase 2 Commit: `6ed438f`
 * Feature 006 Phase 2 Grok Code Review: 92/100
-* ChatGPT Decision: Claude GO - Feature 006 Phase 3 only
+* Feature 006 Phase 3: PASSED
+* Feature 006 Phase 3 Commit: `403231f`
+* Feature 006 Phase 3 Grok Code Review: 92/100
+* ChatGPT Decision: Claude GO - Feature 006 Phase 4 only
+* Feature 006 Phase 4: PASSED
+* Feature 006 Phase 4 Commit: pending
 
 ---
 
@@ -52,40 +57,37 @@ Phase 3: Lock Cleanup Pseudo-implementation + settingsHistory Snapshot Mapping
 
 ## Current Commit
 
-`6ed438f`
+`403231f` (Phase 3) → Phase 4 pending commit
 
 ---
 
-## Phase 3 Priority Risks
+## Phase 4 Priority Risks
 
-Grok identified two remaining medium risks that must be handled in Phase 3:
-1. Lock cleanup job execution responsibility and trigger mechanism:
-   * Phase 2 documented a 3-level cleanup chain.
-   * Phase 3 must define pseudo-implementation, owner, trigger, query criteria, TTL strategy, and manual fallback details.
-2. rollback historicalConfigHash and settingsHistory snapshot integration:
-   * Phase 2 models historicalConfigHash validation.
-   * Phase 3 must define mapping from settingsHistory snapshot to historicalConfigHash and mismatch handling in end-to-end dry-run integration.
+Grok identified two remaining medium risks that must be handled in Phase 4:
+1. Lock cleanup query criteria and maintenance audit payload completeness:
+   * Phase 3 documented cleanup owner / trigger / TTL.
+   * Phase 4 must define concrete dry-run query criteria and maintenance audit payload structure.
+2. Multi-version rollback snapshot mapping:
+   * Phase 3 modeled settingsHistory snapshot mapping.
+   * Phase 4 must validate multi-version rollback chains and version consistency.
 
-These are mandatory Phase 3 work items.
+These are mandatory Phase 4 work items.
 
 ---
 
 ## Allowed in this phase
 
-* Lock cleanup pseudo-implementation
-* Lock cleanup owner / trigger / TTL policy documentation
+* Final transaction-readiness hardening
 * Lock cleanup query criteria modeling
-* Lock cleanup dry-run preview helper
-* Manual cleanup fallback plan
-* Maintenance audit event plan
-* settingsHistory snapshot mapping helper
-* historicalConfigHash mapping validation
-* historicalConfigHash mismatch handling tests
-* End-to-end dry-run rollback readiness tests
-* Rollback target snapshot validation
-* Service guard entrance contract hardening
-* Transaction-readiness integration tests
-* Boundary tests
+* Lock cleanup dry-run query plan helper
+* Maintenance audit event payload helper
+* Maintenance audit event payload tests
+* Multi-version settingsHistory snapshot mapping
+* Multi-version rollback chain validation
+* Version chain consistency tests
+* Historical hash propagation tests
+* Dry-run release gate checklist
+* Final boundary regression tests
 * Docs
 * Tests
 * SSOT update
@@ -124,24 +126,26 @@ These are mandatory Phase 3 work items.
 
 ## Required Guard Rails
 
-* Phase 3 must remain transaction-readiness only.
+* Phase 4 must remain transaction-readiness only.
 * No real Firestore read/write may occur.
 * No real cleanup job may be created.
 * No real transaction may be executed.
 * Transaction plans must remain non-executable.
+* Cleanup plans must remain non-executable.
 * `executable` must remain `false`.
 * `aiCanExecute` must remain `false`.
 * Idempotency locks remain plan-only.
-* Historical snapshot validation must be modeled against supplied snapshot input only.
+* Cleanup query criteria must be descriptive only.
+* Cleanup query criteria must not contain executable Firestore query objects.
+* Maintenance audit event payload must be pure data only.
+* Maintenance audit event must not be written.
 * settingsHistory snapshot mapping must be deterministic.
+* Multi-version rollback chain must validate version chain semantics.
 * historicalConfigHash mismatch must be BLOCKED.
 * Missing settingsHistory snapshot must be BLOCKED.
 * Deleted / overwritten / mutable history snapshot must be BLOCKED.
-* Lock cleanup must be modeled as dry-run only.
 * Lock cleanup owner must not be AI.
 * Lock cleanup must not delete active locks.
-* Lock cleanup must include TTL / cleanupEligibleAt logic.
-* Lock cleanup must include maintenance audit event plan.
 * AI caller must be blocked.
 * Tenant hard guard must execute before all other validation.
 * Admin SDK / Service Account must not bypass business guard.
@@ -151,9 +155,9 @@ These are mandatory Phase 3 work items.
 
 ## Team State
 
-* Claude: GO - Feature 006 Phase 3 only
+* Claude: GO - Feature 006 Phase 4 only
 * Gemini: HOLD / support clarification only
-* Grok: Prepare Feature 006 Phase 3 code review
+* Grok: Prepare Feature 006 Phase 4 code review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -161,30 +165,7 @@ These are mandatory Phase 3 work items.
 
 ## Next Expected Input
 
-Claude Feature 006 Phase 3 report:
-* branch name
-* commit hash
-* changed files
-* whether only allowed files were modified
-* tests result
-* typecheck result
-* build result
-* confirmation that no Firestore read/write exists
-* confirmation that no firebase-admin / google-cloud-firestore import exists
-* confirmation that no runTransaction exists
-* confirmation that no UI was added
-* confirmation that no Netlify Function / Cloud Function was added
-* confirmation that no real cleanup job exists
-* confirmation that no real apply / rollback exists
-* confirmation that no real approval / apply / rollback records are created
-* confirmation that lock cleanup pseudo-implementation is documented
-* confirmation that lock cleanup owner / trigger / TTL policy is defined
-* confirmation that cleanup is dry-run only
-* confirmation that settingsHistory snapshot mapping is implemented
-* confirmation that historicalConfigHash mismatch is BLOCKED
-* confirmation that transaction plans remain executable=false
-* confirmation that aiCanExecute remains false
-* known limitations
+Grok Feature 006 Phase 4 code review.
 
 ---
 

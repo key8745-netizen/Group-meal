@@ -529,3 +529,146 @@ export function buildLockCleanupDryRunPlan(input: BuildLockCleanupDryRunPlanInpu
     maintenanceAuditEventPlan,
   };
 }
+
+// ─── Phase 4: Lock Cleanup Query Criteria Plan ────────────────────────────────
+
+export type CleanupTrigger = 'TTL_INDEX' | 'SCHEDULED_JOB' | 'MANUAL_ADMIN';
+export type CleanupMode = 'DRY_RUN' | 'LIVE';
+
+export interface LockCleanupQueryCriteriaPlan {
+  readonly _kind: 'lock_cleanup_query_criteria_plan';
+  readonly dryRunOnly: true;
+  readonly executable: false;
+  readonly aiCanExecute: false;
+  /** Describes the Firestore collection being queried — descriptive only, not an object reference. */
+  collectionPath: string;
+  tenantId: string;
+  eligibleStatuses: LockLifecycleStatus[];
+  expiresAtBefore: Date;
+  cleanupEligibleAtBefore: Date;
+  excludeOwner: 'AI';
+  criteriaDescription: string;
+  /** No Firestore query object, callback, delete fn, write fn, commit fn, or runTransaction. */
+  readonly containsFirestoreQueryObject: false;
+  readonly containsDeleteFunction: false;
+  readonly containsWriteFunction: false;
+  readonly containsCommitFunction: false;
+  readonly containsRunTransaction: false;
+}
+
+export interface BuildLockCleanupQueryCriteriaPlanInput {
+  tenantId: string;
+  now?: Date;
+}
+
+/**
+ * Builds a descriptive dry-run query criteria plan for idempotency lock cleanup.
+ *
+ * Phase 4: pure descriptive criteria — no Firestore query object, no callbacks,
+ * no delete/write/commit functions, no runTransaction.
+ *
+ * Phase 5 (future): a real Firestore query will be constructed from these criteria
+ * by a SYSTEM_MAINTENANCE service account, never by an AI agent.
+ */
+export function buildLockCleanupQueryCriteriaPlan(
+  input: BuildLockCleanupQueryCriteriaPlanInput,
+): LockCleanupQueryCriteriaPlan {
+  const now = input.now ?? new Date();
+  const eligibleStatuses: LockLifecycleStatus[] = ['EXPIRED', 'CLEANUP_ELIGIBLE', 'CONSUMED'];
+
+  return {
+    _kind: 'lock_cleanup_query_criteria_plan',
+    dryRunOnly: true,
+    executable: false,
+    aiCanExecute: false,
+    collectionPath: 'modelConfigIdempotencyLocks',
+    tenantId: input.tenantId,
+    eligibleStatuses,
+    expiresAtBefore: now,
+    cleanupEligibleAtBefore: now,
+    excludeOwner: 'AI',
+    criteriaDescription:
+      `Query modelConfigIdempotencyLocks WHERE ` +
+      `tenantId == '${input.tenantId}' AND ` +
+      `status IN [${eligibleStatuses.join(', ')}] AND ` +
+      `expiresAt < ${now.toISOString()} AND ` +
+      `cleanupEligibleAt <= ${now.toISOString()} AND ` +
+      `lockOwner != 'AI'. ` +
+      `Scope: dry-run preview only. No deletion without SYSTEM_MAINTENANCE confirmation. ` +
+      `ACTIVE locks are excluded — never delete in-flight transactions.`,
+    containsFirestoreQueryObject: false,
+    containsDeleteFunction: false,
+    containsWriteFunction: false,
+    containsCommitFunction: false,
+    containsRunTransaction: false,
+  };
+}
+
+// ─── Phase 4: Maintenance Audit Event Payload ─────────────────────────────────
+
+export interface LockCleanupMaintenanceAuditEventPlan {
+  readonly _kind: 'lock_cleanup_maintenance_audit_event_plan';
+  readonly dryRunOnly: true;
+  readonly aiCanExecute: false;
+  eventType: 'MODEL_CONFIG_LOCK_CLEANUP_MAINTENANCE';
+  tenantId: string;
+  auditTrailId: string;
+  maintenanceRunId: string;
+  cleanupOwner: CleanupOwner;
+  cleanupTrigger: CleanupTrigger;
+  cleanupMode: CleanupMode;
+  candidateLockCount: number;
+  cleanupEligibleCount: number;
+  blockedCount: number;
+  criteriaHash: string;
+  generatedAt: Date;
+  blockedReasons: BlockedReason[];
+  note: string;
+}
+
+export interface BuildMaintenanceAuditEventPlanInput {
+  tenantId: string;
+  auditTrailId: string;
+  maintenanceRunId: string;
+  cleanupTrigger: CleanupTrigger;
+  candidateLockCount: number;
+  cleanupEligibleCount: number;
+  blockedCount: number;
+  criteriaHash: string;
+  blockedReasons?: BlockedReason[];
+  now?: Date;
+}
+
+/**
+ * Builds a maintenance audit event payload for a lock cleanup run.
+ *
+ * Phase 4: pure payload — not written to Firestore.
+ * Phase 5 (future): persisted to a `maintenanceAudit` collection after real cleanup.
+ */
+export function buildLockCleanupMaintenanceAuditEventPlan(
+  input: BuildMaintenanceAuditEventPlanInput,
+): LockCleanupMaintenanceAuditEventPlan {
+  const now = input.now ?? new Date();
+  return {
+    _kind: 'lock_cleanup_maintenance_audit_event_plan',
+    dryRunOnly: true,
+    aiCanExecute: false,
+    eventType: 'MODEL_CONFIG_LOCK_CLEANUP_MAINTENANCE',
+    tenantId: input.tenantId,
+    auditTrailId: input.auditTrailId,
+    maintenanceRunId: input.maintenanceRunId,
+    cleanupOwner: 'SYSTEM_MAINTENANCE',
+    cleanupTrigger: input.cleanupTrigger,
+    cleanupMode: 'DRY_RUN',
+    candidateLockCount: input.candidateLockCount,
+    cleanupEligibleCount: input.cleanupEligibleCount,
+    blockedCount: input.blockedCount,
+    criteriaHash: input.criteriaHash,
+    generatedAt: now,
+    blockedReasons: input.blockedReasons ?? [],
+    note:
+      `Dry-run maintenance audit event. Run: ${input.maintenanceRunId}. ` +
+      `Candidates: ${input.candidateLockCount}, Eligible: ${input.cleanupEligibleCount}, ` +
+      `Blocked: ${input.blockedCount}. Owner: SYSTEM_MAINTENANCE. AI cannot execute.`,
+  };
+}

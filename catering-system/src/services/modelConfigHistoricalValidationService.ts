@@ -321,3 +321,125 @@ export function mapSettingsHistorySnapshotToHistoricalHash(
 
   return { valid: true, blockedReasons: [], mappedConfigHash: snap.configHash };
 }
+
+// ─── Phase 4: Multi-version Rollback Chain Validation ────────────────────────
+
+/**
+ * Represents an ordered chain of settingsHistory snapshots for multi-version
+ * rollback validation. Snapshots must be sorted ascending by version.
+ */
+export interface MultiVersionRollbackChainInput {
+  tenantId: TenantId;
+  rollbackTargetVersion: ConfigVersion;
+  /** Ordered ascending by version: snapshots[0] is oldest, snapshots[N-1] is newest. */
+  snapshots: SettingsHistorySnapshot[];
+  expectedHistoricalConfigHash: DiffHash;
+}
+
+export interface MultiVersionRollbackChainResult {
+  valid: boolean;
+  blockedReasons: BlockedReason[];
+  /** The validated configHash of the rollback target snapshot, or null if blocked. */
+  validatedTargetConfigHash: DiffHash | null;
+  /** Number of snapshots in the validated chain. */
+  chainLength: number;
+}
+
+/**
+ * Validates a multi-version rollback snapshot chain.
+ *
+ * Rules (tenant hard guard first):
+ *  1. tenantId present (hard guard)
+ *  2. rollbackTargetVersion present
+ *  3. snapshots array non-empty
+ *  4. Every snapshot belongs to the same tenantId
+ *  5. Every snapshot is immutable, not deleted, not overwritten
+ *  6. Versions are strictly ascending (no duplicates, no out-of-order)
+ *  7. Target version exists in the chain
+ *  8. Target snapshot configHash matches expectedHistoricalConfigHash
+ *
+ * Phase 4: pure logic — caller supplies all snapshots.
+ * Phase 5 (future): caller reads the full version chain inside runTransaction.
+ */
+export function validateMultiVersionRollbackSnapshotChain(
+  input: MultiVersionRollbackChainInput,
+): MultiVersionRollbackChainResult {
+  const blocked: BlockedReason[] = [];
+
+  // 1. Tenant hard guard
+  if (!input.tenantId) {
+    blocked.push('REAL_ROLLBACK_TENANT_MISMATCH');
+    return { valid: false, blockedReasons: blocked, validatedTargetConfigHash: null, chainLength: 0 };
+  }
+
+  // 2. rollbackTargetVersion present
+  if (!input.rollbackTargetVersion) {
+    blocked.push('REAL_ROLLBACK_MISSING_ROLLBACK_TOKEN');
+    return { valid: false, blockedReasons: blocked, validatedTargetConfigHash: null, chainLength: 0 };
+  }
+
+  // 3. snapshots non-empty
+  if (!input.snapshots || input.snapshots.length === 0) {
+    blocked.push('REAL_ROLLBACK_TARGET_VERSION_NOT_FOUND');
+    return { valid: false, blockedReasons: blocked, validatedTargetConfigHash: null, chainLength: 0 };
+  }
+
+  const snapshots = input.snapshots;
+  let targetSnapshot: SettingsHistorySnapshot | null = null;
+
+  // 4–6. Per-snapshot checks + ascending order
+  for (let i = 0; i < snapshots.length; i++) {
+    const snap = snapshots[i];
+
+    // 4. Each snapshot must belong to the same tenant
+    if ((snap.tenantId as string) !== (input.tenantId as string)) {
+      blocked.push('REAL_ROLLBACK_TENANT_MISMATCH');
+    }
+
+    // 5. Each snapshot must be immutable, not deleted, not overwritten
+    if (snap.immutable !== true) {
+      blocked.push('REAL_ROLLBACK_HISTORICAL_CONFIG_HASH_MISMATCH');
+    }
+    if ((snap as { deleted?: unknown }).deleted === true) {
+      blocked.push('REAL_ROLLBACK_HISTORICAL_CONFIG_HASH_MISMATCH');
+    }
+    if ((snap as { overwritten?: unknown }).overwritten === true) {
+      blocked.push('REAL_ROLLBACK_HISTORICAL_CONFIG_HASH_MISMATCH');
+    }
+
+    // 6. Versions must be strictly ascending (no duplicates, no regression)
+    if (i > 0) {
+      const prevVersion = snapshots[i - 1].version as string;
+      const curVersion = snap.version as string;
+      if (curVersion <= prevVersion) {
+        blocked.push('REAL_ROLLBACK_SAME_VERSION');
+      }
+    }
+
+    // Locate target snapshot
+    if ((snap.version as string) === (input.rollbackTargetVersion as string)) {
+      targetSnapshot = snap;
+    }
+  }
+
+  // 7. Target version must exist in chain
+  if (!targetSnapshot) {
+    blocked.push('REAL_ROLLBACK_TARGET_VERSION_NOT_FOUND');
+  }
+
+  // 8. Target snapshot configHash must match expected
+  if (targetSnapshot && (targetSnapshot.configHash as string) !== (input.expectedHistoricalConfigHash as string)) {
+    blocked.push('REAL_ROLLBACK_HISTORICAL_CONFIG_HASH_MISMATCH');
+  }
+
+  if (blocked.length > 0) {
+    return { valid: false, blockedReasons: blocked, validatedTargetConfigHash: null, chainLength: snapshots.length };
+  }
+
+  return {
+    valid: true,
+    blockedReasons: [],
+    validatedTargetConfigHash: targetSnapshot!.configHash,
+    chainLength: snapshots.length,
+  };
+}

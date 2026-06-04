@@ -14,13 +14,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Post-Release Monitoring: Feature 004 Dry-run Model Config Apply Boundary
+Feature 005: Human-Approved Model Config Apply Execution
 
 ---
 
 ## Current Phase
 
-Post-Release Monitoring / Feature 005 Planning Pending
+Phase 1: Pure Logic & Validation
 
 ---
 
@@ -29,27 +29,12 @@ Post-Release Monitoring / Feature 005 Planning Pending
 * Feature 001: CLOSED
 * Feature 002: CLOSED
 * Feature 003: CLOSED
+* Feature 004 dry-run version: CLOSED
 * Production Release: COMPLETED
-* Post-Release Monitoring First Window: PASSED
-* Feature 004 Spec v1.2: CONDITIONALLY PASSED
-* Feature 004 Phase 1: PASSED
-* Feature 004 Phase 1 Commit: `340ee9d`
-* Feature 004 Phase 1 Tests: 1184/1184 pass
-* Feature 004 Phase 1 Grok Code Review: 94/100
-* Feature 004 Phase 2: PASSED
-* Feature 004 Phase 2 Commit: `58623a9`
-* Feature 004 Phase 2 Tests: 210/210 pass
-* Feature 004 Phase 2 Grok Code Review: 93/100
-* Feature 004 Phase 3: PASSED
-* Feature 004 Phase 3 Commit: `9b20e4c`
-* Feature 004 Phase 3 Tests: 276 assertions pass
-* Feature 004 Phase 3 Grok Code Review: 94/100
-* Feature 004 Phase 4: PASSED
-* Feature 004 Phase 4 Commit: `52ef10e`
-* Feature 004 Phase 4 Tests: 414 assertions pass
-* Feature 004 Dry-run Release Gate Checklist: 23/23 pass
-* Feature 004 Phase 4 Grok Code Review: 95/100
-* ChatGPT Decision: Feature 004 dry-run version CLOSED; begin Post-Release Monitoring before Feature 005
+* Post-Release Monitoring: PASSED
+* Feature 005 Spec v1.1: PASSED
+* Feature 005 Spec v1.1 Grok Review: 94/100
+* ChatGPT Decision: Claude GO — Feature 005 Phase 1 only
 
 ---
 
@@ -61,41 +46,39 @@ Post-Release Monitoring / Feature 005 Planning Pending
 
 ## Current Commit
 
-`52ef10e`
-
----
-
-## Feature 004 Status
-
-Feature 004 is CLOSED as a dry-run model config apply boundary.
-Feature 004 does not implement real settings mutation.
-Feature 004 does not implement real approval persistence.
-Feature 004 does not implement real apply.
-Feature 004 does not implement real rollback.
-Feature 004 does not add UI.
-Feature 004 does not add Netlify Functions.
+`395d3bf`
 
 ---
 
 ## Allowed in this phase
 
-* Post-release monitoring
-* Dry-run behavior observation
-* Documentation updates
+* TypeScript interfaces for real model config apply boundary
+* Persisted approval validators
+* Apply preflight validator
+* Rollback preflight validator
+* Transaction plan builder
+* Rollback transaction plan helper
+* Idempotency lock schema helper
+* applyToken generation / validation helper
+* rollbackToken generation / validation helper
+* settingsHistory version schema helper
+* immutable version metadata helper
+* canonical JSON / SHA-256 hash helper hardening
+* audit event pure helper
+* static import / forbidden syntax guard config
+* tests
+* docs
 * SSOT update
-* Risk register update
-* Feature 005 planning discussion only
-* Gemini may prepare Feature 005 spec only after ibi / ChatGPT approval
-* Grok may prepare Feature 005 spec review only after Gemini spec exists
 
 ---
 
 ## Forbidden in this phase
 
-* Do not start Feature 005 implementation
-* Do not let Claude implement code
 * Do not write Firestore
-* Do not read Firestore unless a future approved phase explicitly allows it
+* Do not read Firestore
+* Do not import `firebase-admin`
+* Do not import `google-cloud-firestore`
+* Do not call `runTransaction`
 * Do not modify `settings`
 * Do not write `settingsHistory`
 * Do not create real approval records
@@ -108,8 +91,9 @@ Feature 004 does not add Netlify Functions.
 * Do not modify Feature 001 core flow
 * Do not modify Feature 002 inventory mutation logic
 * Do not modify Feature 003 prediction logic
+* Do not modify Feature 004 dry-run boundary
 * Do not allow AI to apply config
-* Do not allow AI to mutate rules
+* Do not allow AI to mutate settings or rules
 * Do not change `wasteFactorWarning` automatically
 * Do not introduce new production write paths
 
@@ -117,35 +101,32 @@ Feature 004 does not add Netlify Functions.
 
 ## Required Guard Rails
 
-* Feature 004 dry-run boundary must remain intact.
-* AI cannot apply config.
-* AI cannot mutate settings or rules.
-* Simulated approval must not become persisted approval.
-* Dry-run apply plan must not become executable.
-* Dry-run rollback plan must not become executable.
-* `aiCanApply` must remain false.
-* `aiCanRollback` must remain false.
-* Any future real apply mechanism must be a new Feature with Gemini spec, Grok red-team review, and ChatGPT gatekeeping.
-* Any future real rollback mechanism must be a new Feature with human approval, transaction safety, idempotency lock, version conflict guard, and audit trail.
-
----
-
-## Known Accepted Risks / Future Work
-
-* Real model config apply is not implemented.
-* Real rollback is not implemented.
-* UI approval flow is not implemented.
-* Persisted approval record is not implemented.
-* Rollback token is currently planning-only and must be connected to transaction/idempotency in a future Feature.
-* Simulated approval and persisted approval isolation must be preserved if real approval is introduced later.
+* Phase 1 must remain pure logic only.
+* Claude may define transaction plans but must not execute transactions.
+* Claude may define schemas and validators but must not persist records.
+* AI caller must be blocked from any future apply / rollback plan.
+* Tenant hard guard must execute before all other validation.
+* `tenantId` mismatch must be BLOCKED.
+* Missing `approvalId` must be BLOCKED.
+* Missing `auditTrailId` must be BLOCKED.
+* Missing `expectedCurrentVersion` must be BLOCKED.
+* Missing `applyToken` must be BLOCKED.
+* Missing `rollbackToken` must be BLOCKED for rollback plans.
+* rollback must be modeled as a new human-approved change.
+* rollback must not delete or overwrite settings history.
+* settingsHistory must be modeled as immutable append-only.
+* `configBeforeHash`, `configAfterHash`, and `diffHash` must be deterministic.
+* canonical JSON must define behavior for nested arrays, BigInt, NaN, Infinity, Date, undefined, function, symbol, and circular references.
+* applyToken / rollbackToken must be deterministic and bind to tenantId, version, auditTrailId, and diff / rollback target.
+* Phase 1 must include tests proving no Firestore imports, no `runTransaction`, no UI, and no Netlify Function changes.
 
 ---
 
 ## Team State
 
-* Claude: HOLD / post-release monitoring support only
-* Gemini: HOLD / Feature 005 planning later
-* Grok: HOLD / Prepare monitoring review if requested
+* Claude: GO — Feature 005 Phase 1 only
+* Gemini: HOLD / support clarification only
+* Grok: Prepare Feature 005 Phase 1 code review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -153,13 +134,26 @@ Feature 004 does not add Netlify Functions.
 
 ## Next Expected Input
 
-ibi decision:
-1. Start Feature 004 post-release monitoring review
-2. Pause development and observe production
-3. Begin Feature 005 planning after monitoring baseline
-
-Recommended next step:
-Run a short post-release monitoring window for Feature 004 dry-run behavior before opening Feature 005.
+Claude Feature 005 Phase 1 report:
+* branch name
+* commit hash
+* changed files
+* whether only allowed files were modified
+* tests result
+* typecheck result
+* build result
+* confirmation that no Firestore read/write exists
+* confirmation that no firebase-admin / google-cloud-firestore import exists
+* confirmation that no runTransaction exists
+* confirmation that no UI was added
+* confirmation that no Netlify Function was added
+* confirmation that no real apply / rollback exists
+* confirmation that no real approval / apply / rollback records are created
+* confirmation that tenant hard guard is first validation step
+* confirmation that applyToken / rollbackToken generation rules are implemented
+* confirmation that canonical JSON extreme cases are tested
+* confirmation that settingsHistory is modeled as immutable append-only
+* known limitations
 
 ---
 

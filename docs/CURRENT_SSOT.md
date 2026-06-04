@@ -20,7 +20,7 @@ Feature 006: Real Model Config Apply Transaction Boundary
 
 ## Current Phase
 
-Phase 1: Pure Logic & Validation
+Phase 2: Transaction Readiness Integration + Historical Hash Validation + Lock Cleanup Design
 
 ---
 
@@ -29,18 +29,15 @@ Phase 1: Pure Logic & Validation
 * Feature 001: CLOSED
 * Feature 002: CLOSED
 * Feature 003: CLOSED
-* Feature 004 dry-run version: CLOSED
-* Feature 005 dry-run execution version: CLOSED
+* Feature 004: CLOSED
+* Feature 005: CLOSED
 * Production Release: COMPLETED
 * Post-Release Monitoring: PASSED
-* Feature 005 Post-Release Monitoring: PASSED
-* Feature 005 Monitoring Commit: `a2da1e4`
-* Feature 005 Monitoring Tests: 282 assertions pass
-* Feature 005 Release Gate Checklist: 24/24 pass
-* Feature 005 Monitoring Grok Review: 93/100
-* ChatGPT Decision: Begin Feature 006 Planning only; Claude HOLD
+* Feature 006 Spec v1.2: PASSED
 * Feature 006 Phase 1: PASSED
-* Feature 006 Phase 1 Commit: f74513e
+* Feature 006 Phase 1 Commit: `f74513e`
+* Feature 006 Phase 1 Grok Code Review: 92/100
+* ChatGPT Decision: Claude GO - Feature 006 Phase 2 only
 
 ---
 
@@ -52,63 +49,58 @@ Phase 1: Pure Logic & Validation
 
 ## Current Commit
 
-`a2da1e4`
+`f74513e`
 
 ---
 
-## Feature 006 Goal
+## Phase 2 Priority Risks
 
-Design a safe real execution boundary for human-approved model config apply.
-Feature 006 may allow real model config apply in a future implementation phase, but only through:
-* explicit human approval
-* strict service guard
-* single Firestore transaction
-* immutable settingsHistory write
-* settings currentVersion update
-* idempotency lock
-* expectedCurrentVersion check
-* complete audit trail append
-* AI caller hard block
+Grok identified two medium risks that must be handled in Phase 2:
+1. `rollback historicalConfigHash` validation depth:
+   * Phase 1 compares caller-provided hashes only.
+   * Phase 2 must model how actual historical config hash from `settingsHistory` is cross-validated before rollback.
+2. Lock cleanup job responsibility:
+   * Phase 1 documented a cleanup chain.
+   * Phase 2 must define trigger method, owner, TTL / cleanup strategy, and pseudo-implementation.
 
-Feature 006 must also define rollback safety, but real rollback may be separated into a later feature if needed.
+These are mandatory Phase 2 work items.
 
 ---
 
 ## Allowed in this phase
 
-* Feature 006 requirements discussion
-* Gemini produces Feature 006 Spec
-* Grok reviews Feature 006 Spec
-* Define real apply transaction boundary
-* Define service guard entrance requirements
-* Define persisted approval validation
-* Define idempotency lock storage strategy
-* Define applyToken lock semantics
-* Define rollbackToken lock semantics
-* Define expectedCurrentVersion race-condition guard
-* Define immutable settingsHistory write strategy
-* Define settings current config update strategy
-* Define audit trail events
-* Define rollback strategy
-* Define tenant isolation
-* Define AI forbidden actions
-* Define Claude Phase 1 implementation scope
-* Docs / SSOT update
+* Transaction-readiness integration planning
+* Historical settingsHistory hash validation plan
+* Historical config hash cross-validation helper
+* Rollback target version validation helper
+* Lock cleanup strategy documentation
+* Lock TTL / cleanup pseudo-implementation
+* Idempotency lock lifecycle helper
+* Apply / rollback transaction pseudo-plan hardening
+* Service guard entrance contract hardening
+* Audit event metadata validation
+* Tenant isolation validation
+* Boundary tests
+* Docs
+* Tests
+* SSOT update
 
 ---
 
 ## Forbidden in this phase
 
-* Do not let Claude implement code
-* Do not modify production code
 * Do not write Firestore
-* Do not modify settings
-* Do not write settingsHistory
+* Do not read Firestore
+* Do not import `firebase-admin`
+* Do not import `google-cloud-firestore`
+* Do not call `runTransaction`
+* Do not modify `settings`
+* Do not write `settingsHistory`
 * Do not create real approval records
 * Do not create real apply records
 * Do not create real rollback records
-* Do not apply config
-* Do not rollback config
+* Do not actually apply config
+* Do not actually rollback config
 * Do not add UI
 * Do not add Netlify Functions
 * Do not modify Feature 001 core flow
@@ -125,38 +117,31 @@ Feature 006 must also define rollback safety, but real rollback may be separated
 
 ## Required Guard Rails
 
-* Feature 006 must preserve human final control.
-* AI may recommend config changes but cannot apply them.
-* AI must be blocked even if invoked through Admin SDK / Service Account / Netlify Function.
-* Any real apply must require explicit human approval.
-* Any real apply must occur inside one Firestore transaction.
-* Any real apply must be idempotency-protected.
-* Any real apply must write immutable settingsHistory.
-* Any real apply must update settings current config and currentVersion in the same transaction.
-* Any real apply must append audit trail in the same transaction or use a clearly defined atomic audit strategy.
-* No settings mutation may occur without approvalId, auditTrailId, tenantId, expectedCurrentVersion, and applyToken.
-* Rollback must also require human approval, transaction safety, idempotency, version conflict guard, and audit trail.
-* Rollback must not delete history or overwrite historical versions.
-* Feature 006 Spec must be reviewed by Grok before Claude can implement.
-
----
-
-## Priority Risks From Feature 005 Monitoring
-
-These must be addressed in Feature 006 Spec:
-1. Rollback token storage and transaction integration.
-2. Rollback conflict resolution in real transaction context.
-3. Version chain check for rollbackTargetVersion / expectedCurrentVersion / newVersion.
-4. rollbackReason / rollbackTargetVersion production boundary tests.
-5. Audit metadata consistency under real apply / rollback execution.
+* Phase 2 must remain transaction-readiness only.
+* No real transaction may be executed.
+* No real Firestore read/write may occur.
+* Transaction plans must remain non-executable.
+* `executable` must remain `false`.
+* `aiCanExecute` must remain `false`.
+* Idempotency locks remain plan-only.
+* Historical hash validation must be modeled against supplied `settingsHistory` snapshot input only.
+* Rollback must validate that `rollbackTargetVersion` maps to expected historical config hash.
+* Historical hash mismatch must be BLOCKED.
+* Rollback must remain a new human-approved change.
+* Rollback must not delete or overwrite settings history.
+* Lock cleanup must be documented with trigger, owner, TTL policy, and pseudo-implementation.
+* AI caller must be blocked.
+* Tenant hard guard must execute before all other validation.
+* Service guard must still block AI even if Admin SDK / Service Account is used.
+* All helpers must be pure and covered by tests.
 
 ---
 
 ## Team State
 
-* Claude: HOLD
-* Gemini: GO - Produce Feature 006 Spec
-* Grok: GO - Prepare Feature 006 Spec Review
+* Claude: GO - Feature 006 Phase 2 only
+* Gemini: HOLD / support clarification only
+* Grok: Prepare Feature 006 Phase 2 code review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -164,20 +149,27 @@ These must be addressed in Feature 006 Spec:
 
 ## Next Expected Input
 
-Gemini Feature 006 Spec.
-Spec should define:
-* real model config apply transaction flow
-* real persisted approval validation
-* transaction pseudo-code
-* idempotency lock collection / schema
-* applyToken / rollbackToken storage strategy
-* settingsHistory immutable version write
-* settings currentVersion update
-* audit event transaction strategy
-* rollback strategy
-* tenant isolation
-* AI forbidden actions
-* Claude Phase 1 implementation scope
+Claude Feature 006 Phase 2 report:
+* branch name
+* commit hash
+* changed files
+* whether only allowed files were modified
+* tests result
+* typecheck result
+* build result
+* confirmation that no Firestore read/write exists
+* confirmation that no firebase-admin / google-cloud-firestore import exists
+* confirmation that no runTransaction exists
+* confirmation that no UI was added
+* confirmation that no Netlify Function was added
+* confirmation that no real apply / rollback exists
+* confirmation that no real approval / apply / rollback records are created
+* confirmation that historicalConfigHash cross-validation is modeled
+* confirmation that rollbackTargetVersion historical hash mismatch is BLOCKED
+* confirmation that lock cleanup responsibility and pseudo-implementation are documented
+* confirmation that transaction plans remain executable=false
+* confirmation that aiCanExecute remains false
+* known limitations
 
 ---
 

@@ -14,13 +14,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Feature 004: Model Config Apply Boundary — **CLOSED**
+Post-Release Monitoring: Feature 004 Dry-run Model Config Apply Boundary
 
 ---
 
 ## Current Phase
 
-Feature 004 dry-run version 正式結案
+Post-Release Monitoring / Feature 005 Planning Pending
 
 ---
 
@@ -32,53 +32,24 @@ Feature 004 dry-run version 正式結案
 * Production Release: COMPLETED
 * Post-Release Monitoring First Window: PASSED
 * Feature 004 Spec v1.2: CONDITIONALLY PASSED
-* Feature 004 Phase 1: PASSED — Commit `340ee9d` — 158 assertions — Grok 94/100
-* Feature 004 Phase 2: PASSED — Commit `58623a9` — 52 assertions (210 cumulative) — Grok 93/100
-* Feature 004 Phase 3: PASSED — Commit `9b20e4c` — 276 assertions — Grok 94/100
-* Feature 004 Phase 4: PASSED — Commit `52ef10e` — 109 assertions (414 cumulative) — Grok 95/100
-* Feature 004: **CLOSED** — All phases passed — 414 total assertions — dry-run only
-
----
-
-## Feature 004 Closeout Summary
-
-### What was built
-
-A complete dry-run boundary system ensuring AI can never self-apply model config changes:
-
-```
-Feature 003 ModelConfigRecommendation
-  → SimulatedHumanModelConfigApproval  (persisted: false, executable: false)
-  → ModelConfigApplyPlan              (_kind: 'model_config_apply_plan_dry_run', executable: false, aiCanApply: false)
-  → ModelConfigRollbackPlan           (_kind: 'model_config_rollback_plan_dry_run', executable: false, aiCanRollback: false)
-  + ModelConfigAuditEvent             (aiCanApply: false, aiCanRollback: false, executable: false)
-```
-
-### Guard invariants (all permanent)
-
-* `aiCanApply: false` — on all output objects, all paths
-* `aiCanRollback: false` — on all output objects, all paths
-* `executable: false` — on all plan and approval objects
-* `requiresHumanApproval: true` — on apply plan
-* `humanApprovalRequired: true` — on rollback plan
-* `persisted: false` — on simulated approval
-* Tenant hard guard — first check in all validate functions
-
-### What is NOT built (intentional scope boundary)
-
-* No Firestore write — Feature 004 is dry-run only
-* No real approval record creation
-* No real settings mutation
-* No real config apply
-* No real config rollback
-* No UI
-* No Netlify Function
-
-### Future work (Feature 005+)
-
-* Real human-in-the-loop apply with Firestore transaction
-* Real rollback with version conflict check and idempotency lock
-* UI approval interface for reviewing apply plans
+* Feature 004 Phase 1: PASSED
+* Feature 004 Phase 1 Commit: `340ee9d`
+* Feature 004 Phase 1 Tests: 1184/1184 pass
+* Feature 004 Phase 1 Grok Code Review: 94/100
+* Feature 004 Phase 2: PASSED
+* Feature 004 Phase 2 Commit: `58623a9`
+* Feature 004 Phase 2 Tests: 210/210 pass
+* Feature 004 Phase 2 Grok Code Review: 93/100
+* Feature 004 Phase 3: PASSED
+* Feature 004 Phase 3 Commit: `9b20e4c`
+* Feature 004 Phase 3 Tests: 276 assertions pass
+* Feature 004 Phase 3 Grok Code Review: 94/100
+* Feature 004 Phase 4: PASSED
+* Feature 004 Phase 4 Commit: `52ef10e`
+* Feature 004 Phase 4 Tests: 414 assertions pass
+* Feature 004 Dry-run Release Gate Checklist: 23/23 pass
+* Feature 004 Phase 4 Grok Code Review: 95/100
+* ChatGPT Decision: Feature 004 dry-run version CLOSED; begin Post-Release Monitoring before Feature 005
 
 ---
 
@@ -94,11 +65,87 @@ Feature 003 ModelConfigRecommendation
 
 ---
 
+## Feature 004 Status
+
+Feature 004 is CLOSED as a dry-run model config apply boundary.
+Feature 004 does not implement real settings mutation.
+Feature 004 does not implement real approval persistence.
+Feature 004 does not implement real apply.
+Feature 004 does not implement real rollback.
+Feature 004 does not add UI.
+Feature 004 does not add Netlify Functions.
+
+---
+
+## Allowed in this phase
+
+* Post-release monitoring
+* Dry-run behavior observation
+* Documentation updates
+* SSOT update
+* Risk register update
+* Feature 005 planning discussion only
+* Gemini may prepare Feature 005 spec only after ibi / ChatGPT approval
+* Grok may prepare Feature 005 spec review only after Gemini spec exists
+
+---
+
+## Forbidden in this phase
+
+* Do not start Feature 005 implementation
+* Do not let Claude implement code
+* Do not write Firestore
+* Do not read Firestore unless a future approved phase explicitly allows it
+* Do not modify `settings`
+* Do not write `settingsHistory`
+* Do not create real approval records
+* Do not create real apply records
+* Do not create real rollback records
+* Do not actually apply config
+* Do not actually rollback config
+* Do not add UI
+* Do not add Netlify Functions
+* Do not modify Feature 001 core flow
+* Do not modify Feature 002 inventory mutation logic
+* Do not modify Feature 003 prediction logic
+* Do not allow AI to apply config
+* Do not allow AI to mutate rules
+* Do not change `wasteFactorWarning` automatically
+* Do not introduce new production write paths
+
+---
+
+## Required Guard Rails
+
+* Feature 004 dry-run boundary must remain intact.
+* AI cannot apply config.
+* AI cannot mutate settings or rules.
+* Simulated approval must not become persisted approval.
+* Dry-run apply plan must not become executable.
+* Dry-run rollback plan must not become executable.
+* `aiCanApply` must remain false.
+* `aiCanRollback` must remain false.
+* Any future real apply mechanism must be a new Feature with Gemini spec, Grok red-team review, and ChatGPT gatekeeping.
+* Any future real rollback mechanism must be a new Feature with human approval, transaction safety, idempotency lock, version conflict guard, and audit trail.
+
+---
+
+## Known Accepted Risks / Future Work
+
+* Real model config apply is not implemented.
+* Real rollback is not implemented.
+* UI approval flow is not implemented.
+* Persisted approval record is not implemented.
+* Rollback token is currently planning-only and must be connected to transaction/idempotency in a future Feature.
+* Simulated approval and persisted approval isolation must be preserved if real approval is introduced later.
+
+---
+
 ## Team State
 
-* Claude: HOLD — awaiting Feature 005 planning directive
-* Gemini: HOLD
-* Grok: HOLD — standby for Feature 005 review
+* Claude: HOLD / post-release monitoring support only
+* Gemini: HOLD / Feature 005 planning later
+* Grok: HOLD / Prepare monitoring review if requested
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -106,7 +153,13 @@ Feature 003 ModelConfigRecommendation
 
 ## Next Expected Input
 
-ibi 總監 Feature 005 規劃指令 / Post-Release Monitoring directive。
+ibi decision:
+1. Start Feature 004 post-release monitoring review
+2. Pause development and observe production
+3. Begin Feature 005 planning after monitoring baseline
+
+Recommended next step:
+Run a short post-release monitoring window for Feature 004 dry-run behavior before opening Feature 005.
 
 ---
 

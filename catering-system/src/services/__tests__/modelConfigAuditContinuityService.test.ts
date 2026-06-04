@@ -93,6 +93,7 @@ expect('sourceRecommendationId mismatch → valid=false', r7.valid === false);
 
 console.log('\n[validateRollbackAuditMetadataContinuity]\n');
 
+const baseRollbackReason = 'config regression detected';
 const baseRollbackMeta = {
   tenantId,
   approvalId,
@@ -100,8 +101,8 @@ const baseRollbackMeta = {
   rollbackTargetVersion: v1,
   expectedCurrentVersion: v2,
   newVersion: v1,
-  rollbackReason: 'config regression detected',
-  rollbackReasonHash: 'placeholder-hash-for-existing-tests',
+  rollbackReason: baseRollbackReason,
+  rollbackReasonHash: computeRollbackReasonHash(baseRollbackReason),
   rollbackToken,
 };
 
@@ -215,6 +216,35 @@ const recommendationOtherAudit: ModelConfigRecommendation = {
 const rc4 = validateRecommendationToTransactionPlanContinuity(recommendationOtherAudit, approval, plan);
 expect('auditTrailId mismatch in chain → AUDIT_CONTINUITY_AUDIT_TRAIL_MISMATCH', rc4.blockedReasons.includes('AUDIT_CONTINUITY_AUDIT_TRAIL_MISMATCH'));
 expect('auditTrailId mismatch in chain → valid=false', rc4.valid === false);
+
+// ── Phase 4: rollbackReasonHash cross-validation ─────────────────────────────
+
+console.log('\n[Phase 4: rollbackReasonHash cross-validation]\n');
+
+// 17. rollbackReasonHash mismatch → blocked
+const rrh1 = validateRollbackAuditMetadataContinuity(
+  baseRollbackMeta,
+  { ...baseRollbackMeta, rollbackReasonHash: 'wrong-hash' },
+);
+expect('rollbackReasonHash mismatch → valid=false', rrh1.valid === false);
+expect('rollbackReasonHash mismatch → AUDIT_CONTINUITY_ROLLBACK_REASON_MISMATCH', rrh1.blockedReasons.includes('AUDIT_CONTINUITY_ROLLBACK_REASON_MISMATCH'));
+
+// 18. computeRollbackReasonHash determinism
+const h1 = computeRollbackReasonHash('test reason');
+const h2 = computeRollbackReasonHash('test reason');
+expect('computeRollbackReasonHash same input → same hash', h1 === h2);
+
+// 19. computeRollbackReasonHash different input → different hash
+const h3 = computeRollbackReasonHash('different reason');
+expect('computeRollbackReasonHash different input → different hash', h1 !== h3);
+
+// 20. valid rollback with matching rollbackReasonHash passes
+const computedHash = computeRollbackReasonHash(baseRollbackReason);
+const rrh2 = validateRollbackAuditMetadataContinuity(
+  { ...baseRollbackMeta, rollbackReasonHash: computedHash },
+  { ...baseRollbackMeta, rollbackReasonHash: computedHash },
+);
+expect('matching rollbackReasonHash → valid=true', rrh2.valid === true);
 
 if (fail === 0) console.log(`\nPASSED — modelConfigAuditContinuityService verified (${pass} assertions)`);
 else { throw new Error(`FAIL — ${fail} failures`); }

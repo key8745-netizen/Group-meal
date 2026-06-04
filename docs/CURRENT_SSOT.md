@@ -14,13 +14,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Post-Release Monitoring: Feature 005 Dry-run Model Config Apply Execution
+Feature 006: Real Model Config Apply Transaction Boundary
 
 ---
 
 ## Current Phase
 
-Post-Release Monitoring / Feature 006 Planning Pending
+Planning / Spec Design
 
 ---
 
@@ -30,39 +30,15 @@ Post-Release Monitoring / Feature 006 Planning Pending
 * Feature 002: CLOSED
 * Feature 003: CLOSED
 * Feature 004 dry-run version: CLOSED
+* Feature 005 dry-run execution version: CLOSED
 * Production Release: COMPLETED
 * Post-Release Monitoring: PASSED
-* Feature 005 Spec v1.1: PASSED
-* Feature 005 Phase 1: PASSED
-* Feature 005 Phase 1 Commit: `c6366ac`
-* Feature 005 Phase 1 Grok Code Review: 93/100
-* Feature 005 Phase 2: PASSED
-* Feature 005 Phase 2 Commit: `78c9a95`
-* Feature 005 Phase 2 Grok Code Review: 92/100
-* Feature 005 Phase 3: PASSED
-* Feature 005 Phase 3 Commit: `57c506b`
-* Feature 005 Phase 3 Grok Code Review: 91/100
-* Feature 005 Phase 4: PASSED
-* Feature 005 Phase 4 Commit: `2127d83`
-* Feature 005 Phase 4 Grok Code Review: 94/100
-* Feature 005 Release Gate: 24/24 ✅
-* Feature 005 Status: CLOSED as dry-run execution boundary
-
----
-
-## Feature 005 Summary
-
-* All 4 phases completed and reviewed by Grok
-* dry-run transaction plan safety confirmed: `executable: false`, `aiCanExecute: false`, `requiresHumanApproval: true`
-* Idempotency lock plan confirmed `planOnly: true`, `status: 'PLANNED'`
-* settingsHistory confirmed `appendOnly: true`, `immutable: true`
-* rollbackToken 7-field binding confirmed
-* rollbackReasonHash cross-validation confirmed
-* 5 idempotency conflict types modeled: BLOCKED_DUPLICATE, IDEMPOTENT_REPLAY_BLOCKED, VERSION_CONFLICT, APPROVAL_REUSE_BLOCKED, VERSION_CHAIN_CONFLICT
-* No Firestore read/write
-* No firebase-admin / google-cloud-firestore import
-* No runTransaction
-* No real apply / rollback executed
+* Feature 005 Post-Release Monitoring: PASSED
+* Feature 005 Monitoring Commit: `a2da1e4`
+* Feature 005 Monitoring Tests: 282 assertions pass
+* Feature 005 Release Gate Checklist: 24/24 pass
+* Feature 005 Monitoring Grok Review: 93/100
+* ChatGPT Decision: Begin Feature 006 Planning only; Claude HOLD
 
 ---
 
@@ -74,15 +50,111 @@ Post-Release Monitoring / Feature 006 Planning Pending
 
 ## Current Commit
 
-`2127d83`
+`a2da1e4`
+
+---
+
+## Feature 006 Goal
+
+Design a safe real execution boundary for human-approved model config apply.
+Feature 006 may allow real model config apply in a future implementation phase, but only through:
+* explicit human approval
+* strict service guard
+* single Firestore transaction
+* immutable settingsHistory write
+* settings currentVersion update
+* idempotency lock
+* expectedCurrentVersion check
+* complete audit trail append
+* AI caller hard block
+
+Feature 006 must also define rollback safety, but real rollback may be separated into a later feature if needed.
+
+---
+
+## Allowed in this phase
+
+* Feature 006 requirements discussion
+* Gemini produces Feature 006 Spec
+* Grok reviews Feature 006 Spec
+* Define real apply transaction boundary
+* Define service guard entrance requirements
+* Define persisted approval validation
+* Define idempotency lock storage strategy
+* Define applyToken lock semantics
+* Define rollbackToken lock semantics
+* Define expectedCurrentVersion race-condition guard
+* Define immutable settingsHistory write strategy
+* Define settings current config update strategy
+* Define audit trail events
+* Define rollback strategy
+* Define tenant isolation
+* Define AI forbidden actions
+* Define Claude Phase 1 implementation scope
+* Docs / SSOT update
+
+---
+
+## Forbidden in this phase
+
+* Do not let Claude implement code
+* Do not modify production code
+* Do not write Firestore
+* Do not modify settings
+* Do not write settingsHistory
+* Do not create real approval records
+* Do not create real apply records
+* Do not create real rollback records
+* Do not apply config
+* Do not rollback config
+* Do not add UI
+* Do not add Netlify Functions
+* Do not modify Feature 001 core flow
+* Do not modify Feature 002 inventory mutation logic
+* Do not modify Feature 003 prediction logic
+* Do not modify Feature 004 dry-run boundary
+* Do not modify Feature 005 dry-run execution boundary
+* Do not allow AI to apply config
+* Do not allow AI to mutate settings or rules
+* Do not change `wasteFactorWarning` automatically
+* Do not introduce new production write paths
+
+---
+
+## Required Guard Rails
+
+* Feature 006 must preserve human final control.
+* AI may recommend config changes but cannot apply them.
+* AI must be blocked even if invoked through Admin SDK / Service Account / Netlify Function.
+* Any real apply must require explicit human approval.
+* Any real apply must occur inside one Firestore transaction.
+* Any real apply must be idempotency-protected.
+* Any real apply must write immutable settingsHistory.
+* Any real apply must update settings current config and currentVersion in the same transaction.
+* Any real apply must append audit trail in the same transaction or use a clearly defined atomic audit strategy.
+* No settings mutation may occur without approvalId, auditTrailId, tenantId, expectedCurrentVersion, and applyToken.
+* Rollback must also require human approval, transaction safety, idempotency, version conflict guard, and audit trail.
+* Rollback must not delete history or overwrite historical versions.
+* Feature 006 Spec must be reviewed by Grok before Claude can implement.
+
+---
+
+## Priority Risks From Feature 005 Monitoring
+
+These must be addressed in Feature 006 Spec:
+1. Rollback token storage and transaction integration.
+2. Rollback conflict resolution in real transaction context.
+3. Version chain check for rollbackTargetVersion / expectedCurrentVersion / newVersion.
+4. rollbackReason / rollbackTargetVersion production boundary tests.
+5. Audit metadata consistency under real apply / rollback execution.
 
 ---
 
 ## Team State
 
-* Claude: HOLD / post-release monitoring support only
-* Gemini: HOLD / Feature 006 spec pending ibi authorization
-* Grok: HOLD / Feature 006 red team pending
+* Claude: HOLD
+* Gemini: GO - Produce Feature 006 Spec
+* Grok: GO - Prepare Feature 006 Spec Review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -90,7 +162,20 @@ Post-Release Monitoring / Feature 006 Planning Pending
 
 ## Next Expected Input
 
-ibi authorization for Feature 006 Planning or next phase direction.
+Gemini Feature 006 Spec.
+Spec should define:
+* real model config apply transaction flow
+* real persisted approval validation
+* transaction pseudo-code
+* idempotency lock collection / schema
+* applyToken / rollbackToken storage strategy
+* settingsHistory immutable version write
+* settings currentVersion update
+* audit event transaction strategy
+* rollback strategy
+* tenant isolation
+* AI forbidden actions
+* Claude Phase 1 implementation scope
 
 ---
 

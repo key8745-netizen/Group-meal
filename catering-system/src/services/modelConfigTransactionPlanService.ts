@@ -62,11 +62,14 @@ export function buildModelConfigApplyTransactionPlan(
     configAfterHash: input.configAfterHash,
   });
 
-  const idempotencyLockPlan = buildIdempotencyLockPlan(
-    input.applyToken,
-    input.tenantId,
-    input.auditTrailId,
-  );
+  const idempotencyLockPlan = buildIdempotencyLockPlan({
+    token: input.applyToken,
+    tenantId: input.tenantId,
+    auditTrailId: input.auditTrailId,
+    approvalId: input.approvalId,
+    expectedCurrentVersion: input.expectedCurrentVersion,
+    newVersion: input.newVersion,
+  });
 
   const auditEventPlan = {
     _kind: 'audit_event_plan' as const,
@@ -155,11 +158,15 @@ export function buildModelConfigRollbackTransactionPlan(
     configAfterHash: input.configAfterHash,
   });
 
-  const idempotencyLockPlan = buildIdempotencyLockPlan(
-    input.rollbackToken,
-    input.tenantId,
-    input.auditTrailId,
-  );
+  const idempotencyLockPlan = buildIdempotencyLockPlan({
+    token: input.rollbackToken,
+    tenantId: input.tenantId,
+    auditTrailId: input.auditTrailId,
+    approvalId: input.approvalId,
+    rollbackTargetVersion: input.rollbackTargetVersion,
+    expectedCurrentVersion: input.expectedCurrentVersion,
+    newVersion: input.newVersion,
+  });
 
   const auditEventPlan = {
     _kind: 'audit_event_plan' as const,

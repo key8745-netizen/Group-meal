@@ -95,6 +95,14 @@ export interface IdempotencyLockPlan {
   tenantId: TenantId;
   auditTrailId: AuditTrailId;
   readonly planOnly: true;
+  // Phase 3 additions:
+  rollbackTargetVersion?: ConfigVersion;
+  expectedCurrentVersion?: ConfigVersion;
+  newVersion?: ConfigVersion;
+  approvalId?: ModelConfigApprovalId;
+  status: 'PLANNED';
+  duplicatePolicy: 'BLOCKED_DUPLICATE';
+  conflictPolicy: 'VERSION_CONFLICT_BLOCKED';
 }
 
 export interface AuditEventPlan {

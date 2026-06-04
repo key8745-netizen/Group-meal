@@ -77,7 +77,7 @@ expect('rollbackToken is 64 chars', r1.length === 64);
 expect('rollbackToken is hex', /^[0-9a-f]+$/.test(r1));
 
 // buildIdempotencyLockPlan planOnly=true
-const lockPlan = buildIdempotencyLockPlan(t1, tenantId, auditTrailId);
+const lockPlan = buildIdempotencyLockPlan({ token: t1, tenantId, auditTrailId });
 expect('idempotencyLockPlan planOnly=true', lockPlan.planOnly === true);
 expect('idempotencyLockPlan _kind correct', lockPlan._kind === 'idempotency_lock_plan');
 expect('lockKey includes tenantId and token', lockPlan.lockKey.includes(tenantId) && lockPlan.lockKey.includes(t1));

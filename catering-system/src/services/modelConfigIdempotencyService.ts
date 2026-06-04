@@ -26,6 +26,7 @@ export interface RollbackTokenPayload {
   approvalId: ModelConfigApprovalId;
   rollbackTargetVersion: ConfigVersion;
   expectedCurrentVersion: ConfigVersion;
+  newVersion: ConfigVersion;
   auditTrailId: AuditTrailId;
   rollbackReason: string;
 }
@@ -50,6 +51,7 @@ export function generateRollbackToken(payload: RollbackTokenPayload): RollbackTo
     approvalId: payload.approvalId,
     rollbackTargetVersion: payload.rollbackTargetVersion,
     expectedCurrentVersion: payload.expectedCurrentVersion,
+    newVersion: payload.newVersion,
     auditTrailId: payload.auditTrailId,
     rollbackReason: payload.rollbackReason,
   });

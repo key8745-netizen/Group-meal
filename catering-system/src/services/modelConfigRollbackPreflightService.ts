@@ -9,6 +9,7 @@ export interface RollbackPreflightInput {
   rollbackApproval: PersistedHumanModelConfigRollbackApproval;
   rollbackTargetVersion: ConfigVersion;
   expectedCurrentVersion: ConfigVersion;
+  newVersion: ConfigVersion;
   rollbackToken: RollbackToken;
   auditTrailId: AuditTrailId;
   rollbackReason: string;

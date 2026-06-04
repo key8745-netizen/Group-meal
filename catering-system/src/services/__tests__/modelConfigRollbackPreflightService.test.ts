@@ -47,6 +47,7 @@ function makeInput(overrides: Partial<RollbackPreflightInput> = {}): RollbackPre
     rollbackApproval: makeRollbackApproval(),
     rollbackTargetVersion: targetVersion,
     expectedCurrentVersion: currentVersion,
+    newVersion: currentVersion,
     rollbackToken,
     auditTrailId,
     rollbackReason: 'config caused issues',

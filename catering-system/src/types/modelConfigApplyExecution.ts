@@ -103,11 +103,16 @@ export interface AuditEventPlan {
   tenantId: TenantId;
   auditTrailId: AuditTrailId;
   approvalId: ModelConfigApprovalId;
+  sourceRecommendationId: ModelConfigRecommendationId | null;
   previousVersion: ConfigVersion;
   newVersion: ConfigVersion;
+  rollbackTargetVersion: ConfigVersion | null;
   diffHash: DiffHash | null;
+  configBeforeHash: DiffHash | null;
+  configAfterHash: DiffHash | null;
   applyToken: ApplyToken | null;
   rollbackToken: RollbackToken | null;
+  rollbackReason: string | null;
   readonly aiCanExecute: false;
   readonly executable: false;
 }

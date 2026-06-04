@@ -74,11 +74,16 @@ export function buildModelConfigApplyTransactionPlan(
     tenantId: input.tenantId,
     auditTrailId: input.auditTrailId,
     approvalId: input.approvalId,
+    sourceRecommendationId: input.sourceRecommendationId,
     previousVersion: input.expectedCurrentVersion,
     newVersion: input.newVersion,
+    rollbackTargetVersion: null,
     diffHash: input.diffHash,
+    configBeforeHash: input.configBeforeHash,
+    configAfterHash: input.configAfterHash,
     applyToken: input.applyToken,
     rollbackToken: null,
+    rollbackReason: null,
     aiCanExecute: false as const,
     executable: false as const,
   };
@@ -110,7 +115,9 @@ export interface BuildRollbackTransactionPlanInput {
   approvalId: ModelConfigApprovalId;
   rollbackTargetVersion: ConfigVersion;
   expectedCurrentVersion: ConfigVersion;
+  newVersion: ConfigVersion;
   rollbackToken: RollbackToken;
+  rollbackReason: string;
   auditTrailId: AuditTrailId;
   configAfterHash: DiffHash;
   diffHash: DiffHash;
@@ -160,11 +167,16 @@ export function buildModelConfigRollbackTransactionPlan(
     tenantId: input.tenantId,
     auditTrailId: input.auditTrailId,
     approvalId: input.approvalId,
+    sourceRecommendationId: null,
     previousVersion: input.expectedCurrentVersion,
     newVersion: input.rollbackTargetVersion,
+    rollbackTargetVersion: input.rollbackTargetVersion,
     diffHash: input.diffHash,
+    configBeforeHash: null,
+    configAfterHash: input.configAfterHash,
     applyToken: null,
     rollbackToken: input.rollbackToken,
+    rollbackReason: input.rollbackReason,
     aiCanExecute: false as const,
     executable: false as const,
   };

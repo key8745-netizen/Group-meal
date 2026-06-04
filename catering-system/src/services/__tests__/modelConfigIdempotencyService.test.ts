@@ -50,6 +50,7 @@ const baseRollbackPayload = {
   approvalId,
   rollbackTargetVersion: v1,
   expectedCurrentVersion: v2,
+  newVersion: v2,
   auditTrailId,
   rollbackReason: 'config caused issues',
 };
@@ -66,6 +67,10 @@ expect('changed rollbackTargetVersion → different rollbackToken', r1 !== r3);
 // Changed rollbackReason → different rollbackToken
 const r4 = generateRollbackToken({ ...baseRollbackPayload, rollbackReason: 'different reason' });
 expect('changed rollbackReason → different rollbackToken', r1 !== r4);
+
+// Changed newVersion → different rollbackToken
+const r5 = generateRollbackToken({ ...baseRollbackPayload, newVersion: asConfigVersion('v3') });
+expect('changed newVersion → different rollbackToken', r1 !== r5);
 
 // rollbackToken is 64 chars hex
 expect('rollbackToken is 64 chars', r1.length === 64);

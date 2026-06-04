@@ -14,13 +14,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Post-Release Monitoring: Feature 004 Dry-run Model Config Apply Boundary
+Feature 005: Human-Approved Model Config Apply Execution
 
 ---
 
 ## Current Phase
 
-Post-Release Monitoring / Feature 005 Planning Pending
+Planning / Spec Design
 
 ---
 
@@ -29,123 +29,126 @@ Post-Release Monitoring / Feature 005 Planning Pending
 * Feature 001: CLOSED
 * Feature 002: CLOSED
 * Feature 003: CLOSED
+* Feature 004 dry-run version: CLOSED
 * Production Release: COMPLETED
-* Post-Release Monitoring First Window: PASSED
-* Feature 004 Spec v1.2: CONDITIONALLY PASSED
-* Feature 004 Phase 1: PASSED
-* Feature 004 Phase 1 Commit: `340ee9d`
-* Feature 004 Phase 1 Tests: 1184/1184 pass
-* Feature 004 Phase 1 Grok Code Review: 94/100
-* Feature 004 Phase 2: PASSED
-* Feature 004 Phase 2 Commit: `58623a9`
-* Feature 004 Phase 2 Tests: 210/210 pass
-* Feature 004 Phase 2 Grok Code Review: 93/100
-* Feature 004 Phase 3: PASSED
-* Feature 004 Phase 3 Commit: `9b20e4c`
-* Feature 004 Phase 3 Tests: 276 assertions pass
-* Feature 004 Phase 3 Grok Code Review: 94/100
-* Feature 004 Phase 4: PASSED
-* Feature 004 Phase 4 Commit: `52ef10e`
-* Feature 004 Phase 4 Tests: 414 assertions pass
-* Feature 004 Dry-run Release Gate Checklist: 23/23 pass
-* Feature 004 Phase 4 Grok Code Review: 95/100
-* ChatGPT Decision: Feature 004 dry-run version CLOSED; begin Post-Release Monitoring before Feature 005
+* Merge to Production Branch: COMPLETED
+* Post-Merge Review: PASSED
+* Post-Release Monitoring: PASSED
+* Production Branch: `claude/fervent-dirac-HJT01`
+* Merge Commit: `5f64916`
+* Post-merge Tests: 1026/1026 pass
+* Smoke Tests: 9/9 pass
+* Grok Post-Merge / Post-Release Review: 96/100
+* Feature 004 Dry-run Flow: STABLE
+* Feature 004 Simulated Approval Isolation: INTACT
+* Feature 004 Apply Plan Non-executable: CONFIRMED
+* Feature 004 Rollback Plan Non-executable: CONFIRMED
+* ChatGPT Decision: Production Release Completed; begin Feature 005 Planning only; Claude HOLD
 
 ---
 
 ## Current Branch
 
-`claude/busy-heisenberg-HcwYg`
+`claude/fervent-dirac-HJT01`
 
 ---
 
 ## Current Commit
 
-`52ef10e`
+`5f64916`
 
 ---
 
-## Feature 004 Status
+## Current Status
 
-Feature 004 is CLOSED as a dry-run model config apply boundary.
-Feature 004 does not implement real settings mutation.
-Feature 004 does not implement real approval persistence.
-Feature 004 does not implement real apply.
-Feature 004 does not implement real rollback.
-Feature 004 does not add UI.
-Feature 004 does not add Netlify Functions.
+Production Release Completed.
+Feature 005 is now allowed to enter Planning / Spec Design only.
+Claude must remain HOLD until Gemini Spec and Grok Red Team Review are complete and ChatGPT explicitly authorizes Phase 1.
+
+---
+
+## Feature 005 Goal
+
+Design a safe, human-approved execution mechanism for applying model config changes.
+Feature 005 may eventually allow real settings mutation, but only after:
+* Gemini Spec
+* Grok Red Team Review
+* ChatGPT Gatekeeping
+* strict phased implementation
+* transaction / idempotency design
+* immutable settingsHistory versioning
+* rollback design
+* complete audit trail design
 
 ---
 
 ## Allowed in this phase
 
-* Post-release monitoring
-* Dry-run behavior observation
-* Documentation updates
-* SSOT update
-* Risk register update
-* Feature 005 planning discussion only
-* Gemini may prepare Feature 005 spec only after ibi / ChatGPT approval
-* Grok may prepare Feature 005 spec review only after Gemini spec exists
+* Feature 005 requirements discussion
+* Gemini produces Feature 005 Spec
+* Grok reviews Feature 005 Spec
+* Define persisted human approval schema
+* Define real model config apply flow
+* Define settings mutation transaction boundary
+* Define idempotency lock / applyToken strategy
+* Define immutable settingsHistory versioning
+* Define rollback strategy
+* Define audit trail requirements
+* Define tenant isolation
+* Define AI forbidden actions
+* Define Claude Phase 1 implementation scope
+* Docs / SSOT update
 
 ---
 
 ## Forbidden in this phase
 
-* Do not start Feature 005 implementation
 * Do not let Claude implement code
+* Do not modify production code
 * Do not write Firestore
-* Do not read Firestore unless a future approved phase explicitly allows it
-* Do not modify `settings`
-* Do not write `settingsHistory`
+* Do not modify settings
+* Do not write settingsHistory
 * Do not create real approval records
 * Do not create real apply records
 * Do not create real rollback records
-* Do not actually apply config
-* Do not actually rollback config
+* Do not apply config
+* Do not rollback config
 * Do not add UI
 * Do not add Netlify Functions
 * Do not modify Feature 001 core flow
 * Do not modify Feature 002 inventory mutation logic
 * Do not modify Feature 003 prediction logic
+* Do not modify Feature 004 dry-run boundary
 * Do not allow AI to apply config
-* Do not allow AI to mutate rules
-* Do not change `wasteFactorWarning` automatically
+* Do not allow AI to mutate settings or rules
+* Do not change wasteFactorWarning automatically
 * Do not introduce new production write paths
 
 ---
 
 ## Required Guard Rails
 
-* Feature 004 dry-run boundary must remain intact.
-* AI cannot apply config.
-* AI cannot mutate settings or rules.
-* Simulated approval must not become persisted approval.
-* Dry-run apply plan must not become executable.
-* Dry-run rollback plan must not become executable.
-* `aiCanApply` must remain false.
-* `aiCanRollback` must remain false.
-* Any future real apply mechanism must be a new Feature with Gemini spec, Grok red-team review, and ChatGPT gatekeeping.
-* Any future real rollback mechanism must be a new Feature with human approval, transaction safety, idempotency lock, version conflict guard, and audit trail.
-
----
-
-## Known Accepted Risks / Future Work
-
-* Real model config apply is not implemented.
-* Real rollback is not implemented.
-* UI approval flow is not implemented.
-* Persisted approval record is not implemented.
-* Rollback token is currently planning-only and must be connected to transaction/idempotency in a future Feature.
-* Simulated approval and persisted approval isolation must be preserved if real approval is introduced later.
+* Feature 005 must preserve human final control.
+* AI may recommend config changes but cannot apply them.
+* Any real apply must require explicit human approval.
+* Any real apply must be transaction-protected.
+* Any real apply must be idempotency-protected.
+* Any real apply must write immutable settingsHistory.
+* Any real apply must append audit trail.
+* Any settings mutation must be versioned.
+* Any rollback must also require human approval.
+* Any rollback must be auditable, idempotent, and version-aware.
+* No settings mutation may occur without approvalId, auditTrailId, tenantId, expectedVersion, and applyToken.
+* AI cannot mutate settings, thresholds, confidence rules, prediction formula, or weighting formula.
+* Feature 005 Spec must be reviewed by Grok before Claude can implement.
 
 ---
 
 ## Team State
 
-* Claude: HOLD / post-release monitoring support only
-* Gemini: HOLD / Feature 005 planning later
-* Grok: HOLD / Prepare monitoring review if requested
+* Claude: HOLD
+* Gemini: GO — Produce Feature 005 Spec
+* Grok: GO — Prepare Feature 005 Spec Review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -153,13 +156,19 @@ Feature 004 does not add Netlify Functions.
 
 ## Next Expected Input
 
-ibi decision:
-1. Start Feature 004 post-release monitoring review
-2. Pause development and observe production
-3. Begin Feature 005 planning after monitoring baseline
-
-Recommended next step:
-Run a short post-release monitoring window for Feature 004 dry-run behavior before opening Feature 005.
+Gemini Feature 005 Spec.
+Spec should define:
+* real model config apply flow
+* persisted human approval schema
+* approved config change schema
+* settings mutation transaction boundary
+* idempotency / applyToken lock strategy
+* settingsHistory immutable versioning
+* rollback strategy
+* audit events
+* tenant isolation
+* AI forbidden actions
+* Claude Phase 1 implementation scope
 
 ---
 

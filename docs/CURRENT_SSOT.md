@@ -14,13 +14,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Feature 004: Model Config Apply Boundary
+Feature 004: Model Config Apply Boundary — **CLOSED**
 
 ---
 
 ## Current Phase
 
-Phase 4: Final Dry-run Integration & Release Gate Preparation
+Feature 004 dry-run version 正式結案
 
 ---
 
@@ -32,19 +32,53 @@ Phase 4: Final Dry-run Integration & Release Gate Preparation
 * Production Release: COMPLETED
 * Post-Release Monitoring First Window: PASSED
 * Feature 004 Spec v1.2: CONDITIONALLY PASSED
-* Feature 004 Phase 1: PASSED
-* Feature 004 Phase 1 Commit: `340ee9d`
-* Feature 004 Phase 1 Tests: 158 assertions
-* Feature 004 Phase 1 Grok Code Review: 94/100
-* Feature 004 Phase 2: PASSED
-* Feature 004 Phase 2 Commit: `58623a9`
-* Feature 004 Phase 2 Tests: 52 assertions (210 cumulative)
-* Feature 004 Phase 2 Grok Code Review: 93/100
-* Feature 004 Phase 3: PASSED
-* Feature 004 Phase 3 Commit: `9b20e4c`
-* Feature 004 Phase 3 Tests: 276 assertions
-* Feature 004 Phase 3 Grok Code Review: 94/100
-* ChatGPT Decision: Claude GO - Feature 004 Phase 4 only
+* Feature 004 Phase 1: PASSED — Commit `340ee9d` — 158 assertions — Grok 94/100
+* Feature 004 Phase 2: PASSED — Commit `58623a9` — 52 assertions (210 cumulative) — Grok 93/100
+* Feature 004 Phase 3: PASSED — Commit `9b20e4c` — 276 assertions — Grok 94/100
+* Feature 004 Phase 4: PASSED — Commit `52ef10e` — 109 assertions (414 cumulative) — Grok 95/100
+* Feature 004: **CLOSED** — All phases passed — 414 total assertions — dry-run only
+
+---
+
+## Feature 004 Closeout Summary
+
+### What was built
+
+A complete dry-run boundary system ensuring AI can never self-apply model config changes:
+
+```
+Feature 003 ModelConfigRecommendation
+  → SimulatedHumanModelConfigApproval  (persisted: false, executable: false)
+  → ModelConfigApplyPlan              (_kind: 'model_config_apply_plan_dry_run', executable: false, aiCanApply: false)
+  → ModelConfigRollbackPlan           (_kind: 'model_config_rollback_plan_dry_run', executable: false, aiCanRollback: false)
+  + ModelConfigAuditEvent             (aiCanApply: false, aiCanRollback: false, executable: false)
+```
+
+### Guard invariants (all permanent)
+
+* `aiCanApply: false` — on all output objects, all paths
+* `aiCanRollback: false` — on all output objects, all paths
+* `executable: false` — on all plan and approval objects
+* `requiresHumanApproval: true` — on apply plan
+* `humanApprovalRequired: true` — on rollback plan
+* `persisted: false` — on simulated approval
+* Tenant hard guard — first check in all validate functions
+
+### What is NOT built (intentional scope boundary)
+
+* No Firestore write — Feature 004 is dry-run only
+* No real approval record creation
+* No real settings mutation
+* No real config apply
+* No real config rollback
+* No UI
+* No Netlify Function
+
+### Future work (Feature 005+)
+
+* Real human-in-the-loop apply with Firestore transaction
+* Real rollback with version conflict check and idempotency lock
+* UI approval interface for reviewing apply plans
 
 ---
 
@@ -56,77 +90,15 @@ Phase 4: Final Dry-run Integration & Release Gate Preparation
 
 ## Current Commit
 
-`2421ea3`
-
----
-
-## Allowed in this phase
-
-* Final dry-run integration tests
-* Final Feature 003 recommendation → Feature 004 dry-run plan continuity tests
-* Final simulated approval isolation tests
-* Final apply plan non-executable tests
-* Final rollback plan non-executable tests
-* Branded / nominal typing hardening for simulated approval if needed
-* Rollback token / future transaction alignment documentation
-* Feature 004 dry-run release gate checklist
-* Documentation
-* Tests
-* SSOT update
-
----
-
-## Forbidden in this phase
-
-* Do not write Firestore
-* Do not read Firestore
-* Do not import `firebase-admin`
-* Do not import `google-cloud-firestore`
-* Do not call `runTransaction`
-* Do not modify `settings`
-* Do not write `settingsHistory`
-* Do not create real approval records
-* Do not create real apply records
-* Do not create real rollback records
-* Do not actually apply config
-* Do not actually rollback config
-* Do not add UI
-* Do not add Netlify Functions
-* Do not modify Feature 001 core flow
-* Do not modify Feature 002 inventory mutation logic
-* Do not modify Feature 003 prediction logic
-* Do not allow AI to apply config
-* Do not allow AI to mutate rules
-* Do not change `wasteFactorWarning` automatically
-* Do not introduce new production write paths
-
----
-
-## Required Guard Rails
-
-* Phase 4 must remain dry-run only.
-* Feature 004 must not become production apply.
-* No real approval record may be created.
-* No real settings mutation may occur.
-* No real rollback may occur.
-* All integration output must remain non-executable.
-* Simulated approval must remain clearly distinct from persisted approval.
-* Apply plan must have `executable: false`.
-* Rollback plan must have `executable: false`.
-* `aiCanApply` must remain false.
-* `aiCanRollback` must remain false.
-* Tenant hard guard must execute before all other validation.
-* `applyToken` / `rollbackToken` remain validation-only.
-* No real transaction may be executed in Phase 4.
-* Config diff must remain deterministic.
+`52ef10e`
 
 ---
 
 ## Team State
 
-* Claude: GO - Feature 004 Phase 4 only
-* Gemini: HOLD / support clarification only
-* Grok: Prepare Feature 004 Phase 4 code review
+* Claude: HOLD — awaiting Feature 005 planning directive
+* Gemini: HOLD
+* Grok: HOLD — standby for Feature 005 review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -134,7 +106,7 @@ Phase 4: Final Dry-run Integration & Release Gate Preparation
 
 ## Next Expected Input
 
-Claude Feature 004 Phase 4 report.
+ibi 總監 Feature 005 規劃指令 / Post-Release Monitoring directive。
 
 ---
 

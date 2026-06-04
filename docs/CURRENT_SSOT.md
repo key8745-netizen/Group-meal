@@ -14,13 +14,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Feature 005: Human-Approved Model Config Apply Execution
+Post-Release Monitoring: Feature 005 Dry-run Model Config Apply Execution
 
 ---
 
 ## Current Phase
 
-Phase 4: Final Transaction Readiness + Audit Boundary Hardening
+Post-Release Monitoring / Feature 006 Planning Pending
 
 ---
 
@@ -42,108 +42,47 @@ Phase 4: Final Transaction Readiness + Audit Boundary Hardening
 * Feature 005 Phase 3: PASSED
 * Feature 005 Phase 3 Commit: `57c506b`
 * Feature 005 Phase 3 Grok Code Review: 91/100
-* ChatGPT Decision: Claude GO — Feature 005 Phase 4 only
+* Feature 005 Phase 4: PASSED
+* Feature 005 Phase 4 Commit: `2127d83`
+* Feature 005 Phase 4 Grok Code Review: 94/100
+* Feature 005 Release Gate: 24/24 ✅
+* Feature 005 Status: CLOSED as dry-run execution boundary
+
+---
+
+## Feature 005 Summary
+
+* All 4 phases completed and reviewed by Grok
+* dry-run transaction plan safety confirmed: `executable: false`, `aiCanExecute: false`, `requiresHumanApproval: true`
+* Idempotency lock plan confirmed `planOnly: true`, `status: 'PLANNED'`
+* settingsHistory confirmed `appendOnly: true`, `immutable: true`
+* rollbackToken 7-field binding confirmed
+* rollbackReasonHash cross-validation confirmed
+* 5 idempotency conflict types modeled: BLOCKED_DUPLICATE, IDEMPOTENT_REPLAY_BLOCKED, VERSION_CONFLICT, APPROVAL_REUSE_BLOCKED, VERSION_CHAIN_CONFLICT
+* No Firestore read/write
+* No firebase-admin / google-cloud-firestore import
+* No runTransaction
+* No real apply / rollback executed
 
 ---
 
 ## Current Branch
 
-`claude/busy-heisenberg-HcwYg`
+`claude/fervent-dirac-HJT01`
 
 ---
 
 ## Current Commit
 
-`57c506b`
-
----
-
-## Phase 4 Priority Risks
-
-Grok identified two remaining medium risks that must be handled in Phase 4:
-1. Rollback token alignment with future transaction lock storage and conflict resolution.
-2. Audit metadata boundary completeness for rollbackReason / rollbackTargetVersion edge cases.
-These are mandatory Phase 4 work items.
-
----
-
-## Allowed in this phase
-
-* Final rollbackToken transaction-readiness hardening
-* Final rollback idempotency lock plan tests
-* Final rollback conflict resolution flow modeling
-* Document rollback as a new atomic human-approved change
-* Add rollbackReason boundary tests (empty / whitespace / max length / unicode / special chars / control chars)
-* Add rollbackTargetVersion boundary tests
-* Add audit metadata cross-feature consistency assertions (including rollbackReasonHash)
-* Strengthen rollback audit event plan metadata
-* Strengthen apply / rollback transaction plan safety assertions
-* Add dry-run release gate checklist
-* Add docs
-* Add tests
-* SSOT update
-
----
-
-## Forbidden in this phase
-
-* Do not write Firestore
-* Do not read Firestore
-* Do not import `firebase-admin`
-* Do not import `google-cloud-firestore`
-* Do not call `runTransaction`
-* Do not modify `settings`
-* Do not write `settingsHistory`
-* Do not create real approval records
-* Do not create real apply records
-* Do not create real rollback records
-* Do not actually apply config
-* Do not actually rollback config
-* Do not add UI
-* Do not add Netlify Functions
-* Do not modify Feature 001 core flow
-* Do not modify Feature 002 inventory mutation logic
-* Do not modify Feature 003 prediction logic
-* Do not modify Feature 004 dry-run boundary
-* Do not allow AI to apply config
-* Do not allow AI to mutate settings or rules
-* Do not change `wasteFactorWarning` automatically
-* Do not introduce new production write paths
-
----
-
-## Required Guard Rails
-
-* Phase 4 must remain dry-run transaction readiness only.
-* Transaction plans must remain non-executable.
-* `executable` must remain `false`.
-* `aiCanExecute` must remain `false`.
-* Idempotency lock must remain plan-only.
-* No real transaction may be executed.
-* No real settings mutation may occur.
-* No real settingsHistory write may occur.
-* Rollback must remain modeled as a new human-approved change.
-* Rollback must not delete or overwrite settings history.
-* rollbackToken must bind tenantId, approvalId, rollbackTargetVersion, expectedCurrentVersion, newVersion, auditTrailId, and rollbackReason.
-* rollback idempotency lock plan must explicitly model duplicate, replay, version conflict, and approval reuse conflict behavior.
-* rollbackReason must reject empty value and must define max length (500 chars) and special character behavior.
-* rollbackTargetVersion must be validated against expectedCurrentVersion / newVersion semantics.
-* audit event plan must include configBeforeHash, configAfterHash, diffHash, rollbackReason, rollbackTargetVersion, expectedCurrentVersion, and newVersion where applicable.
-* Feature 003 recommendation continuity must remain preserved through Feature 005 transaction plan.
-* Tenant hard guard must execute before all other validation.
-* AI caller must be blocked.
-* Human approval must remain required.
-* settingsHistory must remain modeled as immutable append-only.
-* BigInt canonical JSON behavior must remain BLOCKED and tested.
-* canonical JSON must remain deterministic.
+`2127d83`
 
 ---
 
 ## Team State
 
-* Claude: GO — Feature 005 Phase 4 only
-* Gemini: HOLD / support clarification only
-* Grok: Prepare Feature 005 Phase 4 code review
+* Claude: HOLD / post-release monitoring support only
+* Gemini: HOLD / Feature 006 spec pending ibi authorization
+* Grok: HOLD / Feature 006 red team pending
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -151,28 +90,7 @@ These are mandatory Phase 4 work items.
 
 ## Next Expected Input
 
-Claude Feature 005 Phase 4 report:
-* branch name
-* commit hash
-* changed files
-* whether only allowed files were modified
-* tests result
-* typecheck result
-* build result
-* confirmation that no Firestore read/write exists
-* confirmation that no firebase-admin / google-cloud-firestore import exists
-* confirmation that no runTransaction exists
-* confirmation that no UI was added
-* confirmation that no Netlify Function was added
-* confirmation that no real apply / rollback exists
-* confirmation that no real approval / apply / rollback records are created
-* confirmation that rollbackToken transaction lock plan is finalized
-* confirmation that rollback atomic semantics are documented
-* confirmation that rollbackReason boundary tests are added
-* confirmation that rollbackTargetVersion boundary tests are added
-* confirmation that audit metadata cross-feature consistency is implemented
-* confirmation that dry-run release gate checklist is complete
-* known limitations
+ibi authorization for Feature 006 Planning or next phase direction.
 
 ---
 

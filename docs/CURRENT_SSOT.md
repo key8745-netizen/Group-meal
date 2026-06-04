@@ -20,7 +20,7 @@ Feature 005: Human-Approved Model Config Apply Execution
 
 ## Current Phase
 
-Planning / Spec Design
+Phase 1: Pure Logic & Validation
 
 ---
 
@@ -31,88 +31,61 @@ Planning / Spec Design
 * Feature 003: CLOSED
 * Feature 004 dry-run version: CLOSED
 * Production Release: COMPLETED
-* Merge to Production Branch: COMPLETED
-* Post-Merge Review: PASSED
 * Post-Release Monitoring: PASSED
-* Production Branch: `claude/fervent-dirac-HJT01`
-* Merge Commit: `5f64916`
-* Post-merge Tests: 1026/1026 pass
-* Smoke Tests: 9/9 pass
-* Grok Post-Merge / Post-Release Review: 96/100
-* Feature 004 Dry-run Flow: STABLE
-* Feature 004 Simulated Approval Isolation: INTACT
-* Feature 004 Apply Plan Non-executable: CONFIRMED
-* Feature 004 Rollback Plan Non-executable: CONFIRMED
-* ChatGPT Decision: Production Release Completed; begin Feature 005 Planning only; Claude HOLD
+* Feature 005 Spec v1.1: PASSED
+* Feature 005 Spec v1.1 Grok Review: 94/100
+* ChatGPT Decision: Claude GO — Feature 005 Phase 1 only
 
 ---
 
 ## Current Branch
 
-`claude/fervent-dirac-HJT01`
+`claude/busy-heisenberg-HcwYg`
 
 ---
 
 ## Current Commit
 
-`5f64916`
-
----
-
-## Current Status
-
-Production Release Completed.
-Feature 005 is now allowed to enter Planning / Spec Design only.
-Claude must remain HOLD until Gemini Spec and Grok Red Team Review are complete and ChatGPT explicitly authorizes Phase 1.
-
----
-
-## Feature 005 Goal
-
-Design a safe, human-approved execution mechanism for applying model config changes.
-Feature 005 may eventually allow real settings mutation, but only after:
-* Gemini Spec
-* Grok Red Team Review
-* ChatGPT Gatekeeping
-* strict phased implementation
-* transaction / idempotency design
-* immutable settingsHistory versioning
-* rollback design
-* complete audit trail design
+`395d3bf`
 
 ---
 
 ## Allowed in this phase
 
-* Feature 005 requirements discussion
-* Gemini produces Feature 005 Spec
-* Grok reviews Feature 005 Spec
-* Define persisted human approval schema
-* Define real model config apply flow
-* Define settings mutation transaction boundary
-* Define idempotency lock / applyToken strategy
-* Define immutable settingsHistory versioning
-* Define rollback strategy
-* Define audit trail requirements
-* Define tenant isolation
-* Define AI forbidden actions
-* Define Claude Phase 1 implementation scope
-* Docs / SSOT update
+* TypeScript interfaces for real model config apply boundary
+* Persisted approval validators
+* Apply preflight validator
+* Rollback preflight validator
+* Transaction plan builder
+* Rollback transaction plan helper
+* Idempotency lock schema helper
+* applyToken generation / validation helper
+* rollbackToken generation / validation helper
+* settingsHistory version schema helper
+* immutable version metadata helper
+* canonical JSON / SHA-256 hash helper hardening
+* audit event pure helper
+* static import / forbidden syntax guard config
+* tests
+* docs
+* SSOT update
 
 ---
 
 ## Forbidden in this phase
 
-* Do not let Claude implement code
-* Do not modify production code
 * Do not write Firestore
-* Do not modify settings
-* Do not write settingsHistory
+* Do not read Firestore
+* Do not import `firebase-admin`
+* Do not import `google-cloud-firestore`
+* Do not call `runTransaction`
+* Do not modify `settings`
+* Do not write `settingsHistory`
 * Do not create real approval records
 * Do not create real apply records
 * Do not create real rollback records
-* Do not apply config
-* Do not rollback config
+* Do not actually apply config
+* Do not actually rollback config
 * Do not add UI
 * Do not add Netlify Functions
 * Do not modify Feature 001 core flow
@@ -121,34 +94,39 @@ Feature 005 may eventually allow real settings mutation, but only after:
 * Do not modify Feature 004 dry-run boundary
 * Do not allow AI to apply config
 * Do not allow AI to mutate settings or rules
-* Do not change wasteFactorWarning automatically
+* Do not change `wasteFactorWarning` automatically
 * Do not introduce new production write paths
 
 ---
 
 ## Required Guard Rails
 
-* Feature 005 must preserve human final control.
-* AI may recommend config changes but cannot apply them.
-* Any real apply must require explicit human approval.
-* Any real apply must be transaction-protected.
-* Any real apply must be idempotency-protected.
-* Any real apply must write immutable settingsHistory.
-* Any real apply must append audit trail.
-* Any settings mutation must be versioned.
-* Any rollback must also require human approval.
-* Any rollback must be auditable, idempotent, and version-aware.
-* No settings mutation may occur without approvalId, auditTrailId, tenantId, expectedVersion, and applyToken.
-* AI cannot mutate settings, thresholds, confidence rules, prediction formula, or weighting formula.
-* Feature 005 Spec must be reviewed by Grok before Claude can implement.
+* Phase 1 must remain pure logic only.
+* Claude may define transaction plans but must not execute transactions.
+* Claude may define schemas and validators but must not persist records.
+* AI caller must be blocked from any future apply / rollback plan.
+* Tenant hard guard must execute before all other validation.
+* `tenantId` mismatch must be BLOCKED.
+* Missing `approvalId` must be BLOCKED.
+* Missing `auditTrailId` must be BLOCKED.
+* Missing `expectedCurrentVersion` must be BLOCKED.
+* Missing `applyToken` must be BLOCKED.
+* Missing `rollbackToken` must be BLOCKED for rollback plans.
+* rollback must be modeled as a new human-approved change.
+* rollback must not delete or overwrite settings history.
+* settingsHistory must be modeled as immutable append-only.
+* `configBeforeHash`, `configAfterHash`, and `diffHash` must be deterministic.
+* canonical JSON must define behavior for nested arrays, BigInt, NaN, Infinity, Date, undefined, function, symbol, and circular references.
+* applyToken / rollbackToken must be deterministic and bind to tenantId, version, auditTrailId, and diff / rollback target.
+* Phase 1 must include tests proving no Firestore imports, no `runTransaction`, no UI, and no Netlify Function changes.
 
 ---
 
 ## Team State
 
-* Claude: HOLD
-* Gemini: GO — Produce Feature 005 Spec
-* Grok: GO — Prepare Feature 005 Spec Review
+* Claude: GO — Feature 005 Phase 1 only
+* Gemini: HOLD / support clarification only
+* Grok: Prepare Feature 005 Phase 1 code review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -156,19 +134,26 @@ Feature 005 may eventually allow real settings mutation, but only after:
 
 ## Next Expected Input
 
-Gemini Feature 005 Spec.
-Spec should define:
-* real model config apply flow
-* persisted human approval schema
-* approved config change schema
-* settings mutation transaction boundary
-* idempotency / applyToken lock strategy
-* settingsHistory immutable versioning
-* rollback strategy
-* audit events
-* tenant isolation
-* AI forbidden actions
-* Claude Phase 1 implementation scope
+Claude Feature 005 Phase 1 report:
+* branch name
+* commit hash
+* changed files
+* whether only allowed files were modified
+* tests result
+* typecheck result
+* build result
+* confirmation that no Firestore read/write exists
+* confirmation that no firebase-admin / google-cloud-firestore import exists
+* confirmation that no runTransaction exists
+* confirmation that no UI was added
+* confirmation that no Netlify Function was added
+* confirmation that no real apply / rollback exists
+* confirmation that no real approval / apply / rollback records are created
+* confirmation that tenant hard guard is first validation step
+* confirmation that applyToken / rollbackToken generation rules are implemented
+* confirmation that canonical JSON extreme cases are tested
+* confirmation that settingsHistory is modeled as immutable append-only
+* known limitations
 
 ---
 

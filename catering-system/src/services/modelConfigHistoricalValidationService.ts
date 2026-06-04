@@ -1,7 +1,8 @@
 /**
  * modelConfigHistoricalValidationService.ts
  *
- * Feature 006 Phase 2: Historical Config Hash Cross-validation
+ * Feature 006 Phase 2 + Phase 3: Historical Config Hash Cross-validation
+ * and settingsHistory Snapshot Mapping
  *
  * Validates that the historical settingsHistory snapshot for a rollback target
  * version has the expected config hash, is immutable, and has not been
@@ -38,6 +39,12 @@ export interface SettingsHistorySnapshot {
   tenantId: TenantId;
   version: ConfigVersion;
   configHash: DiffHash;
+  /** Optional extended metadata — required for Phase 3 full mapping validation */
+  configBeforeHash?: DiffHash;
+  configAfterHash?: DiffHash;
+  diffHash?: DiffHash;
+  sourceAuditTrailId?: string;
+  approvalId?: string;
   readonly immutable: true;
   deleted?: false;
   overwritten?: false;
@@ -198,4 +205,119 @@ export function validateRollbackTargetVersion(
   }
 
   return { valid: blocked.length === 0, blockedReasons: blocked };
+}
+
+// ─── Phase 3: settingsHistory Snapshot Mapping ────────────────────────────────
+
+export interface SnapshotMappingInput {
+  tenantId: TenantId;
+  rollbackTargetVersion: ConfigVersion;
+  expectedHistoricalConfigHash: DiffHash;
+  requireExtendedMetadata?: boolean;
+  historicalSnapshot: SettingsHistorySnapshot | null;
+}
+
+export interface SnapshotMappingResult {
+  valid: boolean;
+  blockedReasons: BlockedReason[];
+  mappedConfigHash: DiffHash | null;
+}
+
+/**
+ * Maps a caller-supplied settingsHistory snapshot to the historicalConfigHash
+ * needed for a rollback contract. This is the Phase 3 authoritative mapping
+ * entry point that Phase 4 real transaction will call after reading Firestore.
+ *
+ * Phase 3: pure logic — no Firestore read.
+ * Phase 4 (future): caller reads the Firestore settingsHistory document and
+ *   passes it as `historicalSnapshot`.
+ *
+ * Validation order (tenant hard guard first):
+ *  1. Tenant hard guard
+ *  2. rollbackTargetVersion present
+ *  3. Historical snapshot present
+ *  4. snapshot.tenantId === request.tenantId
+ *  5. snapshot.version === rollbackTargetVersion
+ *  6. snapshot.configHash present
+ *  7. snapshot.configHash === expectedHistoricalConfigHash
+ *  8. snapshot.immutable === true
+ *  9. snapshot.deleted !== true
+ * 10. snapshot.overwritten !== true
+ * 11. Extended metadata present (if requireExtendedMetadata)
+ */
+export function mapSettingsHistorySnapshotToHistoricalHash(
+  input: SnapshotMappingInput,
+): SnapshotMappingResult {
+  const blocked: BlockedReason[] = [];
+
+  // 1. Tenant hard guard — must be first
+  if (!input.tenantId) {
+    blocked.push('REAL_ROLLBACK_TENANT_MISMATCH');
+    return { valid: false, blockedReasons: blocked, mappedConfigHash: null };
+  }
+
+  // 2. rollbackTargetVersion present
+  if (!input.rollbackTargetVersion) {
+    blocked.push('REAL_ROLLBACK_MISSING_ROLLBACK_TOKEN');
+    return { valid: false, blockedReasons: blocked, mappedConfigHash: null };
+  }
+
+  // 3. Historical snapshot present
+  if (!input.historicalSnapshot) {
+    blocked.push('REAL_ROLLBACK_TARGET_VERSION_NOT_FOUND');
+    return { valid: false, blockedReasons: blocked, mappedConfigHash: null };
+  }
+
+  const snap = input.historicalSnapshot;
+
+  // 4. snapshot.tenantId must match
+  if ((snap.tenantId as string) !== (input.tenantId as string)) {
+    blocked.push('REAL_ROLLBACK_TENANT_MISMATCH');
+  }
+
+  // 5. snapshot.version must match rollbackTargetVersion
+  if ((snap.version as string) !== (input.rollbackTargetVersion as string)) {
+    blocked.push('REAL_ROLLBACK_TARGET_VERSION_NOT_FOUND');
+  }
+
+  // 6. snapshot.configHash must be present
+  if (!snap.configHash) {
+    blocked.push('REAL_ROLLBACK_HISTORICAL_CONFIG_HASH_MISMATCH');
+  }
+
+  // 7. configHash must match expected
+  if (snap.configHash && (snap.configHash as string) !== (input.expectedHistoricalConfigHash as string)) {
+    blocked.push('REAL_ROLLBACK_HISTORICAL_CONFIG_HASH_MISMATCH');
+  }
+
+  // 8. snapshot must be immutable
+  if (snap.immutable !== true) {
+    blocked.push('REAL_ROLLBACK_HISTORICAL_CONFIG_HASH_MISMATCH');
+  }
+
+  // 9. snapshot must not be deleted
+  if ((snap as { deleted?: unknown }).deleted === true) {
+    blocked.push('REAL_ROLLBACK_HISTORICAL_CONFIG_HASH_MISMATCH');
+  }
+
+  // 10. snapshot must not be overwritten
+  if ((snap as { overwritten?: unknown }).overwritten === true) {
+    blocked.push('REAL_ROLLBACK_HISTORICAL_CONFIG_HASH_MISMATCH');
+  }
+
+  // 11. Extended metadata required
+  if (input.requireExtendedMetadata) {
+    if (!snap.sourceAuditTrailId) {
+      blocked.push('REAL_ROLLBACK_MISSING_AUDIT_TRAIL');
+    }
+    if (!snap.approvalId) {
+      blocked.push('REAL_ROLLBACK_APPROVAL_NOT_APPROVED');
+    }
+  }
+
+  if (blocked.length > 0) {
+    return { valid: false, blockedReasons: blocked, mappedConfigHash: null };
+  }
+
+  return { valid: true, blockedReasons: [], mappedConfigHash: snap.configHash };
 }

@@ -368,3 +368,164 @@ export function validateServiceGuardEntrance(input: ServiceGuardEntranceInput): 
 
   return { allowed: blocked.length === 0, blockedReasons: blocked };
 }
+
+// ─── Phase 3: Lock Cleanup Dry-run Plan ──────────────────────────────────────
+
+export type CleanupDecision =
+  | 'KEEP_ACTIVE'
+  | 'KEEP_GRACE_PERIOD'
+  | 'KEEP_CONSUMED'
+  | 'CLEANUP_ELIGIBLE_STALE_ACTIVE'
+  | 'CLEANUP_ELIGIBLE_CONSUMED'
+  | 'CLEANUP_ELIGIBLE_EXPIRED'
+  | 'CLEANUP_ELIGIBLE_ABANDONED_PLAN'
+  | 'BLOCKED_INVALID_OWNER'
+  | 'BLOCKED_INVALID_LOCK_METADATA';
+
+export type CleanupOwner = 'HUMAN_SERVICE' | 'SYSTEM_MAINTENANCE';
+
+export interface MaintenanceAuditEventPlan {
+  readonly _kind: 'maintenance_audit_event_plan';
+  readonly executable: false;
+  readonly aiCanExecute: false;
+  lockId: string;
+  tenantId: string;
+  decision: CleanupDecision;
+  cleanupOwner: CleanupOwner;
+  readonly aiCanOwnCleanup: false;
+  plannedAt: Date;
+  note: string;
+}
+
+export interface LockCleanupDryRunPlan {
+  readonly _kind: 'model_config_lock_cleanup_dry_run_plan';
+  readonly executable: false;
+  readonly aiCanExecute: false;
+  readonly dryRunOnly: true;
+  readonly aiCanTrigger: false;
+  lockId: string;
+  lockStatus: LockLifecycleStatus;
+  cleanupOwner: CleanupOwner;
+  readonly aiCanOwnLock: false;
+  now: Date;
+  expiresAt: Date;
+  cleanupEligibleAt: Date;
+  cleanupDecision: CleanupDecision;
+  cleanupReason: string;
+  maintenanceAuditEventPlan: MaintenanceAuditEventPlan;
+}
+
+export interface BuildLockCleanupDryRunPlanInput {
+  lock: LockLifecycleDocument;
+  now?: Date;
+}
+
+/**
+ * Builds a dry-run cleanup plan for a lock document using the 9 decision rules.
+ *
+ * Rules (evaluated in order):
+ *  1. lockOwner === AI → BLOCKED_INVALID_OWNER
+ *  2. missing expiresAt / cleanupEligibleAt → BLOCKED_INVALID_LOCK_METADATA
+ *  3. ACTIVE before expiresAt → KEEP_ACTIVE
+ *  4. ACTIVE after expiresAt but before cleanupEligibleAt → KEEP_GRACE_PERIOD
+ *  5. ACTIVE after cleanupEligibleAt → CLEANUP_ELIGIBLE_STALE_ACTIVE
+ *  6. CONSUMED before cleanupEligibleAt → KEEP_CONSUMED
+ *  7. CONSUMED after cleanupEligibleAt → CLEANUP_ELIGIBLE_CONSUMED
+ *  8. EXPIRED after cleanupEligibleAt → CLEANUP_ELIGIBLE_EXPIRED
+ *  9. PLANNED older than TTL (expiresAt passed) → CLEANUP_ELIGIBLE_ABANDONED_PLAN
+ *
+ * Phase 3: dry-run only — no Firestore deletion.
+ * Phase 4 (future): a real cleanup job executes plans where decision is CLEANUP_ELIGIBLE_*.
+ */
+export function buildLockCleanupDryRunPlan(input: BuildLockCleanupDryRunPlanInput): LockCleanupDryRunPlan {
+  const now = input.now ?? new Date();
+  const { lock } = input;
+
+  let decision: CleanupDecision;
+  let cleanupReason: string;
+
+  // Rule 1: invalid owner (AI must never own a lock)
+  if ((lock.lockOwner as string) === 'ai' || (lock.lockOwner as string) === 'AI') {
+    decision = 'BLOCKED_INVALID_OWNER';
+    cleanupReason = 'Lock owner is AI. AI cannot own idempotency locks. This lock is invalid.';
+  }
+  // Rule 2: missing required timing metadata
+  else if (!lock.expiresAt || !lock.cleanupEligibleAt) {
+    decision = 'BLOCKED_INVALID_LOCK_METADATA';
+    cleanupReason = 'Lock is missing expiresAt or cleanupEligibleAt. Cannot determine cleanup eligibility.';
+  }
+  // Rules 3–5: ACTIVE locks
+  else if (lock.status === 'ACTIVE') {
+    if (now < lock.expiresAt) {
+      decision = 'KEEP_ACTIVE';
+      cleanupReason = 'Lock is ACTIVE and within TTL. Transaction may be in flight. Must not touch.';
+    } else if (now < lock.cleanupEligibleAt) {
+      decision = 'KEEP_GRACE_PERIOD';
+      cleanupReason = 'Lock is ACTIVE but past expiresAt. In grace period — Firestore TTL processing. Must not delete yet.';
+    } else {
+      decision = 'CLEANUP_ELIGIBLE_STALE_ACTIVE';
+      cleanupReason = 'Lock is ACTIVE and past cleanupEligibleAt. Stale active lock — safe to delete after dry-run confirmation. Log auditTrailId.';
+    }
+  }
+  // Rules 6–7: CONSUMED locks
+  else if (lock.status === 'CONSUMED') {
+    if (now < lock.cleanupEligibleAt) {
+      decision = 'KEEP_CONSUMED';
+      cleanupReason = 'Lock is CONSUMED but cleanupEligibleAt not yet reached. TTL handling in progress.';
+    } else {
+      decision = 'CLEANUP_ELIGIBLE_CONSUMED';
+      cleanupReason = 'Lock is CONSUMED and past cleanupEligibleAt. Safe to delete. Log auditTrailId.';
+    }
+  }
+  // Rule 8: EXPIRED or CLEANUP_ELIGIBLE
+  else if (lock.status === 'EXPIRED' || lock.status === 'CLEANUP_ELIGIBLE') {
+    if (now >= lock.cleanupEligibleAt) {
+      decision = 'CLEANUP_ELIGIBLE_EXPIRED';
+      cleanupReason = 'Lock is EXPIRED and past cleanupEligibleAt. Primary: Firestore TTL. Secondary: scheduled job. Log auditTrailId.';
+    } else {
+      decision = 'KEEP_GRACE_PERIOD';
+      cleanupReason = 'Lock is EXPIRED but cleanupEligibleAt not yet reached. Wait for TTL grace period.';
+    }
+  }
+  // Rule 9: PLANNED lock older than TTL (abandoned plan — never written to Firestore)
+  else if (lock.status === 'PLANNED' && now >= lock.expiresAt) {
+    decision = 'CLEANUP_ELIGIBLE_ABANDONED_PLAN';
+    cleanupReason = 'Lock is PLANNED (never written) and past TTL. Abandoned plan — eligible for GC from in-memory tracking only. No Firestore delete needed.';
+  } else {
+    decision = 'KEEP_ACTIVE';
+    cleanupReason = `Lock status '${lock.status}' before TTL — retain.`;
+  }
+
+  const cleanupOwner: CleanupOwner = 'SYSTEM_MAINTENANCE';
+
+  const maintenanceAuditEventPlan: MaintenanceAuditEventPlan = {
+    _kind: 'maintenance_audit_event_plan',
+    executable: false,
+    aiCanExecute: false,
+    lockId: lock.lockId,
+    tenantId: lock.tenantId as string,
+    decision,
+    cleanupOwner,
+    aiCanOwnCleanup: false,
+    plannedAt: now,
+    note: `Dry-run cleanup plan for lock ${lock.lockId}. Decision: ${decision}. Owner: ${cleanupOwner}. AI cannot own or execute cleanup.`,
+  };
+
+  return {
+    _kind: 'model_config_lock_cleanup_dry_run_plan',
+    executable: false,
+    aiCanExecute: false,
+    dryRunOnly: true,
+    aiCanTrigger: false,
+    lockId: lock.lockId,
+    lockStatus: lock.status,
+    cleanupOwner,
+    aiCanOwnLock: false,
+    now,
+    expiresAt: lock.expiresAt,
+    cleanupEligibleAt: lock.cleanupEligibleAt,
+    cleanupDecision: decision,
+    cleanupReason,
+    maintenanceAuditEventPlan,
+  };
+}

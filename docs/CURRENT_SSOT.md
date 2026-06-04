@@ -20,7 +20,7 @@ Feature 006: Real Model Config Apply Transaction Boundary
 
 ## Current Phase
 
-Phase 2: Transaction Readiness Integration + Historical Hash Validation + Lock Cleanup Design
+Phase 3: Lock Cleanup Pseudo-implementation + settingsHistory Snapshot Mapping
 
 ---
 
@@ -37,7 +37,10 @@ Phase 2: Transaction Readiness Integration + Historical Hash Validation + Lock C
 * Feature 006 Phase 1: PASSED
 * Feature 006 Phase 1 Commit: `f74513e`
 * Feature 006 Phase 1 Grok Code Review: 92/100
-* ChatGPT Decision: Claude GO - Feature 006 Phase 2 only
+* Feature 006 Phase 2: PASSED
+* Feature 006 Phase 2 Commit: `6ed438f`
+* Feature 006 Phase 2 Grok Code Review: 92/100
+* ChatGPT Decision: Claude GO - Feature 006 Phase 3 only
 
 ---
 
@@ -49,37 +52,39 @@ Phase 2: Transaction Readiness Integration + Historical Hash Validation + Lock C
 
 ## Current Commit
 
-`f74513e`
+`6ed438f`
 
 ---
 
-## Phase 2 Priority Risks
+## Phase 3 Priority Risks
 
-Grok identified two medium risks that must be handled in Phase 2:
-1. `rollback historicalConfigHash` validation depth:
-   * Phase 1 compares caller-provided hashes only.
-   * Phase 2 must model how actual historical config hash from `settingsHistory` is cross-validated before rollback.
-2. Lock cleanup job responsibility:
-   * Phase 1 documented a cleanup chain.
-   * Phase 2 must define trigger method, owner, TTL / cleanup strategy, and pseudo-implementation.
+Grok identified two remaining medium risks that must be handled in Phase 3:
+1. Lock cleanup job execution responsibility and trigger mechanism:
+   * Phase 2 documented a 3-level cleanup chain.
+   * Phase 3 must define pseudo-implementation, owner, trigger, query criteria, TTL strategy, and manual fallback details.
+2. rollback historicalConfigHash and settingsHistory snapshot integration:
+   * Phase 2 models historicalConfigHash validation.
+   * Phase 3 must define mapping from settingsHistory snapshot to historicalConfigHash and mismatch handling in end-to-end dry-run integration.
 
-These are mandatory Phase 2 work items.
+These are mandatory Phase 3 work items.
 
 ---
 
 ## Allowed in this phase
 
-* Transaction-readiness integration planning
-* Historical settingsHistory hash validation plan
-* Historical config hash cross-validation helper
-* Rollback target version validation helper
-* Lock cleanup strategy documentation
-* Lock TTL / cleanup pseudo-implementation
-* Idempotency lock lifecycle helper
-* Apply / rollback transaction pseudo-plan hardening
+* Lock cleanup pseudo-implementation
+* Lock cleanup owner / trigger / TTL policy documentation
+* Lock cleanup query criteria modeling
+* Lock cleanup dry-run preview helper
+* Manual cleanup fallback plan
+* Maintenance audit event plan
+* settingsHistory snapshot mapping helper
+* historicalConfigHash mapping validation
+* historicalConfigHash mismatch handling tests
+* End-to-end dry-run rollback readiness tests
+* Rollback target snapshot validation
 * Service guard entrance contract hardening
-* Audit event metadata validation
-* Tenant isolation validation
+* Transaction-readiness integration tests
 * Boundary tests
 * Docs
 * Tests
@@ -101,8 +106,10 @@ These are mandatory Phase 2 work items.
 * Do not create real rollback records
 * Do not actually apply config
 * Do not actually rollback config
-* Do not add UI
+* Do not create real cleanup jobs
+* Do not add Cloud Functions
 * Do not add Netlify Functions
+* Do not add UI
 * Do not modify Feature 001 core flow
 * Do not modify Feature 002 inventory mutation logic
 * Do not modify Feature 003 prediction logic
@@ -117,31 +124,36 @@ These are mandatory Phase 2 work items.
 
 ## Required Guard Rails
 
-* Phase 2 must remain transaction-readiness only.
-* No real transaction may be executed.
+* Phase 3 must remain transaction-readiness only.
 * No real Firestore read/write may occur.
+* No real cleanup job may be created.
+* No real transaction may be executed.
 * Transaction plans must remain non-executable.
 * `executable` must remain `false`.
 * `aiCanExecute` must remain `false`.
 * Idempotency locks remain plan-only.
-* Historical hash validation must be modeled against supplied `settingsHistory` snapshot input only.
-* Rollback must validate that `rollbackTargetVersion` maps to expected historical config hash.
-* Historical hash mismatch must be BLOCKED.
-* Rollback must remain a new human-approved change.
-* Rollback must not delete or overwrite settings history.
-* Lock cleanup must be documented with trigger, owner, TTL policy, and pseudo-implementation.
+* Historical snapshot validation must be modeled against supplied snapshot input only.
+* settingsHistory snapshot mapping must be deterministic.
+* historicalConfigHash mismatch must be BLOCKED.
+* Missing settingsHistory snapshot must be BLOCKED.
+* Deleted / overwritten / mutable history snapshot must be BLOCKED.
+* Lock cleanup must be modeled as dry-run only.
+* Lock cleanup owner must not be AI.
+* Lock cleanup must not delete active locks.
+* Lock cleanup must include TTL / cleanupEligibleAt logic.
+* Lock cleanup must include maintenance audit event plan.
 * AI caller must be blocked.
 * Tenant hard guard must execute before all other validation.
-* Service guard must still block AI even if Admin SDK / Service Account is used.
+* Admin SDK / Service Account must not bypass business guard.
 * All helpers must be pure and covered by tests.
 
 ---
 
 ## Team State
 
-* Claude: GO - Feature 006 Phase 2 only
+* Claude: GO - Feature 006 Phase 3 only
 * Gemini: HOLD / support clarification only
-* Grok: Prepare Feature 006 Phase 2 code review
+* Grok: Prepare Feature 006 Phase 3 code review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -149,7 +161,7 @@ These are mandatory Phase 2 work items.
 
 ## Next Expected Input
 
-Claude Feature 006 Phase 2 report:
+Claude Feature 006 Phase 3 report:
 * branch name
 * commit hash
 * changed files
@@ -161,12 +173,15 @@ Claude Feature 006 Phase 2 report:
 * confirmation that no firebase-admin / google-cloud-firestore import exists
 * confirmation that no runTransaction exists
 * confirmation that no UI was added
-* confirmation that no Netlify Function was added
+* confirmation that no Netlify Function / Cloud Function was added
+* confirmation that no real cleanup job exists
 * confirmation that no real apply / rollback exists
 * confirmation that no real approval / apply / rollback records are created
-* confirmation that historicalConfigHash cross-validation is modeled
-* confirmation that rollbackTargetVersion historical hash mismatch is BLOCKED
-* confirmation that lock cleanup responsibility and pseudo-implementation are documented
+* confirmation that lock cleanup pseudo-implementation is documented
+* confirmation that lock cleanup owner / trigger / TTL policy is defined
+* confirmation that cleanup is dry-run only
+* confirmation that settingsHistory snapshot mapping is implemented
+* confirmation that historicalConfigHash mismatch is BLOCKED
 * confirmation that transaction plans remain executable=false
 * confirmation that aiCanExecute remains false
 * known limitations

@@ -20,7 +20,7 @@ Feature 005: Human-Approved Model Config Apply Execution
 
 ## Current Phase
 
-Phase 2: Recommendation Integration + Dry-run Transaction Plan
+Phase 3: Transaction Readiness Hardening + Audit Metadata Cross-validation
 
 ---
 
@@ -35,11 +35,11 @@ Phase 2: Recommendation Integration + Dry-run Transaction Plan
 * Feature 005 Spec v1.1: PASSED
 * Feature 005 Phase 1: PASSED
 * Feature 005 Phase 1 Commit: `c6366ac`
-* Feature 005 Phase 1 Tests: 143/143 assertions pass
-* Feature 005 Phase 1 Typecheck: PASS
-* Feature 005 Phase 1 Build: PASS
 * Feature 005 Phase 1 Grok Code Review: 93/100
-* ChatGPT Decision: Claude GO — Feature 005 Phase 2 only
+* Feature 005 Phase 2: PASSED
+* Feature 005 Phase 2 Commit: `78c9a95`
+* Feature 005 Phase 2 Grok Code Review: 92/100
+* ChatGPT Decision: Claude GO — Feature 005 Phase 3 only
 
 ---
 
@@ -51,27 +51,34 @@ Phase 2: Recommendation Integration + Dry-run Transaction Plan
 
 ## Current Commit
 
-`c6366ac`
+`78c9a95`
+
+---
+
+## Phase 3 Priority Risks
+
+Grok identified two medium risks that must be handled in Phase 3:
+1. Rollback token alignment with future transaction / idempotency lock strategy.
+2. Feature 003 → Feature 005 audit metadata cross-validation completeness.
+These are now mandatory Phase 3 work items.
 
 ---
 
 ## Allowed in this phase
 
-* Integrate Feature 003 `ModelConfigRecommendation` into Feature 005 dry-run transaction planning
-* Build dry-run apply transaction plan from approved recommendation input
-* Build dry-run rollback transaction plan from approved rollback input
-* Strengthen applyToken binding
-* Strengthen rollbackToken binding (must include rollbackTargetVersion + newVersion relationship)
-* Define BigInt canonical JSON behavior (BLOCKED)
-* Strengthen canonical JSON edge-case tests
-* Validate recommendation → approval → transaction plan continuity
-* Validate approvalId / auditTrailId / tenantId continuity
-* Validate expectedCurrentVersion / newVersion / rollbackTargetVersion
-* Validate settingsHistory append-only write plan
-* Validate idempotency lock plan
-* Validate audit event plan
-* Add tests
+* Strengthen rollbackToken transaction-readiness design
+* Strengthen rollbackToken idempotency lock plan validation
+* Add rollback conflict simulation tests
+* Add duplicate rollback token / duplicate lock plan tests
+* Add rollbackTargetVersion + expectedCurrentVersion + newVersion consistency tests
+* Add Feature 003 → Feature 005 audit metadata cross-validation
+* Validate configBeforeHash / configAfterHash / diffHash continuity
+* Validate rollbackReason propagation into rollback audit event plan
+* Validate sourceRecommendationId / approvalId / auditTrailId continuity
+* Strengthen transaction plan safety assertions
+* Strengthen idempotency lock plan semantics
 * Add docs
+* Add tests
 * SSOT update
 
 ---
@@ -105,7 +112,7 @@ Phase 2: Recommendation Integration + Dry-run Transaction Plan
 
 ## Required Guard Rails
 
-* Phase 2 must remain dry-run transaction planning only.
+* Phase 3 must remain dry-run transaction readiness only.
 * Transaction plans must remain non-executable.
 * `executable` must remain `false`.
 * `aiCanExecute` must remain `false`.
@@ -113,25 +120,25 @@ Phase 2: Recommendation Integration + Dry-run Transaction Plan
 * No real transaction may be executed.
 * No real settings mutation may occur.
 * No real settingsHistory write may occur.
+* Rollback must remain modeled as a new human-approved change.
+* rollbackToken must bind tenantId, approvalId, rollbackTargetVersion, expectedCurrentVersion, newVersion, auditTrailId, and rollbackReason.
+* rollback idempotency lock plan must explicitly model duplicate/conflict handling.
+* audit event plan must include configBeforeHash, configAfterHash, diffHash, rollbackReason where applicable.
+* Feature 003 recommendation continuity must be preserved through Feature 005 transaction plan.
 * Tenant hard guard must execute before all other validation.
 * AI caller must be blocked.
 * Human approval must remain required.
-* `approvalId`, `auditTrailId`, `tenantId`, `expectedCurrentVersion`, and `applyToken` are required for apply planning.
-* `approvalId`, `auditTrailId`, `tenantId`, `expectedCurrentVersion`, `rollbackTargetVersion`, `newVersion`, and `rollbackToken` are required for rollback planning.
-* Rollback must be modeled as a new human-approved change.
-* Rollback must not delete or overwrite settings history.
 * settingsHistory must remain modeled as immutable append-only.
-* BigInt canonical JSON behavior must be explicitly defined and tested (BLOCKED).
+* BigInt canonical JSON behavior must remain BLOCKED and tested.
 * canonical JSON must remain deterministic.
-* applyToken / rollbackToken must be deterministic and bind to all required fields.
 
 ---
 
 ## Team State
 
-* Claude: GO — Feature 005 Phase 2 only
+* Claude: GO — Feature 005 Phase 3 only
 * Gemini: HOLD / support clarification only
-* Grok: Prepare Feature 005 Phase 2 code review
+* Grok: Prepare Feature 005 Phase 3 code review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -139,7 +146,7 @@ Phase 2: Recommendation Integration + Dry-run Transaction Plan
 
 ## Next Expected Input
 
-Claude Feature 005 Phase 2 report:
+Claude Feature 005 Phase 3 report:
 * branch name
 * commit hash
 * changed files
@@ -154,12 +161,11 @@ Claude Feature 005 Phase 2 report:
 * confirmation that no Netlify Function was added
 * confirmation that no real apply / rollback exists
 * confirmation that no real approval / apply / rollback records are created
-* confirmation that Feature 003 recommendation integration is dry-run only
-* confirmation that transaction plans remain executable=false
-* confirmation that aiCanExecute remains false
-* confirmation that idempotency lock remains plan-only
-* confirmation that rollbackToken includes rollbackTargetVersion + newVersion relationship
-* confirmation that BigInt canonical JSON behavior is defined and tested
+* confirmation that rollbackToken transaction readiness is hardened
+* confirmation that rollback idempotency lock conflict simulation is tested
+* confirmation that audit metadata cross-validation is implemented
+* confirmation that configBeforeHash / configAfterHash / diffHash continuity is validated
+* confirmation that rollbackReason is carried into rollback audit event plan
 * known limitations
 
 ---

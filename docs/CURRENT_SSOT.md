@@ -20,7 +20,7 @@ Feature 005: Human-Approved Model Config Apply Execution
 
 ## Current Phase
 
-Phase 1: Pure Logic & Validation
+Phase 2: Recommendation Integration + Dry-run Transaction Plan
 
 ---
 
@@ -33,8 +33,13 @@ Phase 1: Pure Logic & Validation
 * Production Release: COMPLETED
 * Post-Release Monitoring: PASSED
 * Feature 005 Spec v1.1: PASSED
-* Feature 005 Spec v1.1 Grok Review: 94/100
-* ChatGPT Decision: Claude GO — Feature 005 Phase 1 only
+* Feature 005 Phase 1: PASSED
+* Feature 005 Phase 1 Commit: `c6366ac`
+* Feature 005 Phase 1 Tests: 143/143 assertions pass
+* Feature 005 Phase 1 Typecheck: PASS
+* Feature 005 Phase 1 Build: PASS
+* Feature 005 Phase 1 Grok Code Review: 93/100
+* ChatGPT Decision: Claude GO — Feature 005 Phase 2 only
 
 ---
 
@@ -46,28 +51,27 @@ Phase 1: Pure Logic & Validation
 
 ## Current Commit
 
-`395d3bf`
+`c6366ac`
 
 ---
 
 ## Allowed in this phase
 
-* TypeScript interfaces for real model config apply boundary
-* Persisted approval validators
-* Apply preflight validator
-* Rollback preflight validator
-* Transaction plan builder
-* Rollback transaction plan helper
-* Idempotency lock schema helper
-* applyToken generation / validation helper
-* rollbackToken generation / validation helper
-* settingsHistory version schema helper
-* immutable version metadata helper
-* canonical JSON / SHA-256 hash helper hardening
-* audit event pure helper
-* static import / forbidden syntax guard config
-* tests
-* docs
+* Integrate Feature 003 `ModelConfigRecommendation` into Feature 005 dry-run transaction planning
+* Build dry-run apply transaction plan from approved recommendation input
+* Build dry-run rollback transaction plan from approved rollback input
+* Strengthen applyToken binding
+* Strengthen rollbackToken binding (must include rollbackTargetVersion + newVersion relationship)
+* Define BigInt canonical JSON behavior (BLOCKED)
+* Strengthen canonical JSON edge-case tests
+* Validate recommendation → approval → transaction plan continuity
+* Validate approvalId / auditTrailId / tenantId continuity
+* Validate expectedCurrentVersion / newVersion / rollbackTargetVersion
+* Validate settingsHistory append-only write plan
+* Validate idempotency lock plan
+* Validate audit event plan
+* Add tests
+* Add docs
 * SSOT update
 
 ---
@@ -101,32 +105,33 @@ Phase 1: Pure Logic & Validation
 
 ## Required Guard Rails
 
-* Phase 1 must remain pure logic only.
-* Claude may define transaction plans but must not execute transactions.
-* Claude may define schemas and validators but must not persist records.
-* AI caller must be blocked from any future apply / rollback plan.
+* Phase 2 must remain dry-run transaction planning only.
+* Transaction plans must remain non-executable.
+* `executable` must remain `false`.
+* `aiCanExecute` must remain `false`.
+* Idempotency lock must remain plan-only.
+* No real transaction may be executed.
+* No real settings mutation may occur.
+* No real settingsHistory write may occur.
 * Tenant hard guard must execute before all other validation.
-* `tenantId` mismatch must be BLOCKED.
-* Missing `approvalId` must be BLOCKED.
-* Missing `auditTrailId` must be BLOCKED.
-* Missing `expectedCurrentVersion` must be BLOCKED.
-* Missing `applyToken` must be BLOCKED.
-* Missing `rollbackToken` must be BLOCKED for rollback plans.
-* rollback must be modeled as a new human-approved change.
-* rollback must not delete or overwrite settings history.
-* settingsHistory must be modeled as immutable append-only.
-* `configBeforeHash`, `configAfterHash`, and `diffHash` must be deterministic.
-* canonical JSON must define behavior for nested arrays, BigInt, NaN, Infinity, Date, undefined, function, symbol, and circular references.
-* applyToken / rollbackToken must be deterministic and bind to tenantId, version, auditTrailId, and diff / rollback target.
-* Phase 1 must include tests proving no Firestore imports, no `runTransaction`, no UI, and no Netlify Function changes.
+* AI caller must be blocked.
+* Human approval must remain required.
+* `approvalId`, `auditTrailId`, `tenantId`, `expectedCurrentVersion`, and `applyToken` are required for apply planning.
+* `approvalId`, `auditTrailId`, `tenantId`, `expectedCurrentVersion`, `rollbackTargetVersion`, `newVersion`, and `rollbackToken` are required for rollback planning.
+* Rollback must be modeled as a new human-approved change.
+* Rollback must not delete or overwrite settings history.
+* settingsHistory must remain modeled as immutable append-only.
+* BigInt canonical JSON behavior must be explicitly defined and tested (BLOCKED).
+* canonical JSON must remain deterministic.
+* applyToken / rollbackToken must be deterministic and bind to all required fields.
 
 ---
 
 ## Team State
 
-* Claude: GO — Feature 005 Phase 1 only
+* Claude: GO — Feature 005 Phase 2 only
 * Gemini: HOLD / support clarification only
-* Grok: Prepare Feature 005 Phase 1 code review
+* Grok: Prepare Feature 005 Phase 2 code review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -134,7 +139,7 @@ Phase 1: Pure Logic & Validation
 
 ## Next Expected Input
 
-Claude Feature 005 Phase 1 report:
+Claude Feature 005 Phase 2 report:
 * branch name
 * commit hash
 * changed files
@@ -149,10 +154,12 @@ Claude Feature 005 Phase 1 report:
 * confirmation that no Netlify Function was added
 * confirmation that no real apply / rollback exists
 * confirmation that no real approval / apply / rollback records are created
-* confirmation that tenant hard guard is first validation step
-* confirmation that applyToken / rollbackToken generation rules are implemented
-* confirmation that canonical JSON extreme cases are tested
-* confirmation that settingsHistory is modeled as immutable append-only
+* confirmation that Feature 003 recommendation integration is dry-run only
+* confirmation that transaction plans remain executable=false
+* confirmation that aiCanExecute remains false
+* confirmation that idempotency lock remains plan-only
+* confirmation that rollbackToken includes rollbackTargetVersion + newVersion relationship
+* confirmation that BigInt canonical JSON behavior is defined and tested
 * known limitations
 
 ---

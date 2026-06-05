@@ -33,9 +33,6 @@ import { buildAbortContract } from '../realModelConfigApplyAbortContractService'
 import { buildAuditEventPayload, validateAuditPayloadCompleteness } from '../realModelConfigApplyAuditPayloadService';
 
 import type { TenantId, AuditTrailId } from '../../types/aiBoundary';
-import type {
-  ApplyToken, ConfigVersion, DiffHash, ModelConfigApprovalId, ModelConfigRecommendationId,
-} from '../../types/modelConfigApply';
 import {
   asApplyToken, asConfigVersion, asDiffHash, asModelConfigApprovalId, asModelConfigRecommendationId,
 } from '../../types/modelConfigApply';
@@ -730,5 +727,5 @@ console.log(`Feature 009 Phase 1 Tests: ${passed} passed, ${failed} failed`);
 console.log('='.repeat(60));
 
 if (failed > 0) {
-  process.exit(1);
+  throw new Error(`${failed} test(s) failed`);
 }

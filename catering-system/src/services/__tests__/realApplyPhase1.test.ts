@@ -149,6 +149,8 @@ const validContext: VerifiedCallerContextSnapshot = {
   verifiedAt: now,
   tokenIat: 1000000,
   tokenExp: 2000000000, // far future
+  tokenSubject: 'user-008', // Phase 3: required for trusted sources
+  upstreamVerificationConfirmed: true,
 };
 
 const baseCallerInput = { context: validContext, requestTenantId: tenantId, now };

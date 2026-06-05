@@ -72,6 +72,17 @@ export function validateVerifiedCallerContext(
 
   const ctx = input.context;
 
+  // Phase 3: structural kind check — must be verified_caller_context_snapshot
+  if ((ctx as { _kind?: string })._kind !== 'verified_caller_context_snapshot') {
+    blocked.push('F008_CALLER_CONTEXT_MALFORMED');
+    return { valid: false, blockedReasons: blocked };
+  }
+
+  // Phase 3: tenantId must be present in context
+  if (!ctx.tenantId || (ctx.tenantId as string).trim() === '') {
+    blocked.push('F008_CALLER_TENANT_MISSING');
+  }
+
   // callerType must be HUMAN
   if (!HUMAN_CALLER_TYPES.has(ctx.callerType)) {
     blocked.push('REAL_EXEC_AI_CALLER_BLOCKED');
@@ -121,6 +132,14 @@ export function validateVerifiedCallerContext(
   // Phase 2: token subject must match callerUserId when present
   if (ctx.tokenSubject !== undefined && ctx.tokenSubject !== ctx.callerUserId) {
     blocked.push('F008_CALLER_TOKEN_SUBJECT_MISMATCH');
+  }
+
+  // Phase 3: for trusted sources, tokenSubject must be present
+  if (
+    TRUSTED_VERIFICATION_SOURCES.has(ctx.tokenVerificationSource) &&
+    (ctx.tokenSubject === undefined || ctx.tokenSubject === null || ctx.tokenSubject === '')
+  ) {
+    blocked.push('F008_CALLER_VERIFIED_SUBJECT_MISSING');
   }
 
   return { valid: blocked.length === 0, blockedReasons: blocked };

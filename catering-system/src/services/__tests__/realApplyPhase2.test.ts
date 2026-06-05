@@ -155,6 +155,7 @@ const validContext: VerifiedCallerContextSnapshot = {
   verifiedAt: now,
   tokenIat: 1000000,
   tokenExp: 2000000000,
+  tokenSubject: 'user-008', // Phase 3: required for trusted sources
   upstreamVerificationConfirmed: true,
 };
 

@@ -20,7 +20,7 @@ Feature 008: Real Model Config Apply Transaction Executor
 
 ## Current Phase
 
-Phase 2: Token Boundary Hardening + Write-set Hash Consistency Integration
+Phase 3: Upstream Verification E2E Contract + Firestore Snapshot Hash Simulation
 
 ---
 
@@ -41,7 +41,8 @@ Phase 2: Token Boundary Hardening + Write-set Hash Consistency Integration
 * Feature 007 Monitoring Recommendation: MONITORING_OK
 * ChatGPT Decision: Feature 008 Phase 1 authorized; Claude GO Phase 1 only
 * Feature 008 Phase 1: CLOSED (commit `6f4290b`, 59 assertions PASS)
-* Feature 008 Phase 2: AUTHORIZED; Claude GO Phase 2 only
+* Feature 008 Phase 2: PASSED (commit `8d5069c`, 49 assertions PASS, Grok 94/100)
+* Feature 008 Phase 3: AUTHORIZED; Claude GO Phase 3 only
 
 ---
 
@@ -53,7 +54,7 @@ Phase 2: Token Boundary Hardening + Write-set Hash Consistency Integration
 
 ## Current Commit
 
-`6f4290b` (Phase 1) → Phase 2 in progress
+`8d5069c` (Phase 2) → Phase 3 in progress
 
 ---
 
@@ -193,8 +194,8 @@ These must be addressed in Feature 008 Spec:
 
 ## Next Expected Input
 
-Grok review of Feature 008 Phase 2.
-Then: Gemini Feature 008 Phase 3 Spec or ChatGPT decision on next phase.
+Grok review of Feature 008 Phase 3.
+Then: ChatGPT decision on Feature 008 Phase 4.
 Spec should define:
 * real model config apply transaction executor flow
 * persisted approval validation

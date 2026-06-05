@@ -50,6 +50,11 @@ Post-Release Monitoring / Feature 009 Planning Pending
 * Feature 008 Phase 4 Commit: `4fd4c3c`
 * Feature 008 Phase 4 Grok Code Review: 95/100
 * ChatGPT Decision: Feature 008 dry-run executor-readiness version CLOSED; begin Post-Release Monitoring before Feature 009
+* Feature 008 Post-Release Monitoring: PASSED
+* Feature 008 Monitoring Commit: `227dd6d`
+* Feature 008 Monitoring Grok Review: 95/100
+* Feature 008 Monitoring Recommendation: MONITORING_OK
+* ChatGPT Decision: Feature 009 planning authorized; Gemini GO — prepare Feature 009 Spec
 
 ---
 
@@ -168,9 +173,9 @@ Feature 008 does not add Netlify Functions or Cloud Functions.
 
 ## Team State
 
-* Claude: HOLD / post-release monitoring support only
-* Gemini: HOLD / Feature 009 planning later
-* Grok: HOLD / Prepare monitoring review if requested
+* Claude: HOLD — await Feature 009 Spec + Grok red-team before any implementation
+* Gemini: GO — prepare Feature 009 Spec (real transaction executor)
+* Grok: Prepare Feature 009 Spec review after Gemini Spec exists
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -178,13 +183,19 @@ Feature 008 does not add Netlify Functions or Cloud Functions.
 
 ## Next Expected Input
 
-ibi decision:
-1. Start Feature 008 post-release monitoring review
-2. Pause development and observe production
-3. Begin Feature 009 planning after monitoring baseline
-
-Recommended next step:
-Run a short post-release monitoring window for Feature 008 dry-run executor-readiness behavior before opening Feature 009.
+Gemini Feature 009 Spec.
+Spec should define the first real transaction executor, covering:
+* real `runTransaction` executor service orchestrating Phase 1–4 validators
+* real Firebase Admin SDK `verifyIdToken` middleware integration
+* real Firestore read of `settings/{tenantId}` inside transaction
+* real Firestore read of approval record inside transaction
+* real idempotency lock check-and-write inside transaction
+* real `settingsHistory` immutable append inside transaction
+* real `settings` currentVersion update inside transaction
+* real audit event write strategy
+* rollback inclusion / exclusion boundary
+* cleanup job inclusion / exclusion boundary
+* UI approval flow inclusion / exclusion boundary
 
 ---
 

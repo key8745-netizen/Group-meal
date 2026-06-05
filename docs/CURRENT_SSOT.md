@@ -20,7 +20,7 @@ Feature 008: Real Model Config Apply Transaction Executor
 
 ## Current Phase
 
-Phase 3: Upstream Verification E2E Contract + Firestore Snapshot Hash Simulation
+Phase 4: Final Production-like Verification Contract + Deep Snapshot Hash Release Gate
 
 ---
 
@@ -42,7 +42,8 @@ Phase 3: Upstream Verification E2E Contract + Firestore Snapshot Hash Simulation
 * ChatGPT Decision: Feature 008 Phase 1 authorized; Claude GO Phase 1 only
 * Feature 008 Phase 1: CLOSED (commit `6f4290b`, 59 assertions PASS)
 * Feature 008 Phase 2: PASSED (commit `8d5069c`, 49 assertions PASS, Grok 94/100)
-* Feature 008 Phase 3: AUTHORIZED; Claude GO Phase 3 only
+* Feature 008 Phase 3: PASSED (commit `19d667f`, 61 assertions PASS, Grok 93/100)
+* Feature 008 Phase 4: AUTHORIZED; Claude GO Phase 4 only
 
 ---
 
@@ -54,7 +55,7 @@ Phase 3: Upstream Verification E2E Contract + Firestore Snapshot Hash Simulation
 
 ## Current Commit
 
-`8d5069c` (Phase 2) → Phase 3 in progress
+`19d667f` (Phase 3) → Phase 4 in progress
 
 ---
 
@@ -194,8 +195,8 @@ These must be addressed in Feature 008 Spec:
 
 ## Next Expected Input
 
-Grok review of Feature 008 Phase 3.
-Then: ChatGPT decision on Feature 008 Phase 4.
+Grok review of Feature 008 Phase 4.
+Then: ChatGPT decision on Feature 008 dry-run executor-readiness version closure or Phase 5.
 Spec should define:
 * real model config apply transaction executor flow
 * persisted approval validation

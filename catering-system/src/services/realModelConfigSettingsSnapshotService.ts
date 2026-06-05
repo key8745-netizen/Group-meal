@@ -1,7 +1,7 @@
 /**
  * realModelConfigSettingsSnapshotService.ts
  *
- * Feature 008 Phase 3: Simulated Settings Snapshot Validator
+ * Feature 008 Phase 3 + Phase 4: Simulated Settings Snapshot Validator
  *
  * Validates a simulated (plain-object) Firestore settings snapshot before a
  * real apply transaction may proceed.  Phase 3 does NOT read from Firestore;
@@ -131,6 +131,116 @@ export function validateSimulatedSettingsSnapshotForApply(
   }
 
   // If write-set provided: verify write-set.configBeforeHash fields are consistent
+  if (input.writeSet) {
+    const ws = input.writeSet;
+    if (str(ws.settingsHistoryWrite.configBeforeHash) !== str(currentConfigHash)) {
+      blocked.push('F008_WRITE_SET_HISTORY_HASH_MISMATCH');
+      blocked.push('F008_WRITE_SET_HASH_FIELDS_INCONSISTENT');
+    }
+    if (str(ws.auditEventWrite.configBeforeHash) !== str(currentConfigHash)) {
+      blocked.push('F008_WRITE_SET_AUDIT_HASH_MISMATCH');
+      blocked.push('F008_WRITE_SET_HASH_FIELDS_INCONSISTENT');
+    }
+  }
+
+  const uniqueBlocked = [...new Set(blocked)] as BlockedReason[];
+  return {
+    valid: uniqueBlocked.length === 0,
+    blockedReasons: uniqueBlocked,
+    currentConfigHash: uniqueBlocked.length === 0 ? currentConfigHash : undefined,
+  };
+}
+
+// ─── Phase 4: Simulated Real Firestore Settings Snapshot ─────────────────────
+
+/**
+ * Phase 4: a snapshot that explicitly declares its source as
+ * 'SIMULATED_FIRESTORE_SNAPSHOT'. Phase 5+ will use real Firestore reads.
+ */
+export interface SimulatedRealFirestoreSettingsSnapshot {
+  readonly _kind: 'simulated_real_firestore_settings_snapshot';
+  /** Must be 'SIMULATED_FIRESTORE_SNAPSHOT' — validated as part of the source guard */
+  source: 'SIMULATED_FIRESTORE_SNAPSHOT';
+  tenantId: TenantId;
+  currentVersion: ConfigVersion;
+  currentConfig: unknown;
+}
+
+export interface RealSnapshotValidationInput {
+  snapshot: SimulatedRealFirestoreSettingsSnapshot | null | undefined;
+  requestTenantId: TenantId;
+  expectedCurrentVersion: ConfigVersion;
+  approvalConfigBeforeHash: DiffHash;
+  /** When supplied, write-set configBeforeHash fields must match snapshot hash */
+  writeSet?: TransactionWriteSetContract | null;
+}
+
+/**
+ * Phase 4: validates a simulated real Firestore settings snapshot.
+ *
+ * Extends Phase 3 validator with:
+ *  - source guard: snapshot.source must equal 'SIMULATED_FIRESTORE_SNAPSHOT'
+ *  - full audit event hash consistency when write-set is supplied
+ */
+export function validateSimulatedRealFirestoreSettingsSnapshotForApply(
+  input: RealSnapshotValidationInput,
+): SnapshotValidationResult {
+  const blocked: BlockedReason[] = [];
+
+  if (!input.snapshot) {
+    blocked.push('F008_SNAPSHOT_MISSING');
+    return { valid: false, blockedReasons: blocked };
+  }
+
+  const snap = input.snapshot;
+
+  // structural kind check
+  if ((snap as { _kind?: string })._kind !== 'simulated_real_firestore_settings_snapshot') {
+    blocked.push('F008_SNAPSHOT_MALFORMED');
+    return { valid: false, blockedReasons: blocked };
+  }
+
+  // source guard — must declare provenance
+  if (snap.source !== 'SIMULATED_FIRESTORE_SNAPSHOT') {
+    blocked.push('F008_SNAPSHOT_SOURCE_MISMATCH');
+    return { valid: false, blockedReasons: blocked };
+  }
+
+  // tenantId hard guard — execute first
+  if (str(snap.tenantId) !== str(input.requestTenantId)) {
+    blocked.push('F008_SNAPSHOT_TENANT_MISMATCH');
+    return { valid: false, blockedReasons: blocked };
+  }
+
+  // currentVersion must match expectedCurrentVersion
+  if (str(snap.currentVersion) !== str(input.expectedCurrentVersion)) {
+    blocked.push('F008_SNAPSHOT_VERSION_MISMATCH');
+    blocked.push('F008_SNAPSHOT_CONCURRENT_MODIFICATION');
+  }
+
+  // currentConfig must be present
+  if (snap.currentConfig === undefined || snap.currentConfig === null) {
+    blocked.push('F008_SNAPSHOT_CONFIG_MISSING');
+    return { valid: false, blockedReasons: blocked };
+  }
+
+  // Canonicalize → currentConfigHash
+  const canon = validateCanonicalModelConfigHashInput(snap.currentConfig);
+  if (!canon.valid || !canon.canonicalized) {
+    blocked.push('F008_SNAPSHOT_CONFIG_MISSING');
+    blocked.push(...(canon.blockedReasons as BlockedReason[]));
+    return { valid: false, blockedReasons: blocked };
+  }
+
+  const currentConfigHash = canon.canonicalized.inputHash as DiffHash;
+
+  // hash must match approval.configBeforeHash
+  if (str(currentConfigHash) !== str(input.approvalConfigBeforeHash)) {
+    blocked.push('F008_SNAPSHOT_HASH_MISMATCH');
+    blocked.push('F008_SNAPSHOT_CONCURRENT_MODIFICATION');
+  }
+
+  // write-set consistency (settingsHistory + audit event)
   if (input.writeSet) {
     const ws = input.writeSet;
     if (str(ws.settingsHistoryWrite.configBeforeHash) !== str(currentConfigHash)) {

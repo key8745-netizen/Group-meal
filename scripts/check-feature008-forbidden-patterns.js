@@ -26,6 +26,7 @@ const SCAN_GLOBS = [
   'catering-system/src/services/realApplyTransactionWriteSetService.ts',
   'catering-system/src/services/realApplyWriteSetHashConsistencyService.ts',
   'catering-system/src/services/realModelConfigSettingsSnapshotService.ts',
+  'catering-system/src/services/realModelConfigFirebaseTokenAlignmentService.ts',
   'catering-system/src/types/realApplyTransactionExecution.ts',
 ];
 

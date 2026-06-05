@@ -249,9 +249,6 @@ function assertBlocked(label: string, blockedReasons: string[], reason: string):
   assert(label, blockedReasons.includes(reason));
 }
 
-function assertNotBlocked(label: string, blockedReasons: string[], reason: string): void {
-  assert(label, !blockedReasons.includes(reason));
-}
 
 // ─── Section 1: Firebase / Middleware Verification Integration ────────────────
 

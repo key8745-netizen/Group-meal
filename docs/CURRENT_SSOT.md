@@ -52,7 +52,7 @@ Phase 4: Real Verification / Live Read Contract + Abort Atomicity Hardening — 
 
 ## Current Commit
 
-TBD (updated after Phase 4 commit)
+`3bff441`
 
 ---
 

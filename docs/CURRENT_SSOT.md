@@ -20,7 +20,7 @@ Feature 008: Real Model Config Apply Transaction Executor
 
 ## Current Phase
 
-Phase 1: Pure Logic & Validation
+Phase 2: Token Boundary Hardening + Write-set Hash Consistency Integration
 
 ---
 
@@ -40,6 +40,8 @@ Phase 1: Pure Logic & Validation
 * Feature 007 Monitoring Review: 94/100
 * Feature 007 Monitoring Recommendation: MONITORING_OK
 * ChatGPT Decision: Feature 008 Phase 1 authorized; Claude GO Phase 1 only
+* Feature 008 Phase 1: CLOSED (commit `6f4290b`, 59 assertions PASS)
+* Feature 008 Phase 2: AUTHORIZED; Claude GO Phase 2 only
 
 ---
 
@@ -51,7 +53,7 @@ Phase 1: Pure Logic & Validation
 
 ## Current Commit
 
-`81cb3dd`
+`6f4290b` (Phase 1) → Phase 2 in progress
 
 ---
 
@@ -191,7 +193,8 @@ These must be addressed in Feature 008 Spec:
 
 ## Next Expected Input
 
-Gemini Feature 008 Spec.
+Grok review of Feature 008 Phase 2.
+Then: Gemini Feature 008 Phase 3 Spec or ChatGPT decision on next phase.
 Spec should define:
 * real model config apply transaction executor flow
 * persisted approval validation

@@ -91,6 +91,35 @@ export function validatePersistedApproval(
     blocked.push('F008_APPROVAL_SOURCE_REC_MISMATCH');
   }
 
+  // auditTrailId must match
+  if (str(a.auditTrailId) !== str(input.requestAuditTrailId)) {
+    blocked.push('F008_APPROVAL_AUDIT_TRAIL_MISMATCH');
+  }
+
+  // applyToken must match
+  if (str(a.applyToken) !== str(input.requestApplyToken)) {
+    blocked.push('F008_APPROVAL_APPLY_TOKEN_MISMATCH');
+  }
+
+  // expectedCurrentVersion must match
+  if (str(a.expectedCurrentVersion) !== str(input.requestExpectedCurrentVersion)) {
+    blocked.push('F008_APPROVAL_VERSION_MISMATCH');
+  }
+
+  // newVersion must match
+  if (str(a.newVersion) !== str(input.requestNewVersion)) {
+    blocked.push('F008_APPROVAL_VERSION_MISMATCH');
+  }
+
+  // Hash fields must match request
+  if (
+    str(a.configBeforeHash) !== str(input.requestConfigBeforeHash) ||
+    str(a.configAfterHash) !== str(input.requestConfigAfterHash) ||
+    str(a.diffHash) !== str(input.requestDiffHash)
+  ) {
+    blocked.push('F008_APPROVAL_HASH_MISMATCH');
+  }
+
   // Optional strict caller match
   if (input.strictCallerMatch && a.approvedByUserId !== input.callerUserId) {
     blocked.push('F008_APPROVAL_CALLER_MISMATCH');

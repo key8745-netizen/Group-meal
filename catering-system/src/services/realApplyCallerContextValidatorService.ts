@@ -22,6 +22,14 @@ import type {
   ExecutorValidationResult,
 } from '../types/realApplyTransactionExecution';
 
+const SERVICE_ACCOUNT_PROVIDERS = new Set([
+  'google.com/service-account',
+  'service-account',
+  'iam',
+  'admin-sdk',
+  'custom',
+]);
+
 // Only these sources are trusted for real apply
 const TRUSTED_VERIFICATION_SOURCES = new Set<TokenVerificationSource>([
   'FIREBASE_ADMIN_SDK',
@@ -92,6 +100,27 @@ export function validateVerifiedCallerContext(
   // tenantId in context must match request tenantId
   if (ctx.tenantId && (ctx.tenantId as string) !== (input.requestTenantId as string)) {
     blocked.push('F008_CALLER_TENANT_CLAIM_MISMATCH');
+  }
+
+  // Phase 2: upstream verification must be explicitly confirmed by server middleware
+  if (
+    TRUSTED_VERIFICATION_SOURCES.has(ctx.tokenVerificationSource) &&
+    ctx.upstreamVerificationConfirmed === false
+  ) {
+    blocked.push('F008_CALLER_UPSTREAM_VERIFICATION_MISSING');
+  }
+
+  // Phase 2: service account / Admin SDK callers must not claim HUMAN callerType
+  if (ctx.isServiceAccount === true && HUMAN_CALLER_TYPES.has(ctx.callerType)) {
+    blocked.push('F008_CALLER_SERVICE_ACCOUNT_FORGED_HUMAN');
+    if (ctx.signInProvider && SERVICE_ACCOUNT_PROVIDERS.has(ctx.signInProvider)) {
+      blocked.push('F008_CALLER_ADMIN_SDK_FORGED_HUMAN');
+    }
+  }
+
+  // Phase 2: token subject must match callerUserId when present
+  if (ctx.tokenSubject !== undefined && ctx.tokenSubject !== ctx.callerUserId) {
+    blocked.push('F008_CALLER_TOKEN_SUBJECT_MISMATCH');
   }
 
   return { valid: blocked.length === 0, blockedReasons: blocked };

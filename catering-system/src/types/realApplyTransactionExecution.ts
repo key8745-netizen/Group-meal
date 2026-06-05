@@ -59,6 +59,22 @@ export interface VerifiedCallerContextSnapshot {
   tokenIat: number;
   /** Token expiry (unix seconds) */
   tokenExp: number;
+  /**
+   * Phase 2: token subject (Firebase uid from token).
+   * When present, must match callerUserId.
+   */
+  tokenSubject?: string;
+  /**
+   * Phase 2: whether this caller is a service account / Admin SDK caller.
+   * When true, callerType must NOT be 'HUMAN'.
+   */
+  isServiceAccount?: boolean;
+  /**
+   * Phase 2: upstream verification flag — must be set by server middleware.
+   * When tokenVerificationSource is FIREBASE_ADMIN_SDK or MIDDLEWARE_SERVER,
+   * this must be true.
+   */
+  upstreamVerificationConfirmed?: boolean;
 }
 
 // ─── Persisted approval snapshot ─────────────────────────────────────────────

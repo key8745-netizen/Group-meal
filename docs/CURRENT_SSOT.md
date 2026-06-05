@@ -14,13 +14,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Post-Release Monitoring: Feature 007 Dry-run Real-Apply Readiness Boundary
+Feature 008: Real Model Config Apply Transaction Executor
 
 ---
 
 ## Current Phase
 
-Post-Release Monitoring / Feature 008 Planning Pending
+Planning / Spec Design
 
 ---
 
@@ -35,20 +35,11 @@ Post-Release Monitoring / Feature 008 Planning Pending
 * Feature 007 dry-run real-apply readiness version: CLOSED
 * Production Release: COMPLETED
 * Post-Release Monitoring: PASSED
-* Feature 007 Spec v1.2: PASSED
-* Feature 007 Phase 1: PASSED
-* Feature 007 Phase 1 Commit: `380e645`
-* Feature 007 Phase 1 Grok Code Review: 94/100
-* Feature 007 Phase 2: PASSED
-* Feature 007 Phase 2 Commit: `931026e`
-* Feature 007 Phase 2 Grok Code Review: 93/100
-* Feature 007 Phase 3: PASSED
-* Feature 007 Phase 3 Commit: `8071d03`
-* Feature 007 Phase 3 Grok Code Review: 93/100
-* Feature 007 Phase 4: PASSED
-* Feature 007 Phase 4 Commit: `206bdbf`
-* Feature 007 Phase 4 Grok Code Review: 95/100
-* ChatGPT Decision: Feature 007 dry-run real-apply readiness version CLOSED; begin Post-Release Monitoring before Feature 008
+* Feature 007 Post-Release Monitoring: PASSED
+* Feature 007 Monitoring Commit: `81cb3dd`
+* Feature 007 Monitoring Review: 94/100
+* Feature 007 Monitoring Recommendation: MONITORING_OK
+* ChatGPT Decision: Begin Feature 008 Planning only; Claude HOLD
 
 ---
 
@@ -60,46 +51,85 @@ Post-Release Monitoring / Feature 008 Planning Pending
 
 ## Current Commit
 
-`206bdbf`
+`81cb3dd`
 
 ---
 
-## Feature 007 Status
+## Feature 008 Goal
 
-Feature 007 is CLOSED as a dry-run real-apply readiness boundary.
-Feature 007 does not implement real Firestore reads.
-Feature 007 does not implement real Firestore writes.
-Feature 007 does not implement real transaction execution.
-Feature 007 does not implement real settings mutation.
-Feature 007 does not implement real settingsHistory writes.
-Feature 007 does not implement real approval persistence.
-Feature 007 does not implement real apply.
-Feature 007 does not implement real rollback.
-Feature 007 does not implement real cleanup jobs.
-Feature 007 does not add UI.
-Feature 007 does not add Netlify Functions or Cloud Functions.
+Design the first real transaction executor for human-approved model config apply.
+Feature 008 may allow real model config apply in a future implementation phase, but only through:
+* explicit persisted human approval
+* verified human caller context
+* strict default-deny service guard
+* single Firestore transaction
+* immutable `settingsHistory` write
+* `settings.currentVersion` update
+* idempotency lock write
+* expectedCurrentVersion guard
+* canonical hash validation inside transaction
+* complete audit trail
+* AI caller hard block
+
+Rollback is not automatically included.
+Cleanup job is not automatically included.
+UI approval flow is not automatically included.
+Gemini Spec must explicitly define whether rollback, cleanup, or UI are excluded or deferred.
+
+---
+
+## Priority Risks From Feature 007 Monitoring
+
+These must be addressed in Feature 008 Spec:
+1. Advanced forged context under long-running / production-like conditions:
+   * Feature 007 passed spoofed token and multi-claim tests.
+   * Feature 008 must define real token verification middleware and guard integration.
+2. Deep nested hash propagation under concurrent modification:
+   * Feature 007 passed full-chain and nested hash tests.
+   * Feature 008 must define production boundary tests for deep nested config plus concurrent modification.
+3. `tokenVerificationStatus='verified'` is currently contract-level only:
+   * Feature 008 must define where actual Firebase token verification happens.
+   * Feature 008 must prevent client-supplied fake verification status.
+4. Real Firestore transaction execution has not yet been implemented.
+5. Real settings mutation and settingsHistory writes have not yet been implemented.
+6. Real idempotency lock writes have not yet been implemented.
+7. Audit event atomicity under real transaction must be defined.
 
 ---
 
 ## Allowed in this phase
 
-* Post-release monitoring
-* Dry-run real-apply readiness behavior observation
-* Documentation updates
-* SSOT update
-* Risk register update
-* Feature 008 planning discussion only
-* Gemini may prepare Feature 008 spec only after ibi / ChatGPT approval
-* Grok may prepare Feature 008 spec review only after Gemini spec exists
+* Feature 008 requirements discussion
+* Gemini produces Feature 008 Spec
+* Grok reviews Feature 008 Spec
+* Define real apply transaction executor boundary
+* Define persisted approval validation
+* Define default-deny service guard entrance contract
+* Define upstream token verification boundary
+* Define settings mutation rules
+* Define immutable settingsHistory write strategy
+* Define idempotency lock write strategy
+* Define applyToken storage and duplicate handling
+* Define expectedCurrentVersion race-condition guard
+* Define canonical hash validation inside transaction
+* Define audit event transaction strategy
+* Define transaction retry behavior
+* Define rollback inclusion / exclusion boundary
+* Define cleanup job inclusion / exclusion boundary
+* Define UI inclusion / exclusion boundary
+* Define tenant isolation
+* Define AI forbidden actions
+* Define Claude Phase 1 implementation scope
+* Docs / SSOT update
 
 ---
 
 ## Forbidden in this phase
 
-* Do not start Feature 008 implementation
 * Do not let Claude implement code
+* Do not modify production code
 * Do not write Firestore
-* Do not read Firestore unless a future approved phase explicitly allows it
+* Do not read Firestore
 * Do not call `runTransaction`
 * Do not modify `settings`
 * Do not write `settingsHistory`
@@ -107,8 +137,8 @@ Feature 007 does not add Netlify Functions or Cloud Functions.
 * Do not create real apply records
 * Do not create real rollback records
 * Do not create real cleanup jobs
-* Do not actually apply config
-* Do not actually rollback config
+* Do not apply config
+* Do not rollback config
 * Do not add UI
 * Do not add Netlify Functions
 * Do not add Cloud Functions
@@ -128,46 +158,32 @@ Feature 007 does not add Netlify Functions or Cloud Functions.
 
 ## Required Guard Rails
 
-* Feature 007 dry-run real-apply readiness boundary must remain intact.
-* AI cannot apply config.
-* AI cannot mutate settings or rules.
-* Dry-run transaction pseudo-plans must not become executable.
-* `executable` must remain false.
-* `aiCanExecute` must remain false.
-* Default-deny guard must remain active.
+* Feature 008 must preserve human final control.
+* AI may recommend config changes but cannot apply them.
+* AI must be blocked even if invoked through Admin SDK / Service Account / Netlify Function / Cloud Function.
 * Service Account / Admin SDK must not imply permission.
-* Cryptographic forgery simulations must remain covered.
-* Multi-claim injection tests must remain covered.
-* Canonicalization must remain deterministic.
-* Full-chain hash propagation must remain validated.
-* Audit event payloads must remain pure data only.
-* Static guard / CI rules must continue blocking forbidden imports and forbidden calls.
-* Any future real apply mechanism must be a new Feature with Gemini spec, Grok red-team review, and ChatGPT gatekeeping.
-* Any future real transaction executor must preserve human final control, idempotency, expectedCurrentVersion, immutable settingsHistory, audit trail, and AI hard-block.
-
----
-
-## Known Accepted Risks / Future Work
-
-* Real model config apply is not implemented.
-* Real rollback is not implemented.
-* Real cleanup job is not implemented.
-* UI approval flow is not implemented.
-* Persisted approval record is not implemented.
-* Real Firestore transaction execution is not implemented.
-* Real settingsHistory write is not implemented.
-* `tokenVerificationStatus='verified'` remains a contract-level assertion.
-* Actual Firebase token signature verification must happen in upstream middleware or future executor boundary.
-* Dry-run transaction pseudo-plan must remain non-executable until a future approved Feature.
-* Feature 008 should decide whether to implement real transaction executor first, UI approval first, or upstream token verification gate first.
+* Upstream token verification boundary must be explicitly defined.
+* `tokenVerificationStatus='verified'` must not rely on client input.
+* Any real apply must require explicit persisted human approval.
+* Any real apply must occur inside one Firestore transaction.
+* Any real apply must be idempotency-protected.
+* Any real apply must write immutable settingsHistory.
+* Any real apply must update settings current config and currentVersion in the same transaction.
+* Any real apply must append audit trail in the same transaction or use a clearly defined atomic audit strategy.
+* No settings mutation may occur without approvalId, auditTrailId, tenantId, expectedCurrentVersion, applyToken, verified human caller, and valid hash continuity.
+* expectedCurrentVersion must prevent race conditions.
+* canonical hash validation must prevent applying against stale or tampered config state.
+* settingsHistory must remain immutable append-only.
+* Feature 008 Spec must be reviewed by Grok before Claude can implement.
+* Claude must remain HOLD until ChatGPT explicitly authorizes Phase 1.
 
 ---
 
 ## Team State
 
-* Claude: HOLD / post-release monitoring support only
-* Gemini: HOLD / Feature 008 planning later
-* Grok: HOLD / Prepare monitoring review if requested
+* Claude: HOLD
+* Gemini: GO - Produce Feature 008 Spec
+* Grok: GO - Prepare Feature 008 Spec Review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -175,13 +191,25 @@ Feature 007 does not add Netlify Functions or Cloud Functions.
 
 ## Next Expected Input
 
-ibi decision:
-1. Start Feature 007 post-release monitoring review
-2. Pause development and observe production
-3. Begin Feature 008 planning after monitoring baseline
-
-Recommended next step:
-Run a short post-release monitoring window for Feature 007 dry-run real-apply readiness behavior before opening Feature 008.
+Gemini Feature 008 Spec.
+Spec should define:
+* real model config apply transaction executor flow
+* persisted approval validation
+* default-deny service guard entrance contract
+* upstream token verification boundary
+* transaction pseudo-code
+* Firestore write set
+* idempotency lock collection / schema
+* applyToken storage and duplicate handling
+* settingsHistory immutable version write
+* settings currentVersion update
+* audit event transaction strategy
+* rollback inclusion / exclusion boundary
+* cleanup job inclusion / exclusion boundary
+* UI inclusion / exclusion boundary
+* tenant isolation
+* AI forbidden actions
+* Claude Phase 1 implementation scope
 
 ---
 

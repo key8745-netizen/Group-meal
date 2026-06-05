@@ -102,5 +102,96 @@ const invalidDate = new Date('not-a-date');
 const r16 = validateCanonicalModelConfigHashInput({ d: invalidDate });
 expect('invalid Date → REAL_EXEC_CANONICAL_DATE_NOT_SERIALIZABLE', r16.blockedReasons.includes('REAL_EXEC_CANONICAL_DATE_NOT_SERIALIZABLE'));
 
-if (fail === 0) console.log(`\nPASSED — Feature 007 Phase 1 Canonicalization (${pass} assertions)`);
+// ─── Phase 3: Complex nested config regression ────────────────────────────────
+
+console.log('\n[Phase 3: Complex nested config regression]\n');
+
+// Deeply nested object — hash is deterministic
+const deep = { a: { b: { c: { d: { e: 'leaf' } } } } };
+const dA = validateCanonicalModelConfigHashInput(deep);
+const dB = validateCanonicalModelConfigHashInput({ a: { b: { c: { d: { e: 'leaf' } } } } });
+expect('deeply nested → valid', dA.valid === true);
+expect('deeply nested → deterministic hash', dA.canonicalized !== null && dB.canonicalized !== null && (dA.canonicalized.inputHash as string) === (dB.canonicalized.inputHash as string));
+
+// Nested arrays — order preserved, hash deterministic
+const arrA = validateCanonicalModelConfigHashInput({ items: [3, 1, 2], meta: { tags: ['b', 'a'] } });
+const arrB = validateCanonicalModelConfigHashInput({ items: [3, 1, 2], meta: { tags: ['b', 'a'] } });
+expect('nested arrays → valid', arrA.valid === true);
+expect('nested arrays → deterministic hash', arrA.canonicalized !== null && arrB.canonicalized !== null && (arrA.canonicalized.inputHash as string) === (arrB.canonicalized.inputHash as string));
+
+// Array order matters — different order = different hash
+const arrC = validateCanonicalModelConfigHashInput({ items: [1, 2, 3] });
+const arrD = validateCanonicalModelConfigHashInput({ items: [3, 2, 1] });
+expect('different array order → different hash', arrC.canonicalized !== null && arrD.canonicalized !== null && (arrC.canonicalized.inputHash as string) !== (arrD.canonicalized.inputHash as string));
+
+// Key order is normalized — different key order = same hash
+const keyA = validateCanonicalModelConfigHashInput({ z: 1, a: 2, m: 3 });
+const keyB = validateCanonicalModelConfigHashInput({ a: 2, m: 3, z: 1 });
+expect('key order normalized → same hash', keyA.canonicalized !== null && keyB.canonicalized !== null && (keyA.canonicalized.inputHash as string) === (keyB.canonicalized.inputHash as string));
+
+// null values preserved deterministically
+const nullA = validateCanonicalModelConfigHashInput({ x: null, y: null });
+const nullB = validateCanonicalModelConfigHashInput({ x: null, y: null });
+expect('null values → valid', nullA.valid === true);
+expect('null values → deterministic', nullA.canonicalized !== null && nullB.canonicalized !== null && (nullA.canonicalized.inputHash as string) === (nullB.canonicalized.inputHash as string));
+
+// null vs omitted key → different
+const nullC = validateCanonicalModelConfigHashInput({ x: null });
+const nullD = validateCanonicalModelConfigHashInput({});
+expect('null value vs omitted → different hash', nullC.canonicalized !== null && nullD.canonicalized !== null && (nullC.canonicalized.inputHash as string) !== (nullD.canonicalized.inputHash as string));
+
+// boolean / number / string deterministic
+const primA = validateCanonicalModelConfigHashInput({ b: true, n: 42, s: 'hello' });
+const primB = validateCanonicalModelConfigHashInput({ b: true, n: 42, s: 'hello' });
+expect('bool/number/string → deterministic', primA.canonicalized !== null && primB.canonicalized !== null && (primA.canonicalized.inputHash as string) === (primB.canonicalized.inputHash as string));
+
+// false vs true → different hash
+const boolA = validateCanonicalModelConfigHashInput({ flag: false });
+const boolB = validateCanonicalModelConfigHashInput({ flag: true });
+expect('false vs true → different hash', boolA.canonicalized !== null && boolB.canonicalized !== null && (boolA.canonicalized.inputHash as string) !== (boolB.canonicalized.inputHash as string));
+
+// unicode / CJK string deterministic
+const uniA = validateCanonicalModelConfigHashInput({ name: '團膳管理系統', emoji: '🍜' });
+const uniB = validateCanonicalModelConfigHashInput({ name: '團膳管理系統', emoji: '🍜' });
+expect('unicode/CJK → deterministic', uniA.canonicalized !== null && uniB.canonicalized !== null && (uniA.canonicalized.inputHash as string) === (uniB.canonicalized.inputHash as string));
+expect('unicode/CJK → valid', uniA.valid === true);
+
+// special characters deterministic
+const specA = validateCanonicalModelConfigHashInput({ v: '\n\t\r\\" ' });
+const specB = validateCanonicalModelConfigHashInput({ v: '\n\t\r\\" ' });
+expect('special chars → deterministic', specA.canonicalized !== null && specB.canonicalized !== null && (specA.canonicalized.inputHash as string) === (specB.canonicalized.inputHash as string));
+
+// unsupported values still BLOCKED per Spec v1.2
+const bigIntInNested = validateCanonicalModelConfigHashInput({ cfg: { val: BigInt(99) } });
+expect('nested BigInt → blocked', bigIntInNested.valid === false);
+expect('nested BigInt → REAL_EXEC_CANONICAL_BIGINT_BLOCKED', bigIntInNested.blockedReasons.includes('REAL_EXEC_CANONICAL_BIGINT_BLOCKED'));
+
+const nanInArray = validateCanonicalModelConfigHashInput({ arr: [1, NaN, 3] });
+expect('NaN in array → blocked', nanInArray.valid === false);
+expect('NaN in array → REAL_EXEC_CANONICAL_NAN_BLOCKED', nanInArray.blockedReasons.includes('REAL_EXEC_CANONICAL_NAN_BLOCKED'));
+
+const infInObj = validateCanonicalModelConfigHashInput({ deep: { deeper: { v: Infinity } } });
+expect('Infinity in deep obj → blocked', infInObj.valid === false);
+expect('Infinity in deep obj → REAL_EXEC_CANONICAL_INFINITY_BLOCKED', infInObj.blockedReasons.includes('REAL_EXEC_CANONICAL_INFINITY_BLOCKED'));
+
+// mixed complex valid config — deeply nested + arrays + CJK + numbers
+const complex = {
+  metadata: { locale: 'zh-TW', tags: ['生產', 'config', 'v2'], version: 3 },
+  weights: { ingredients: { rice: 1.5, meat: 2.0 }, overhead: 0.1 },
+  flags: { enabled: true, debug: false },
+  thresholds: [10, 20, 30],
+  notes: null,
+};
+const cplxA = validateCanonicalModelConfigHashInput(complex);
+const cplxB = validateCanonicalModelConfigHashInput({
+  flags: { debug: false, enabled: true },
+  metadata: { locale: 'zh-TW', tags: ['生產', 'config', 'v2'], version: 3 },
+  notes: null,
+  thresholds: [10, 20, 30],
+  weights: { ingredients: { meat: 2.0, rice: 1.5 }, overhead: 0.1 },
+});
+expect('complex config → valid', cplxA.valid === true);
+expect('complex config key reorder → same hash', cplxA.canonicalized !== null && cplxB.canonicalized !== null && (cplxA.canonicalized.inputHash as string) === (cplxB.canonicalized.inputHash as string));
+
+if (fail === 0) console.log(`\nPASSED — Feature 007 Phase 1+3 Canonicalization (${pass} assertions)`);
 else { throw new Error(`FAIL — ${fail} failures`); }

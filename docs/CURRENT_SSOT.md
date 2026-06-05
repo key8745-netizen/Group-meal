@@ -20,7 +20,7 @@ Feature 007: Real Model Config Apply Transaction Execution
 
 ## Current Phase
 
-Phase 2: Real Apply Contract Integration + Guard / Hash Consistency Hardening
+Phase 3: Advanced Guard Hardening + Full-chain Hash Propagation
 
 ---
 
@@ -37,9 +37,11 @@ Phase 2: Real Apply Contract Integration + Guard / Hash Consistency Hardening
 * Feature 007 Spec v1.2: PASSED
 * Feature 007 Phase 1: PASSED
 * Feature 007 Phase 1 Commit: `380e645`
-* Feature 007 Phase 1 SSOT Update: `b668ccc`
 * Feature 007 Phase 1 Grok Code Review: 94/100
-* ChatGPT Decision: Claude GO - Feature 007 Phase 2 only
+* Feature 007 Phase 2: PASSED
+* Feature 007 Phase 2 Commit: `931026e`
+* Feature 007 Phase 2 Grok Code Review: 93/100
+* ChatGPT Decision: Claude GO - Feature 007 Phase 3 only
 
 ---
 
@@ -51,43 +53,42 @@ Phase 2: Real Apply Contract Integration + Guard / Hash Consistency Hardening
 
 ## Current Commit
 
-`b668ccc`
+`931026e`
 
 ---
 
-## Phase 2 Priority Risks
+## Phase 3 Priority Risks
 
-Grok identified two medium risks that must be handled in Phase 2:
-1. Default-Deny Guard edge-case coverage:
-   * spoofed token claims
-   * malformed caller context
-   * empty `sign_in_provider` with existing uid
-   * serviceAccount / Admin SDK context not implying permission
-2. Canonicalization validator and transaction pseudo-plan integration depth:
-   * config hash consistency must be asserted inside pseudo-plan builder
-   * `configBeforeHash`, `currentConfigHash`, `configAfterHash`, and `diffHash` continuity must be verified
+Grok identified two medium risks that must be handled in Phase 3:
+1. Default-Deny Guard robustness under advanced spoofed context:
+   * partial valid token claims with malicious injected claims
+   * forged `sign_in_provider`
+   * provider/user identity mismatch
+   * serviceAccount / Admin SDK context attempting to imply human permission
+2. Full-chain hash propagation:
+   * `approval → canonicalization → pseudo-plan → auditEventPlan`
+   * `configBeforeHash`, `currentConfigHash`, `configAfterHash`, `diffHash`, `applyToken`, `auditTrailId`
+   * complex nested config regression cases
 
-These are mandatory Phase 2 work items.
+These are mandatory Phase 3 work items.
 
 ---
 
 ## Allowed in this phase
 
-* Harden default-deny guard tests
-* Add spoofed token claims tests
-* Add malformed caller context tests
-* Add empty sign_in_provider with uid tests
-* Add serviceAccount / Admin SDK bypass regression tests
-* Integrate canonicalization validation into transaction pseudo-plan builder
-* Add hash consistency assertion in pseudo-plan builder
-* Validate `configBeforeHash`
-* Validate `currentConfigHash`
-* Validate `configAfterHash`
-* Validate `diffHash`
-* Validate hash continuity from approval to pseudo-plan to audit payload
-* Strengthen idempotency lock schema validation
-* Strengthen audit payload validation
-* Strengthen static guard / CI boundary checks
+* Advanced spoofed token regression tests
+* Forged `sign_in_provider` tests
+* Partial valid claims + malicious injected claims tests
+* Provider/user mismatch tests
+* Service Account / Admin SDK bypass regression tests
+* Full-chain hash propagation validation
+* Approval → canonicalization continuity tests
+* Canonicalization → pseudo-plan continuity tests
+* Pseudo-plan → auditEventPlan continuity tests
+* Complex nested config hash regression tests
+* Apply token continuity tests
+* Audit trail continuity tests
+* Static guard / CI boundary regression tests
 * Add tests
 * Add docs
 * SSOT update
@@ -127,7 +128,7 @@ These are mandatory Phase 2 work items.
 
 ## Required Guard Rails
 
-* Phase 2 must remain pure logic / contract integration only.
+* Phase 3 must remain pure logic / contract integration only.
 * No real Firestore read/write may occur.
 * No real transaction may be executed.
 * Transaction pseudo-plans must remain non-executable.
@@ -136,14 +137,17 @@ These are mandatory Phase 2 work items.
 * Default-deny guard must remain the first security boundary.
 * Context parsing failure must BLOCK.
 * Spoofed token claims must BLOCK.
+* Forged `sign_in_provider` must BLOCK.
+* Provider/user mismatch must BLOCK.
 * Unknown caller type must BLOCK.
+* Empty `sign_in_provider` with uid must BLOCK unless explicitly validated as human by approved guard logic.
 * Missing human user id must BLOCK.
 * AI caller must BLOCK.
 * Service Account / Admin SDK must not imply permission.
 * Tenant hard guard must execute before all other validation.
 * Canonicalization must be deterministic.
-* Pseudo-plan builder must validate canonical hash consistency.
-* `configBeforeHash`, `currentConfigHash`, `configAfterHash`, and `diffHash` mismatch must BLOCK.
+* Full-chain hash propagation must be validated.
+* `configBeforeHash`, `currentConfigHash`, `configAfterHash`, `diffHash`, `applyToken`, and `auditTrailId` mismatch must BLOCK.
 * Audit event helper must remain pure payload generation only.
 * Static guards / CI rules must continue preventing forbidden imports and forbidden calls.
 
@@ -151,9 +155,9 @@ These are mandatory Phase 2 work items.
 
 ## Team State
 
-* Claude: GO - Feature 007 Phase 2 only
+* Claude: GO - Feature 007 Phase 3 only
 * Gemini: HOLD / support clarification only
-* Grok: Prepare Feature 007 Phase 2 code review
+* Grok: Prepare Feature 007 Phase 3 code review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -161,7 +165,29 @@ These are mandatory Phase 2 work items.
 
 ## Next Expected Input
 
-Claude Feature 007 Phase 2 report.
+Claude Feature 007 Phase 3 report:
+* branch name
+* commit hash
+* changed files
+* whether only allowed files were modified
+* tests result
+* typecheck result
+* build result
+* confirmation that no Firestore read/write exists
+* confirmation that no firebase-admin / google-cloud-firestore import exists
+* confirmation that no runTransaction exists
+* confirmation that no UI was added
+* confirmation that no Netlify Function / Cloud Function was added
+* confirmation that no real apply / rollback exists
+* confirmation that no real approval / apply / rollback records are created
+* confirmation that advanced spoofed / forged context tests are added
+* confirmation that Service Account / Admin SDK cannot bypass business guard
+* confirmation that full-chain hash propagation is validated
+* confirmation that approval → canonicalization → pseudo-plan → auditEventPlan continuity is tested
+* confirmation that complex nested config hash regression tests are added
+* confirmation that transaction pseudo-plan remains executable=false
+* confirmation that aiCanExecute remains false
+* known limitations
 
 ---
 

@@ -288,5 +288,163 @@ const r28 = validateRealModelConfigApplyEntrance({
 expect('multiple missing fields → allowed=false (default deny)', r28.allowed === false);
 expect('multiple missing fields → multiple reasons', r28.blockedReasons.length >= 2);
 
-if (fail === 0) console.log(`\nPASSED — Feature 007 Phase 1+2 Guard (${pass} assertions)`);
+// ─── Phase 3: Advanced forged / mismatched context ───────────────────────────
+
+console.log('\n[Phase 3: Advanced forged / mismatched context]\n');
+
+// 29. Forged sign_in_provider: service_account provider with otherwise valid uid → BLOCKED
+const r29 = validateRealModelConfigApplyEntrance({
+  ...validRequest,
+  callerContext: {
+    callerType: 'HUMAN',
+    callerUserId: 'user-007',
+    signInProvider: 'service_account',
+    tokenClaims: validTokenClaims,
+    contextValidated: true,
+  },
+});
+expect('service_account provider → CALLER_TYPE_PROVIDER_MISMATCH', r29.blockedReasons.includes('REAL_EXEC_CALLER_TYPE_PROVIDER_MISMATCH'));
+expect('service_account provider → SIGN_IN_PROVIDER_INVALID', r29.blockedReasons.includes('REAL_EXEC_SIGN_IN_PROVIDER_INVALID'));
+expect('service_account provider → blocked', r29.allowed === false);
+
+// 30. isServiceAccount=true + service_account signInProvider + callerType=HUMAN → forged human context
+const r30 = validateRealModelConfigApplyEntrance({
+  ...validRequest,
+  callerContext: {
+    callerType: 'HUMAN',
+    callerUserId: 'user-007',
+    isServiceAccount: true,
+    signInProvider: 'service_account',
+    tokenClaims: validTokenClaims,
+    contextValidated: true,
+  },
+});
+expect('isServiceAccount + service_account provider → SERVICE_ACCOUNT_FORGED_HUMAN_CONTEXT', r30.blockedReasons.includes('REAL_EXEC_SERVICE_ACCOUNT_FORGED_HUMAN_CONTEXT'));
+expect('isServiceAccount + service_account provider → blocked', r30.allowed === false);
+
+// 31. isAdminSdk=true + service_account signInProvider → admin SDK forged human context
+const r31 = validateRealModelConfigApplyEntrance({
+  ...validRequest,
+  callerContext: {
+    callerType: 'HUMAN',
+    callerUserId: 'user-007',
+    isAdminSdk: true,
+    signInProvider: 'service_account',
+    tokenClaims: validTokenClaims,
+    contextValidated: true,
+  },
+});
+expect('isAdminSdk + service_account provider → ADMIN_SDK_FORGED_HUMAN_CONTEXT', r31.blockedReasons.includes('REAL_EXEC_ADMIN_SDK_FORGED_HUMAN_CONTEXT'));
+
+// 32. token claims tenantId mismatch → TOKEN_TENANT_MISMATCH
+const r32 = validateRealModelConfigApplyEntrance({
+  ...validRequest,
+  callerContext: {
+    ...validRequest.callerContext,
+    tokenClaims: { ...validTokenClaims, tenantId: 'other-tenant' },
+  },
+});
+expect('token tenantId mismatch → REAL_EXEC_TOKEN_TENANT_MISMATCH', r32.blockedReasons.includes('REAL_EXEC_TOKEN_TENANT_MISMATCH'));
+expect('token tenantId mismatch → blocked', r32.allowed === false);
+
+// 33. token claims tenantId matches request tenantId → allowed (no mismatch)
+const r33 = validateRealModelConfigApplyEntrance({
+  ...validRequest,
+  callerContext: {
+    ...validRequest.callerContext,
+    tokenClaims: { ...validTokenClaims, tenantId: 'tenant-007' },
+  },
+});
+expect('token tenantId matches → no TOKEN_TENANT_MISMATCH', !r33.blockedReasons.includes('REAL_EXEC_TOKEN_TENANT_MISMATCH'));
+
+// 34. role=admin claim without contextValidated → ROLE_CLAIM_UNTRUSTED
+const r34 = validateRealModelConfigApplyEntrance({
+  ...validRequest,
+  callerContext: {
+    callerType: 'HUMAN',
+    callerUserId: 'user-007',
+    signInProvider: 'password',
+    tokenClaims: { ...validTokenClaims, role: 'admin' },
+    // contextValidated not set → undefined (not true)
+  },
+});
+expect('role=admin without contextValidated → ROLE_CLAIM_UNTRUSTED', r34.blockedReasons.includes('REAL_EXEC_ROLE_CLAIM_UNTRUSTED'));
+expect('role=admin without contextValidated → blocked', r34.allowed === false);
+
+// 35. role=admin WITH contextValidated=true → role claim accepted (not blocked by ROLE_CLAIM_UNTRUSTED)
+const r35 = validateRealModelConfigApplyEntrance({
+  ...validRequest,
+  callerContext: {
+    ...validRequest.callerContext,
+    tokenClaims: { ...validTokenClaims, role: 'admin' },
+    contextValidated: true,
+  },
+});
+expect('role=admin with contextValidated=true → no ROLE_CLAIM_UNTRUSTED', !r35.blockedReasons.includes('REAL_EXEC_ROLE_CLAIM_UNTRUSTED'));
+expect('role=admin with contextValidated=true → allowed', r35.allowed === true);
+
+// 36. malicious injected override=true claim → TOKEN_CLAIMS_SPOOFED
+const r36 = validateRealModelConfigApplyEntrance({
+  ...validRequest,
+  callerContext: {
+    ...validRequest.callerContext,
+    tokenClaims: { ...validTokenClaims, override: true },
+  },
+});
+expect('override=true injected claim → TOKEN_CLAIMS_SPOOFED', r36.blockedReasons.includes('REAL_EXEC_TOKEN_CLAIMS_SPOOFED'));
+
+// 37. malicious bypass=true injected → TOKEN_CLAIMS_SPOOFED
+const r37 = validateRealModelConfigApplyEntrance({
+  ...validRequest,
+  callerContext: {
+    ...validRequest.callerContext,
+    tokenClaims: { ...validTokenClaims, bypass: true },
+  },
+});
+expect('bypass=true injected claim → TOKEN_CLAIMS_SPOOFED', r37.blockedReasons.includes('REAL_EXEC_TOKEN_CLAIMS_SPOOFED'));
+
+// 38. uid looks like service account but provider says google.com → PROVIDER_USER_MISMATCH
+const r38 = validateRealModelConfigApplyEntrance({
+  ...validRequest,
+  callerContext: {
+    callerType: 'HUMAN',
+    callerUserId: 'svc@project.iam.gserviceaccount.com',
+    signInProvider: 'google.com',
+    tokenClaims: {
+      uid: 'svc@project.iam.gserviceaccount.com',
+      iss: 'https://securetoken.google.com/project',
+      aud: 'project',
+      iat: 1000000,
+      exp: 1003600,
+    },
+    contextValidated: true,
+  },
+});
+expect('gserviceaccount uid with google.com provider → PROVIDER_USER_MISMATCH', r38.blockedReasons.includes('REAL_EXEC_PROVIDER_USER_MISMATCH'));
+
+// 39. partial valid claims + malicious admin=true without contextValidated → ROLE_CLAIM_UNTRUSTED
+const r39 = validateRealModelConfigApplyEntrance({
+  ...validRequest,
+  callerContext: {
+    callerType: 'HUMAN',
+    callerUserId: 'user-007',
+    signInProvider: 'password',
+    tokenClaims: { ...validTokenClaims, admin: true },
+    contextValidated: false,
+  },
+});
+expect('admin=true + contextValidated=false → CALLER_CONTEXT_MALFORMED', r39.blockedReasons.includes('REAL_EXEC_CALLER_CONTEXT_MALFORMED'));
+expect('admin=true without contextValidated → ROLE_CLAIM_UNTRUSTED', r39.blockedReasons.includes('REAL_EXEC_ROLE_CLAIM_UNTRUSTED'));
+
+// 40. default deny — completely missing request fields stay DENY
+const r40 = validateRealModelConfigApplyEntrance({
+  ...validRequest,
+  approvalId: asModelConfigApprovalId(''),
+  applyToken: asApplyToken(''),
+  auditTrailId: '' as AuditTrailId,
+});
+expect('multiple missing fields → default deny', r40.allowed === false);
+expect('multiple missing fields → at least 3 reasons', r40.blockedReasons.length >= 3);
+
+if (fail === 0) console.log(`\nPASSED — Feature 007 Phase 1+2+3 Guard (${pass} assertions)`);
 else { throw new Error(`FAIL — ${fail} failures`); }

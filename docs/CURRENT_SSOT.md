@@ -20,7 +20,7 @@ Feature 007: Real Model Config Apply Transaction Execution
 
 ## Current Phase
 
-Phase 3: Advanced Guard Hardening + Full-chain Hash Propagation
+Phase 4: Final Guard Robustness + Deep Hash Propagation Release Gate
 
 ---
 
@@ -41,7 +41,10 @@ Phase 3: Advanced Guard Hardening + Full-chain Hash Propagation
 * Feature 007 Phase 2: PASSED
 * Feature 007 Phase 2 Commit: `931026e`
 * Feature 007 Phase 2 Grok Code Review: 93/100
-* ChatGPT Decision: Claude GO - Feature 007 Phase 3 only
+* Feature 007 Phase 3: PASSED
+* Feature 007 Phase 3 Commit: `8071d03`
+* Feature 007 Phase 3 Grok Code Review: 93/100
+* ChatGPT Decision: Claude GO - Feature 007 Phase 4 only
 
 ---
 
@@ -53,42 +56,41 @@ Phase 3: Advanced Guard Hardening + Full-chain Hash Propagation
 
 ## Current Commit
 
-`931026e`
+`8071d03`
 
 ---
 
-## Phase 3 Priority Risks
+## Phase 4 Priority Risks
 
-Grok identified two medium risks that must be handled in Phase 3:
-1. Default-Deny Guard robustness under advanced spoofed context:
-   * partial valid token claims with malicious injected claims
-   * forged `sign_in_provider`
-   * provider/user identity mismatch
-   * serviceAccount / Admin SDK context attempting to imply human permission
-2. Full-chain hash propagation:
-   * `approval → canonicalization → pseudo-plan → auditEventPlan`
-   * `configBeforeHash`, `currentConfigHash`, `configAfterHash`, `diffHash`, `applyToken`, `auditTrailId`
-   * complex nested config regression cases
+Grok identified two remaining medium risks that must be handled in Phase 4:
+1. Advanced forged context under production-like spoof:
+   * token signature forgery simulation
+   * valid claims mixed with forged signature
+   * multi-claim injection
+   * forged provider plus injected admin role
+2. Deep full-chain hash propagation:
+   * deep nested config
+   * concurrent modification simulation
+   * approval → canonicalization → pseudo-plan → auditEventPlan consistency
+   * currentConfigHash / configBeforeHash / configAfterHash / diffHash propagation
 
-These are mandatory Phase 3 work items.
+These are mandatory Phase 4 work items.
 
 ---
 
 ## Allowed in this phase
 
-* Advanced spoofed token regression tests
-* Forged `sign_in_provider` tests
-* Partial valid claims + malicious injected claims tests
-* Provider/user mismatch tests
-* Service Account / Admin SDK bypass regression tests
-* Full-chain hash propagation validation
-* Approval → canonicalization continuity tests
-* Canonicalization → pseudo-plan continuity tests
-* Pseudo-plan → auditEventPlan continuity tests
-* Complex nested config hash regression tests
-* Apply token continuity tests
-* Audit trail continuity tests
+* Cryptographic signature forgery simulation tests
+* Multi-claim injection regression tests
+* Valid claims + forged signature tests
+* Forged provider + injected admin role tests
+* Advanced default-deny guard hardening
+* Deep nested config hash propagation tests
+* Concurrent modification simulation tests
+* Full-chain hash propagation final regression tests
+* Approval → canonicalization → pseudo-plan → auditEventPlan continuity tests
 * Static guard / CI boundary regression tests
+* Final dry-run release gate checklist
 * Add tests
 * Add docs
 * SSOT update
@@ -128,24 +130,25 @@ These are mandatory Phase 3 work items.
 
 ## Required Guard Rails
 
-* Phase 3 must remain pure logic / contract integration only.
+* Phase 4 must remain pure logic / contract integration only.
 * No real Firestore read/write may occur.
 * No real transaction may be executed.
 * Transaction pseudo-plans must remain non-executable.
 * `executable` must remain `false`.
 * `aiCanExecute` must remain `false`.
 * Default-deny guard must remain the first security boundary.
-* Context parsing failure must BLOCK.
-* Spoofed token claims must BLOCK.
-* Forged `sign_in_provider` must BLOCK.
-* Provider/user mismatch must BLOCK.
+* Cryptographic signature forgery simulation must BLOCK.
+* Valid claims with forged signature must BLOCK.
+* Multi-claim injection must BLOCK.
+* Forged provider with injected admin role must BLOCK.
 * Unknown caller type must BLOCK.
-* Empty `sign_in_provider` with uid must BLOCK unless explicitly validated as human by approved guard logic.
 * Missing human user id must BLOCK.
 * AI caller must BLOCK.
 * Service Account / Admin SDK must not imply permission.
 * Tenant hard guard must execute before all other validation.
 * Canonicalization must be deterministic.
+* Deep nested config hash propagation must be deterministic.
+* Concurrent modification mismatch must BLOCK.
 * Full-chain hash propagation must be validated.
 * `configBeforeHash`, `currentConfigHash`, `configAfterHash`, `diffHash`, `applyToken`, and `auditTrailId` mismatch must BLOCK.
 * Audit event helper must remain pure payload generation only.
@@ -155,9 +158,9 @@ These are mandatory Phase 3 work items.
 
 ## Team State
 
-* Claude: GO - Feature 007 Phase 3 only
+* Claude: GO - Feature 007 Phase 4 only
 * Gemini: HOLD / support clarification only
-* Grok: Prepare Feature 007 Phase 3 code review
+* Grok: Prepare Feature 007 Phase 4 code review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -165,7 +168,7 @@ These are mandatory Phase 3 work items.
 
 ## Next Expected Input
 
-Claude Feature 007 Phase 3 report:
+Claude Feature 007 Phase 4 report:
 * branch name
 * commit hash
 * changed files
@@ -180,13 +183,15 @@ Claude Feature 007 Phase 3 report:
 * confirmation that no Netlify Function / Cloud Function was added
 * confirmation that no real apply / rollback exists
 * confirmation that no real approval / apply / rollback records are created
-* confirmation that advanced spoofed / forged context tests are added
+* confirmation that cryptographic forgery simulations are added
+* confirmation that multi-claim injection tests are added
 * confirmation that Service Account / Admin SDK cannot bypass business guard
-* confirmation that full-chain hash propagation is validated
-* confirmation that approval → canonicalization → pseudo-plan → auditEventPlan continuity is tested
-* confirmation that complex nested config hash regression tests are added
+* confirmation that deep nested hash propagation is validated
+* confirmation that concurrent modification simulation is tested
+* confirmation that full-chain hash propagation remains validated
 * confirmation that transaction pseudo-plan remains executable=false
 * confirmation that aiCanExecute remains false
+* confirmation that final dry-run release gate checklist is complete
 * known limitations
 
 ---

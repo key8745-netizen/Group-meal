@@ -32,6 +32,14 @@ export interface RealModelConfigApplyCallerContext {
   tokenClaims?: Record<string, unknown> | null;
   /** Whether the context was parsed from a validated source (false = suspect) */
   contextValidated?: boolean;
+  /**
+   * Phase 4: token verification status from upstream auth middleware.
+   * 'verified' — token signature confirmed by trusted authority.
+   * 'unverified' — signature check was skipped or failed.
+   * 'forged' — explicit marker that the token is known-bad.
+   * undefined — not supplied by middleware (treated as suspect when tokenClaims present).
+   */
+  tokenVerificationStatus?: 'verified' | 'unverified' | 'forged' | string;
 }
 
 // ─── Apply Request ────────────────────────────────────────────────────────────

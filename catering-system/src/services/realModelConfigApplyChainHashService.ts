@@ -155,3 +155,48 @@ export function validatePlanToAuditEventHash(
     auditEvent,
   });
 }
+
+// ─── Phase 4: Concurrent modification simulation ─────────────────────────────
+
+export interface ConcurrentModificationCheckInput {
+  /** Hash from the approval record — expected state at approval time */
+  approvalConfigBeforeHash: DiffHash;
+  /** Hash computed from the currently observed config (at transaction time) */
+  currentConfigHash: DiffHash;
+  /** Expected version string from request */
+  expectedCurrentVersion: string;
+  /** Observed current version string (from settings read) */
+  observedCurrentVersion: string;
+}
+
+export interface ConcurrentModificationCheckResult {
+  safe: boolean;
+  blockedReasons: BlockedReason[];
+}
+
+/**
+ * Phase 4: Detects concurrent modification.
+ * If approval was based on an older config state that has since changed,
+ * the hash no longer matches and the transaction must be BLOCKED.
+ */
+export function detectConcurrentModification(
+  input: ConcurrentModificationCheckInput,
+): ConcurrentModificationCheckResult {
+  const blocked: BlockedReason[] = [];
+
+  if (str(input.approvalConfigBeforeHash) !== str(input.currentConfigHash)) {
+    blocked.push('REAL_EXEC_CURRENT_CONFIG_HASH_MISMATCH');
+    blocked.push('REAL_EXEC_CONCURRENT_MODIFICATION_BLOCKED');
+  }
+
+  if (input.expectedCurrentVersion !== input.observedCurrentVersion) {
+    if (!blocked.includes('REAL_EXEC_CURRENT_CONFIG_VERSION_MISMATCH')) {
+      blocked.push('REAL_EXEC_CURRENT_CONFIG_VERSION_MISMATCH');
+    }
+    if (!blocked.includes('REAL_EXEC_CONCURRENT_MODIFICATION_BLOCKED')) {
+      blocked.push('REAL_EXEC_CONCURRENT_MODIFICATION_BLOCKED');
+    }
+  }
+
+  return { safe: blocked.length === 0, blockedReasons: blocked };
+}

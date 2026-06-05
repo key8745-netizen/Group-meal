@@ -111,6 +111,65 @@ export function buildAbortContractAfterVersionConflict(
   };
 }
 
+// ─── Phase 3 additions ────────────────────────────────────────────────────────
+
+/**
+ * Builds an abort contract when the approval validation failed.
+ * Lock is NOT yet acquired — no lock transition needed.
+ */
+export function buildAbortContractAfterApprovalInvalid(
+  input: AbortContractInput & { approvalBlockedReasons: BlockedReason[] },
+): ModelConfigApplyAbortContract {
+  const reasons: BlockedReason[] = [
+    ...input.blockedReasons,
+    ...input.approvalBlockedReasons,
+  ];
+  const failurePayload: ModelConfigApplyAuditEventPayload = buildAuditEventPayload({
+    ...input,
+    eventType: 'MODEL_CONFIG_APPROVAL_INVALID_BLOCKED',
+    blockedReasons: reasons,
+  });
+
+  return {
+    _kind: 'model_config_apply_abort_contract',
+    executable: false,
+    aiCanExecute: false,
+    abortReason: 'APPROVAL_VALIDATION_FAILED',
+    blockedReasons: reasons,
+    lockTransitionRequired: false,
+    lockTransitionTarget: null,
+    failureAuditPayload: failurePayload,
+    abortedAt: new Date(),
+  };
+}
+
+/**
+ * Builds an abort contract when a settings hash mismatch is detected.
+ * Lock is NOT yet acquired — no lock transition needed.
+ */
+export function buildAbortContractAfterHashMismatch(
+  input: AbortContractInput,
+): ModelConfigApplyAbortContract {
+  const reasons: BlockedReason[] = [...input.blockedReasons];
+  const failurePayload: ModelConfigApplyAuditEventPayload = buildAuditEventPayload({
+    ...input,
+    eventType: 'MODEL_CONFIG_HASH_MISMATCH_BLOCKED',
+    blockedReasons: reasons,
+  });
+
+  return {
+    _kind: 'model_config_apply_abort_contract',
+    executable: false,
+    aiCanExecute: false,
+    abortReason: 'HASH_MISMATCH',
+    blockedReasons: reasons,
+    lockTransitionRequired: false,
+    lockTransitionTarget: null,
+    failureAuditPayload: failurePayload,
+    abortedAt: new Date(),
+  };
+}
+
 /**
  * Detects whether an incoming abort is a duplicate of an already-aborted request.
  * Two aborts with the same approvalId + applyToken are considered duplicates.

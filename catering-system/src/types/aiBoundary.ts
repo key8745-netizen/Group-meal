@@ -511,7 +511,18 @@ export type BlockedReason =
   // Feature 009 Phase 2: Abort hardening
   | 'F009_ABORT_DUPLICATE_REQUEST'
   | 'F009_ABORT_AFTER_PENDING_LOCK'
-  | 'F009_ABORT_VERSION_CONFLICT';
+  | 'F009_ABORT_VERSION_CONFLICT'
+  // Feature 009 Phase 3: Transaction read-set order
+  | 'F009_READSET_ORDER_APPROVAL_REQUIRED'
+  | 'F009_READSET_ORDER_SETTINGS_REQUIRED'
+  | 'F009_READSET_ORDER_LOCK_REQUIRED'
+  | 'F009_READSET_INVALID_PREVENTS_WRITE_SET'
+  // Feature 009 Phase 3: Concurrent modification
+  | 'F009_CONCURRENT_MODIFICATION_VERSION'
+  | 'F009_CONCURRENT_MODIFICATION_HASH'
+  // Feature 009 Phase 3: Duplicate apply
+  | 'F009_DUPLICATE_APPLY_CONSUMED'
+  | 'F009_DUPLICATE_APPLY_PENDING';
 
 // ─── Operation validation ──────────────────────────────────────────────────────
 

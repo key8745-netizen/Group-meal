@@ -29,6 +29,9 @@ const SCAN_GLOBS = [
   // Phase 2 additions
   'catering-system/src/services/realModelConfigApplyFirebaseVerificationService.ts',
   'catering-system/src/services/realModelConfigApplyReadSetSnapshotService.ts',
+  // Phase 3 additions
+  'catering-system/src/services/realModelConfigApplyTransactionReadOrderService.ts',
+  'catering-system/src/services/realModelConfigApplyConcurrentModificationService.ts',
 ];
 
 const FORBIDDEN = [

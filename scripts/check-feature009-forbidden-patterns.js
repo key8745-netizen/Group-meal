@@ -2,9 +2,9 @@
 /**
  * check-feature009-forbidden-patterns.js
  *
- * Feature 009 Phase 1: Static Guard / CI Regression
+ * Feature 009 Phase 1 + Phase 2: Static Guard / CI Regression
  *
- * Scans Feature 009 Phase 1 service files for forbidden patterns.
+ * Scans Feature 009 Phase 1 + Phase 2 service files for forbidden patterns.
  * Exits with code 1 if any violation is found.
  *
  * Forbidden patterns:
@@ -26,6 +26,9 @@ const SCAN_GLOBS = [
   'catering-system/src/services/realModelConfigApplyAbortContractService.ts',
   'catering-system/src/services/realModelConfigApplyAuditPayloadService.ts',
   'catering-system/src/types/realModelConfigApplyTransaction.ts',
+  // Phase 2 additions
+  'catering-system/src/services/realModelConfigApplyFirebaseVerificationService.ts',
+  'catering-system/src/services/realModelConfigApplyReadSetSnapshotService.ts',
 ];
 
 const FORBIDDEN = [

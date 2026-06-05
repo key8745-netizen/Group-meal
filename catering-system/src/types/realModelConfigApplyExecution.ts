@@ -26,6 +26,12 @@ export interface RealModelConfigApplyCallerContext {
   isServiceAccount?: boolean;
   isAdminSdk?: boolean;
   clientIp?: string;
+  /** Firebase auth sign_in_provider claim — must be explicitly set for human callers */
+  signInProvider?: string | null;
+  /** Raw token claims — used to detect spoofed / malformed context */
+  tokenClaims?: Record<string, unknown> | null;
+  /** Whether the context was parsed from a validated source (false = suspect) */
+  contextValidated?: boolean;
 }
 
 // ─── Apply Request ────────────────────────────────────────────────────────────

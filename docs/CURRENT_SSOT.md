@@ -20,7 +20,7 @@ Feature 007: Real Model Config Apply Transaction Execution
 
 ## Current Phase
 
-Phase 1: PASSED — Awaiting Phase 2 SSOT
+Phase 2: Real Apply Contract Integration + Guard / Hash Consistency Hardening
 
 ---
 
@@ -35,11 +35,11 @@ Phase 1: PASSED — Awaiting Phase 2 SSOT
 * Production Release: COMPLETED
 * Post-Release Monitoring: PASSED
 * Feature 007 Spec v1.2: PASSED
-* Feature 007 Spec v1.2 Grok Review: 96/100
 * Feature 007 Phase 1: PASSED
 * Feature 007 Phase 1 Commit: `380e645`
+* Feature 007 Phase 1 SSOT Update: `b668ccc`
 * Feature 007 Phase 1 Grok Code Review: 94/100
-* ChatGPT Decision: Feature 007 Phase 2 authorized pending new SSOT
+* ChatGPT Decision: Claude GO - Feature 007 Phase 2 only
 
 ---
 
@@ -51,24 +51,45 @@ Phase 1: PASSED — Awaiting Phase 2 SSOT
 
 ## Current Commit
 
-`380e645`
+`b668ccc`
+
+---
+
+## Phase 2 Priority Risks
+
+Grok identified two medium risks that must be handled in Phase 2:
+1. Default-Deny Guard edge-case coverage:
+   * spoofed token claims
+   * malformed caller context
+   * empty `sign_in_provider` with existing uid
+   * serviceAccount / Admin SDK context not implying permission
+2. Canonicalization validator and transaction pseudo-plan integration depth:
+   * config hash consistency must be asserted inside pseudo-plan builder
+   * `configBeforeHash`, `currentConfigHash`, `configAfterHash`, and `diffHash` continuity must be verified
+
+These are mandatory Phase 2 work items.
 
 ---
 
 ## Allowed in this phase
 
-* TypeScript interfaces
-* transaction contract validators
-* service guard entrance validators
-* default-deny guard helpers
-* canonicalization validators
-* idempotency lock schema validators
-* transaction pseudo-plan builder
-* security boundary test helpers
-* audit event pure helper
-* CI / static guard rules for forbidden imports and forbidden calls
-* tests
-* docs
+* Harden default-deny guard tests
+* Add spoofed token claims tests
+* Add malformed caller context tests
+* Add empty sign_in_provider with uid tests
+* Add serviceAccount / Admin SDK bypass regression tests
+* Integrate canonicalization validation into transaction pseudo-plan builder
+* Add hash consistency assertion in pseudo-plan builder
+* Validate `configBeforeHash`
+* Validate `currentConfigHash`
+* Validate `configAfterHash`
+* Validate `diffHash`
+* Validate hash continuity from approval to pseudo-plan to audit payload
+* Strengthen idempotency lock schema validation
+* Strengthen audit payload validation
+* Strengthen static guard / CI boundary checks
+* Add tests
+* Add docs
 * SSOT update
 
 ---
@@ -106,49 +127,41 @@ Phase 1: PASSED — Awaiting Phase 2 SSOT
 
 ## Required Guard Rails
 
-* Phase 1 must remain pure logic only.
+* Phase 2 must remain pure logic / contract integration only.
 * No real Firestore read/write may occur.
 * No real transaction may be executed.
-* Transaction plans must remain non-executable.
+* Transaction pseudo-plans must remain non-executable.
 * `executable` must remain `false`.
 * `aiCanExecute` must remain `false`.
-* Service guard must be default-deny.
+* Default-deny guard must remain the first security boundary.
 * Context parsing failure must BLOCK.
+* Spoofed token claims must BLOCK.
 * Unknown caller type must BLOCK.
 * Missing human user id must BLOCK.
 * AI caller must BLOCK.
 * Service Account / Admin SDK must not imply permission.
 * Tenant hard guard must execute before all other validation.
 * Canonicalization must be deterministic.
-* BigInt / NaN / Infinity / circular references must follow Spec v1.2 rules.
-* currentConfigHash / configBeforeHash / configAfterHash / diffHash validation must be modeled.
-* Idempotency lock schema must be modeled but not written.
-* Audit event helper must be pure payload generation only.
-* Static guards / CI rules must prevent forbidden imports and forbidden calls.
+* Pseudo-plan builder must validate canonical hash consistency.
+* `configBeforeHash`, `currentConfigHash`, `configAfterHash`, and `diffHash` mismatch must BLOCK.
+* Audit event helper must remain pure payload generation only.
+* Static guards / CI rules must continue preventing forbidden imports and forbidden calls.
 
 ---
 
 ## Team State
 
-* Claude: HOLD — awaiting Phase 2 SSOT
-* Gemini: HOLD
-* Grok: HOLD — Phase 2 review on standby
+* Claude: GO - Feature 007 Phase 2 only
+* Gemini: HOLD / support clarification only
+* Grok: Prepare Feature 007 Phase 2 code review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
 ---
 
-## Phase 2 Medium Risks (Must Address)
-
-From Grok Phase 1 review — both must be Phase 2 mandatory items:
-1. Default-deny guard spoofed context / malformed token regression tests
-2. Canonicalization hash consistency integration in pseudo-plan builder
-
----
-
 ## Next Expected Input
 
-ibi / ChatGPT: Feature 007 Phase 2 SSOT and authorization.
+Claude Feature 007 Phase 2 report.
 
 ---
 

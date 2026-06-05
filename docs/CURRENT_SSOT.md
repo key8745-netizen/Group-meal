@@ -14,13 +14,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Feature 007: Real Model Config Apply Transaction Execution
+Post-Release Monitoring: Feature 007 Dry-run Real-Apply Readiness Boundary
 
 ---
 
 ## Current Phase
 
-Phase 4: Final Guard Robustness + Deep Hash Propagation Release Gate
+Post-Release Monitoring / Feature 008 Planning Pending
 
 ---
 
@@ -32,6 +32,7 @@ Phase 4: Final Guard Robustness + Deep Hash Propagation Release Gate
 * Feature 004: CLOSED
 * Feature 005: CLOSED
 * Feature 006: CLOSED
+* Feature 007 dry-run real-apply readiness version: CLOSED
 * Production Release: COMPLETED
 * Post-Release Monitoring: PASSED
 * Feature 007 Spec v1.2: PASSED
@@ -44,7 +45,10 @@ Phase 4: Final Guard Robustness + Deep Hash Propagation Release Gate
 * Feature 007 Phase 3: PASSED
 * Feature 007 Phase 3 Commit: `8071d03`
 * Feature 007 Phase 3 Grok Code Review: 93/100
-* ChatGPT Decision: Claude GO - Feature 007 Phase 4 only
+* Feature 007 Phase 4: PASSED
+* Feature 007 Phase 4 Commit: `206bdbf`
+* Feature 007 Phase 4 Grok Code Review: 95/100
+* ChatGPT Decision: Feature 007 dry-run real-apply readiness version CLOSED; begin Post-Release Monitoring before Feature 008
 
 ---
 
@@ -56,53 +60,46 @@ Phase 4: Final Guard Robustness + Deep Hash Propagation Release Gate
 
 ## Current Commit
 
-`8071d03`
+`206bdbf`
 
 ---
 
-## Phase 4 Priority Risks
+## Feature 007 Status
 
-Grok identified two remaining medium risks that must be handled in Phase 4:
-1. Advanced forged context under production-like spoof:
-   * token signature forgery simulation
-   * valid claims mixed with forged signature
-   * multi-claim injection
-   * forged provider plus injected admin role
-2. Deep full-chain hash propagation:
-   * deep nested config
-   * concurrent modification simulation
-   * approval → canonicalization → pseudo-plan → auditEventPlan consistency
-   * currentConfigHash / configBeforeHash / configAfterHash / diffHash propagation
-
-These are mandatory Phase 4 work items.
+Feature 007 is CLOSED as a dry-run real-apply readiness boundary.
+Feature 007 does not implement real Firestore reads.
+Feature 007 does not implement real Firestore writes.
+Feature 007 does not implement real transaction execution.
+Feature 007 does not implement real settings mutation.
+Feature 007 does not implement real settingsHistory writes.
+Feature 007 does not implement real approval persistence.
+Feature 007 does not implement real apply.
+Feature 007 does not implement real rollback.
+Feature 007 does not implement real cleanup jobs.
+Feature 007 does not add UI.
+Feature 007 does not add Netlify Functions or Cloud Functions.
 
 ---
 
 ## Allowed in this phase
 
-* Cryptographic signature forgery simulation tests
-* Multi-claim injection regression tests
-* Valid claims + forged signature tests
-* Forged provider + injected admin role tests
-* Advanced default-deny guard hardening
-* Deep nested config hash propagation tests
-* Concurrent modification simulation tests
-* Full-chain hash propagation final regression tests
-* Approval → canonicalization → pseudo-plan → auditEventPlan continuity tests
-* Static guard / CI boundary regression tests
-* Final dry-run release gate checklist
-* Add tests
-* Add docs
+* Post-release monitoring
+* Dry-run real-apply readiness behavior observation
+* Documentation updates
 * SSOT update
+* Risk register update
+* Feature 008 planning discussion only
+* Gemini may prepare Feature 008 spec only after ibi / ChatGPT approval
+* Grok may prepare Feature 008 spec review only after Gemini spec exists
 
 ---
 
 ## Forbidden in this phase
 
+* Do not start Feature 008 implementation
+* Do not let Claude implement code
 * Do not write Firestore
-* Do not read Firestore
-* Do not import `firebase-admin`
-* Do not import `google-cloud-firestore`
+* Do not read Firestore unless a future approved phase explicitly allows it
 * Do not call `runTransaction`
 * Do not modify `settings`
 * Do not write `settingsHistory`
@@ -121,6 +118,7 @@ These are mandatory Phase 4 work items.
 * Do not modify Feature 004 dry-run boundary
 * Do not modify Feature 005 dry-run execution boundary
 * Do not modify Feature 006 dry-run transaction-readiness boundary
+* Do not modify Feature 007 dry-run real-apply readiness boundary
 * Do not allow AI to apply config
 * Do not allow AI to mutate settings or rules
 * Do not change `wasteFactorWarning` automatically
@@ -130,37 +128,46 @@ These are mandatory Phase 4 work items.
 
 ## Required Guard Rails
 
-* Phase 4 must remain pure logic / contract integration only.
-* No real Firestore read/write may occur.
-* No real transaction may be executed.
-* Transaction pseudo-plans must remain non-executable.
-* `executable` must remain `false`.
-* `aiCanExecute` must remain `false`.
-* Default-deny guard must remain the first security boundary.
-* Cryptographic signature forgery simulation must BLOCK.
-* Valid claims with forged signature must BLOCK.
-* Multi-claim injection must BLOCK.
-* Forged provider with injected admin role must BLOCK.
-* Unknown caller type must BLOCK.
-* Missing human user id must BLOCK.
-* AI caller must BLOCK.
+* Feature 007 dry-run real-apply readiness boundary must remain intact.
+* AI cannot apply config.
+* AI cannot mutate settings or rules.
+* Dry-run transaction pseudo-plans must not become executable.
+* `executable` must remain false.
+* `aiCanExecute` must remain false.
+* Default-deny guard must remain active.
 * Service Account / Admin SDK must not imply permission.
-* Tenant hard guard must execute before all other validation.
-* Canonicalization must be deterministic.
-* Deep nested config hash propagation must be deterministic.
-* Concurrent modification mismatch must BLOCK.
-* Full-chain hash propagation must be validated.
-* `configBeforeHash`, `currentConfigHash`, `configAfterHash`, `diffHash`, `applyToken`, and `auditTrailId` mismatch must BLOCK.
-* Audit event helper must remain pure payload generation only.
-* Static guards / CI rules must continue preventing forbidden imports and forbidden calls.
+* Cryptographic forgery simulations must remain covered.
+* Multi-claim injection tests must remain covered.
+* Canonicalization must remain deterministic.
+* Full-chain hash propagation must remain validated.
+* Audit event payloads must remain pure data only.
+* Static guard / CI rules must continue blocking forbidden imports and forbidden calls.
+* Any future real apply mechanism must be a new Feature with Gemini spec, Grok red-team review, and ChatGPT gatekeeping.
+* Any future real transaction executor must preserve human final control, idempotency, expectedCurrentVersion, immutable settingsHistory, audit trail, and AI hard-block.
+
+---
+
+## Known Accepted Risks / Future Work
+
+* Real model config apply is not implemented.
+* Real rollback is not implemented.
+* Real cleanup job is not implemented.
+* UI approval flow is not implemented.
+* Persisted approval record is not implemented.
+* Real Firestore transaction execution is not implemented.
+* Real settingsHistory write is not implemented.
+* `tokenVerificationStatus='verified'` remains a contract-level assertion.
+* Actual Firebase token signature verification must happen in upstream middleware or future executor boundary.
+* Dry-run transaction pseudo-plan must remain non-executable until a future approved Feature.
+* Feature 008 should decide whether to implement real transaction executor first, UI approval first, or upstream token verification gate first.
 
 ---
 
 ## Team State
 
-* Claude: GO - Feature 007 Phase 4 only
-* Gemini: HOLD / support clarification only
-* Grok: Prepare Feature 007 Phase 4 code review
+* Claude: HOLD / post-release monitoring support only
+* Gemini: HOLD / Feature 008 planning later
+* Grok: HOLD / Prepare monitoring review if requested
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -168,31 +175,13 @@ These are mandatory Phase 4 work items.
 
 ## Next Expected Input
 
-Claude Feature 007 Phase 4 report:
-* branch name
-* commit hash
-* changed files
-* whether only allowed files were modified
-* tests result
-* typecheck result
-* build result
-* confirmation that no Firestore read/write exists
-* confirmation that no firebase-admin / google-cloud-firestore import exists
-* confirmation that no runTransaction exists
-* confirmation that no UI was added
-* confirmation that no Netlify Function / Cloud Function was added
-* confirmation that no real apply / rollback exists
-* confirmation that no real approval / apply / rollback records are created
-* confirmation that cryptographic forgery simulations are added
-* confirmation that multi-claim injection tests are added
-* confirmation that Service Account / Admin SDK cannot bypass business guard
-* confirmation that deep nested hash propagation is validated
-* confirmation that concurrent modification simulation is tested
-* confirmation that full-chain hash propagation remains validated
-* confirmation that transaction pseudo-plan remains executable=false
-* confirmation that aiCanExecute remains false
-* confirmation that final dry-run release gate checklist is complete
-* known limitations
+ibi decision:
+1. Start Feature 007 post-release monitoring review
+2. Pause development and observe production
+3. Begin Feature 008 planning after monitoring baseline
+
+Recommended next step:
+Run a short post-release monitoring window for Feature 007 dry-run real-apply readiness behavior before opening Feature 008.
 
 ---
 

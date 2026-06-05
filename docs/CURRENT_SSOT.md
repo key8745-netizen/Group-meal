@@ -51,7 +51,7 @@ Post-Release Monitoring / Feature 009 Planning Pending
 * Feature 008 Phase 4 Grok Code Review: 95/100
 * ChatGPT Decision: Feature 008 dry-run executor-readiness version CLOSED; begin Post-Release Monitoring before Feature 009
 * Feature 008 Post-Release Monitoring: PASSED
-* Feature 008 Monitoring Commit: `227dd6d`
+* Feature 008 Monitoring Commit: `1e28a54`
 * Feature 008 Monitoring Grok Review: 95/100
 * Feature 008 Monitoring Recommendation: MONITORING_OK
 * ChatGPT Decision: Feature 009 planning authorized; Gemini GO — prepare Feature 009 Spec

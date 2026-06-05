@@ -20,7 +20,7 @@ Feature 008: Real Model Config Apply Transaction Executor
 
 ## Current Phase
 
-Planning / Spec Design
+Phase 1: Pure Logic & Validation
 
 ---
 
@@ -39,7 +39,7 @@ Planning / Spec Design
 * Feature 007 Monitoring Commit: `81cb3dd`
 * Feature 007 Monitoring Review: 94/100
 * Feature 007 Monitoring Recommendation: MONITORING_OK
-* ChatGPT Decision: Begin Feature 008 Planning only; Claude HOLD
+* ChatGPT Decision: Feature 008 Phase 1 authorized; Claude GO Phase 1 only
 
 ---
 
@@ -181,9 +181,9 @@ These must be addressed in Feature 008 Spec:
 
 ## Team State
 
-* Claude: HOLD
-* Gemini: GO - Produce Feature 008 Spec
-* Grok: GO - Prepare Feature 008 Spec Review
+* Claude: GO - Phase 1 only
+* Gemini: HOLD
+* Grok: GO - Prepare Phase 1 Code Review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 

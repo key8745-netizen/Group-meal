@@ -59,6 +59,7 @@ const validRequest: RealModelConfigApplyRequest = {
     signInProvider: 'password',
     tokenClaims: validTokenClaims,
     contextValidated: true,
+    tokenVerificationStatus: 'verified',
   },
 };
 
@@ -446,5 +447,183 @@ const r40 = validateRealModelConfigApplyEntrance({
 expect('multiple missing fields → default deny', r40.allowed === false);
 expect('multiple missing fields → at least 3 reasons', r40.blockedReasons.length >= 3);
 
-if (fail === 0) console.log(`\nPASSED — Feature 007 Phase 1+2+3 Guard (${pass} assertions)`);
+// ─── Phase 4: Cryptographic forgery simulation ────────────────────────────────
+
+console.log('\n[Phase 4: Cryptographic forgery simulation]\n');
+
+// Valid verified context — must pass
+const verifiedContext = {
+  ...validRequest.callerContext,
+  tokenVerificationStatus: 'verified' as const,
+};
+
+// 41. tokenVerificationStatus=verified → allowed
+const r41 = validateRealModelConfigApplyEntrance({ ...validRequest, callerContext: verifiedContext });
+expect('tokenVerificationStatus=verified → allowed', r41.allowed === true);
+expect('tokenVerificationStatus=verified → no TOKEN_SIGNATURE_FORGED', !r41.blockedReasons.includes('REAL_EXEC_TOKEN_SIGNATURE_FORGED'));
+
+// 42. tokenVerificationStatus=forged → BLOCKED
+const r42 = validateRealModelConfigApplyEntrance({
+  ...validRequest,
+  callerContext: { ...verifiedContext, tokenVerificationStatus: 'forged' },
+});
+expect('tokenVerificationStatus=forged → TOKEN_SIGNATURE_FORGED', r42.blockedReasons.includes('REAL_EXEC_TOKEN_SIGNATURE_FORGED'));
+expect('tokenVerificationStatus=forged → blocked', r42.allowed === false);
+
+// 43. tokenVerificationStatus=unverified → BLOCKED
+const r43 = validateRealModelConfigApplyEntrance({
+  ...validRequest,
+  callerContext: { ...verifiedContext, tokenVerificationStatus: 'unverified' },
+});
+expect('tokenVerificationStatus=unverified → TOKEN_UNVERIFIED', r43.blockedReasons.includes('REAL_EXEC_TOKEN_UNVERIFIED'));
+expect('tokenVerificationStatus=unverified → blocked', r43.allowed === false);
+
+// 44. tokenVerificationStatus missing (undefined) with tokenClaims → BLOCKED
+const r44 = validateRealModelConfigApplyEntrance({
+  ...validRequest,
+  callerContext: {
+    callerType: 'HUMAN',
+    callerUserId: 'user-007',
+    signInProvider: 'password',
+    tokenClaims: validTokenClaims,
+    contextValidated: true,
+    // tokenVerificationStatus not set
+  },
+});
+expect('tokenVerificationStatus missing with tokenClaims → TOKEN_VERIFICATION_STATUS_MISSING', r44.blockedReasons.includes('REAL_EXEC_TOKEN_VERIFICATION_STATUS_MISSING'));
+expect('tokenVerificationStatus missing → blocked', r44.allowed === false);
+
+// 45. tokenVerificationStatus=malformed_value → TOKEN_VERIFICATION_STATUS_MALFORMED
+const r45 = validateRealModelConfigApplyEntrance({
+  ...validRequest,
+  callerContext: { ...verifiedContext, tokenVerificationStatus: 'unknown_state' },
+});
+expect('tokenVerificationStatus=unknown_state → TOKEN_VERIFICATION_STATUS_MALFORMED', r45.blockedReasons.includes('REAL_EXEC_TOKEN_VERIFICATION_STATUS_MALFORMED'));
+
+// 46. forged signature + correct uid → still BLOCKED by signature check
+const r46 = validateRealModelConfigApplyEntrance({
+  ...validRequest,
+  callerContext: {
+    ...verifiedContext,
+    callerUserId: 'user-007',
+    tokenClaims: { ...validTokenClaims, uid: 'user-007' },
+    tokenVerificationStatus: 'forged',
+  },
+});
+expect('forged sig + correct uid → TOKEN_SIGNATURE_FORGED', r46.blockedReasons.includes('REAL_EXEC_TOKEN_SIGNATURE_FORGED'));
+
+// 47. forged signature + correct tenantId → still BLOCKED
+const r47 = validateRealModelConfigApplyEntrance({
+  ...validRequest,
+  callerContext: {
+    ...verifiedContext,
+    tokenClaims: { ...validTokenClaims, tenantId: 'tenant-007' },
+    tokenVerificationStatus: 'forged',
+  },
+});
+expect('forged sig + correct tenantId → TOKEN_SIGNATURE_FORGED', r47.blockedReasons.includes('REAL_EXEC_TOKEN_SIGNATURE_FORGED'));
+
+// 48. forged sig + human callerType → still BLOCKED
+const r48 = validateRealModelConfigApplyEntrance({
+  ...validRequest,
+  callerContext: { ...verifiedContext, tokenVerificationStatus: 'forged' },
+});
+expect('forged sig + HUMAN callerType → still BLOCKED', r48.allowed === false);
+expect('forged sig + HUMAN callerType → TOKEN_SIGNATURE_FORGED', r48.blockedReasons.includes('REAL_EXEC_TOKEN_SIGNATURE_FORGED'));
+
+// 49. forged sig + injected admin role → both reasons
+const r49 = validateRealModelConfigApplyEntrance({
+  ...validRequest,
+  callerContext: {
+    ...verifiedContext,
+    tokenClaims: { ...validTokenClaims, role: 'admin' },
+    tokenVerificationStatus: 'forged',
+    contextValidated: true, // contextValidated=true but sig forged
+  },
+});
+expect('forged sig + injected admin → TOKEN_SIGNATURE_FORGED', r49.blockedReasons.includes('REAL_EXEC_TOKEN_SIGNATURE_FORGED'));
+
+// 50. no tokenClaims → tokenVerificationStatus not checked (advisory)
+const r50 = validateRealModelConfigApplyEntrance({
+  ...validRequest,
+  callerContext: {
+    callerType: 'HUMAN',
+    callerUserId: 'user-007',
+    // no tokenClaims, no tokenVerificationStatus
+  },
+});
+expect('no tokenClaims → tokenVerificationStatus not checked', !r50.blockedReasons.includes('REAL_EXEC_TOKEN_VERIFICATION_STATUS_MISSING'));
+
+// ─── Phase 4: Multi-claim injection ──────────────────────────────────────────
+
+console.log('\n[Phase 4: Multi-claim injection]\n');
+
+// 51. injected permissions claim → BLOCKED
+const r51 = validateRealModelConfigApplyEntrance({
+  ...validRequest,
+  callerContext: { ...verifiedContext, tokenClaims: { ...validTokenClaims, permissions: ['applyConfig'] } },
+});
+expect('injected permissions claim → REAL_EXEC_INJECTED_PERMISSION_CLAIM', r51.blockedReasons.includes('REAL_EXEC_INJECTED_PERMISSION_CLAIM'));
+
+// 52. injected applyConfig key → BLOCKED
+const r52 = validateRealModelConfigApplyEntrance({
+  ...validRequest,
+  callerContext: { ...verifiedContext, tokenClaims: { ...validTokenClaims, applyConfig: true } },
+});
+expect('injected applyConfig → REAL_EXEC_INJECTED_PERMISSION_CLAIM', r52.blockedReasons.includes('REAL_EXEC_INJECTED_PERMISSION_CLAIM'));
+
+// 53. injected tenantOverride → BLOCKED
+const r53 = validateRealModelConfigApplyEntrance({
+  ...validRequest,
+  callerContext: { ...verifiedContext, tokenClaims: { ...validTokenClaims, tenantOverride: 'other-tenant' } },
+});
+expect('injected tenantOverride → REAL_EXEC_INJECTED_TENANT_OVERRIDE', r53.blockedReasons.includes('REAL_EXEC_INJECTED_TENANT_OVERRIDE'));
+
+// 54. injected approvalOverride → BLOCKED
+const r54 = validateRealModelConfigApplyEntrance({
+  ...validRequest,
+  callerContext: { ...verifiedContext, tokenClaims: { ...validTokenClaims, approvalOverride: 'fake-approval' } },
+});
+expect('injected approvalOverride → REAL_EXEC_INJECTED_APPROVAL_OVERRIDE', r54.blockedReasons.includes('REAL_EXEC_INJECTED_APPROVAL_OVERRIDE'));
+
+// 55. injected isServiceAccount=true in claims → BLOCKED
+const r55 = validateRealModelConfigApplyEntrance({
+  ...validRequest,
+  callerContext: { ...verifiedContext, tokenClaims: { ...validTokenClaims, isServiceAccount: true } },
+});
+expect('injected isServiceAccount in claims → REAL_EXEC_INJECTED_SERVICE_ACCOUNT_FLAG', r55.blockedReasons.includes('REAL_EXEC_INJECTED_SERVICE_ACCOUNT_FLAG'));
+
+// 56. injected providerOverride → BLOCKED
+const r56 = validateRealModelConfigApplyEntrance({
+  ...validRequest,
+  callerContext: { ...verifiedContext, tokenClaims: { ...validTokenClaims, providerOverride: 'google.com' } },
+});
+expect('injected providerOverride → REAL_EXEC_INJECTED_PROVIDER_OVERRIDE', r56.blockedReasons.includes('REAL_EXEC_INJECTED_PROVIDER_OVERRIDE'));
+
+// 57. conflicting claims: HUMAN callerType but uid looks like ai-agent
+const r57 = validateRealModelConfigApplyEntrance({
+  ...validRequest,
+  callerContext: {
+    callerType: 'HUMAN',
+    callerUserId: 'ai-agent-007',
+    signInProvider: 'password',
+    tokenClaims: { uid: 'ai-agent-007', iss: 'https://securetoken.google.com/project', aud: 'project', iat: 1000000, exp: 1003600 },
+    contextValidated: true,
+    tokenVerificationStatus: 'verified',
+  },
+});
+expect('HUMAN callerType + ai-agent uid → REAL_EXEC_CONFLICTING_CLAIMS', r57.blockedReasons.includes('REAL_EXEC_CONFLICTING_CLAIMS'));
+
+// 58. valid human + extra untrusted claims accumulate multiple reasons
+const r58 = validateRealModelConfigApplyEntrance({
+  ...validRequest,
+  callerContext: {
+    ...verifiedContext,
+    tokenClaims: { ...validTokenClaims, tenantOverride: 'x', approvalOverride: 'y', permissions: ['apply'] },
+  },
+});
+expect('multiple injected claims → multiple injection reasons', r58.blockedReasons.filter(r => r.startsWith('REAL_EXEC_INJECTED')).length >= 2);
+expect('multiple injected claims → blocked', r58.allowed === false);
+
+if (fail === 0) console.log(`\nPASSED — Feature 007 Phase 1+2+3+4 Guard (${pass} assertions)`);
 else { throw new Error(`FAIL — ${fail} failures`); }

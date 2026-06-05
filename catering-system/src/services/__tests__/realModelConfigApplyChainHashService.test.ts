@@ -8,6 +8,7 @@ import {
   validateFullChainHashPropagation,
   validateApprovalToPlanHash,
   validatePlanToAuditEventHash,
+  detectConcurrentModification,
 } from '../realModelConfigApplyChainHashService';
 import { validateCanonicalModelConfigHashInput } from '../realModelConfigCanonicalizationService';
 import type { AuditTrailId } from '../../types/aiBoundary';
@@ -192,5 +193,126 @@ const c18 = validateFullChainHashPropagation({
 });
 expect('multiple approval mismatches → multiple reasons', c18.blockedReasons.length >= 2);
 
-if (fail === 0) console.log(`\nPASSED — Feature 007 Phase 3 Full-chain Hash Propagation (${pass} assertions)`);
+// ─── Phase 4: Deep nested hash propagation ───────────────────────────────────
+
+console.log('\n[Phase 4: Deep nested hash propagation]\n');
+
+// Deep nested config — hash computed and propagated end-to-end
+const deepConfig = {
+  level1: {
+    level2: {
+      level3: {
+        level4: {
+          weights: [1.5, 2.0, 0.75],
+          metadata: { locale: 'zh-TW', tags: ['生產', 'config'], active: true },
+        },
+      },
+    },
+  },
+  scalars: { count: 42, ratio: 0.333, label: 'normalized', enabled: false, spare: null },
+  unicode: { zh: '團膳管理系統', emoji: '🍜🍱', special: '\n\t\r\\' },
+};
+
+const deepResult = validateCanonicalModelConfigHashInput(deepConfig);
+expect('deep nested config → canonicalization valid', deepResult.valid === true);
+const deepHash = deepResult.canonicalized!.inputHash;
+
+// Propagate deep hash through full chain
+const deepApproval = { ...baseApproval, configBeforeHash: deepHash };
+const deepPlan = { ...basePlan, configBeforeHash: deepHash };
+const deepAudit = { ...baseAudit, configBeforeHash: deepHash };
+
+const p1 = validateFullChainHashPropagation({ approval: deepApproval, plan: deepPlan, auditEvent: deepAudit });
+expect('deep nested hash end-to-end → valid', p1.valid === true);
+
+// Modify one deep value → different hash
+const deepConfigModified = { ...deepConfig, scalars: { ...deepConfig.scalars, count: 43 } };
+const deepResultModified = validateCanonicalModelConfigHashInput(deepConfigModified);
+expect('modified deep config → different hash', deepResult.canonicalized !== null && deepResultModified.canonicalized !== null && (deepResult.canonicalized.inputHash as string) !== (deepResultModified.canonicalized.inputHash as string));
+
+// Tampered hash at plan level → blocked
+const p2 = validateFullChainHashPropagation({
+  approval: deepApproval,
+  plan: { ...deepPlan, configBeforeHash: asDiffHash('tampered') },
+  auditEvent: deepAudit,
+});
+expect('deep nested tampered plan hash → blocked', p2.valid === false);
+
+// Key reorder in deep config → same hash (deterministic)
+const deepReordered = {
+  scalars: { spare: null, enabled: false, label: 'normalized', ratio: 0.333, count: 42 },
+  unicode: { special: '\n\t\r\\', zh: '團膳管理系統', emoji: '🍜🍱' },
+  level1: deepConfig.level1,
+};
+const deepReorderedResult = validateCanonicalModelConfigHashInput(deepReordered);
+expect('deep nested key reorder → same hash', deepResult.canonicalized !== null && deepReorderedResult.canonicalized !== null && (deepResult.canonicalized.inputHash as string) === (deepReorderedResult.canonicalized.inputHash as string));
+
+// Mixed scalar types deterministic through chain
+const mixedConfig = { n: 0, b: false, s: '', arr: [], obj: {} };
+const mixedA = validateCanonicalModelConfigHashInput(mixedConfig);
+const mixedB = validateCanonicalModelConfigHashInput({ b: false, n: 0, s: '', arr: [], obj: {} });
+expect('mixed scalars → deterministic', mixedA.canonicalized !== null && mixedB.canonicalized !== null && (mixedA.canonicalized.inputHash as string) === (mixedB.canonicalized.inputHash as string));
+
+// ─── Phase 4: Concurrent modification simulation ──────────────────────────────
+
+console.log('\n[Phase 4: Concurrent modification simulation]\n');
+
+const oldConfigHash = asDiffHash('old-config-hash');
+const newConfigHash = asDiffHash('new-config-hash'); // concurrent write changed the config
+
+// approval was based on old config; current shows new config → BLOCKED
+const cm1 = detectConcurrentModification({
+  approvalConfigBeforeHash: oldConfigHash,
+  currentConfigHash: newConfigHash,
+  expectedCurrentVersion: 'v1',
+  observedCurrentVersion: 'v1',
+});
+expect('config hash mismatch → safe=false', cm1.safe === false);
+expect('config hash mismatch → REAL_EXEC_CURRENT_CONFIG_HASH_MISMATCH', cm1.blockedReasons.includes('REAL_EXEC_CURRENT_CONFIG_HASH_MISMATCH'));
+expect('config hash mismatch → REAL_EXEC_CONCURRENT_MODIFICATION_BLOCKED', cm1.blockedReasons.includes('REAL_EXEC_CONCURRENT_MODIFICATION_BLOCKED'));
+
+// no modification — same hash and same version → safe
+const cm2 = detectConcurrentModification({
+  approvalConfigBeforeHash: oldConfigHash,
+  currentConfigHash: oldConfigHash,
+  expectedCurrentVersion: 'v1',
+  observedCurrentVersion: 'v1',
+});
+expect('no modification → safe=true', cm2.safe === true);
+expect('no modification → 0 reasons', cm2.blockedReasons.length === 0);
+
+// version mismatch only (hash same, version bumped by concurrent update) → BLOCKED
+const cm3 = detectConcurrentModification({
+  approvalConfigBeforeHash: oldConfigHash,
+  currentConfigHash: oldConfigHash,
+  expectedCurrentVersion: 'v1',
+  observedCurrentVersion: 'v2',
+});
+expect('version mismatch → REAL_EXEC_CURRENT_CONFIG_VERSION_MISMATCH', cm3.blockedReasons.includes('REAL_EXEC_CURRENT_CONFIG_VERSION_MISMATCH'));
+expect('version mismatch → REAL_EXEC_CONCURRENT_MODIFICATION_BLOCKED', cm3.blockedReasons.includes('REAL_EXEC_CONCURRENT_MODIFICATION_BLOCKED'));
+expect('version mismatch → safe=false', cm3.safe === false);
+
+// both hash and version mismatch → multiple reasons
+const cm4 = detectConcurrentModification({
+  approvalConfigBeforeHash: oldConfigHash,
+  currentConfigHash: newConfigHash,
+  expectedCurrentVersion: 'v1',
+  observedCurrentVersion: 'v3',
+});
+expect('hash + version mismatch → multiple blocked reasons', cm4.blockedReasons.length >= 3);
+
+// concurrent modification → no executable pseudo-plan should be produced
+// (simulated: if detectConcurrentModification returns safe=false, plan should not proceed)
+expect('concurrent mod safe=false → plan must not execute', cm1.safe === false);
+
+// auditEventPlan receives blocked reason (simulated by chain continuity with blocked hash)
+const blockedChain = validateFullChainHashPropagation({
+  approval: { ...baseApproval, configBeforeHash: oldConfigHash },
+  plan: { ...basePlan, configBeforeHash: newConfigHash }, // concurrent change in plan
+  auditEvent: { ...baseAudit, configBeforeHash: newConfigHash },
+});
+expect('concurrent mod in chain → approval before hash mismatch', blockedChain.blockedReasons.includes('REAL_EXEC_APPROVAL_BEFORE_HASH_MISMATCH'));
+expect('concurrent mod in chain → valid=false', blockedChain.valid === false);
+
+if (fail === 0) console.log(`\nPASSED — Feature 007 Phase 3+4 Full-chain Hash Propagation (${pass} assertions)`);
 else { throw new Error(`FAIL — ${fail} failures`); }

@@ -14,13 +14,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Feature 007: Real Model Config Apply Transaction Execution
+Feature 009: Real Model Config Apply Transaction Implementation
 
 ---
 
 ## Current Phase
 
-Phase 3: Advanced Guard Hardening + Full-chain Hash Propagation
+Planning / Spec Design
 
 ---
 
@@ -32,16 +32,15 @@ Phase 3: Advanced Guard Hardening + Full-chain Hash Propagation
 * Feature 004: CLOSED
 * Feature 005: CLOSED
 * Feature 006: CLOSED
+* Feature 007: CLOSED
+* Feature 008 dry-run executor-readiness version: CLOSED
+* Feature 008 Post-Release Monitoring: PASSED
+* Feature 008 Post-Release Monitoring Commit: `1e28a54`
+* Feature 008 Monitoring Review: 95/100
+* Feature 008 Monitoring Recommendation: MONITORING_OK
 * Production Release: COMPLETED
 * Post-Release Monitoring: PASSED
-* Feature 007 Spec v1.2: PASSED
-* Feature 007 Phase 1: PASSED
-* Feature 007 Phase 1 Commit: `380e645`
-* Feature 007 Phase 1 Grok Code Review: 94/100
-* Feature 007 Phase 2: PASSED
-* Feature 007 Phase 2 Commit: `931026e`
-* Feature 007 Phase 2 Grok Code Review: 93/100
-* ChatGPT Decision: Claude GO - Feature 007 Phase 3 only
+* ChatGPT Decision: Begin Feature 009 Planning only; Claude HOLD
 
 ---
 
@@ -53,54 +52,64 @@ Phase 3: Advanced Guard Hardening + Full-chain Hash Propagation
 
 ## Current Commit
 
-`931026e`
+`1e28a54`
 
 ---
 
-## Phase 3 Priority Risks
+## Feature 009 Goal
 
-Grok identified two medium risks that must be handled in Phase 3:
-1. Default-Deny Guard robustness under advanced spoofed context:
-   * partial valid token claims with malicious injected claims
-   * forged `sign_in_provider`
-   * provider/user identity mismatch
-   * serviceAccount / Admin SDK context attempting to imply human permission
-2. Full-chain hash propagation:
-   * `approval → canonicalization → pseudo-plan → auditEventPlan`
-   * `configBeforeHash`, `currentConfigHash`, `configAfterHash`, `diffHash`, `applyToken`, `auditTrailId`
-   * complex nested config regression cases
-
-These are mandatory Phase 3 work items.
+Design the first real Firestore transaction implementation for human-approved model config apply.
+Feature 009 may implement real model config apply only if the Spec is approved by Grok and explicitly authorized by ChatGPT / ibi.
+The real transaction must preserve:
+* human final control
+* explicit persisted approval
+* verified human caller context
+* default-deny service guard
+* AI caller hard block
+* single Firestore transaction
+* immutable `settingsHistory` write
+* `settings.currentVersion` update
+* idempotency lock write
+* expectedCurrentVersion guard
+* canonical hash validation inside transaction
+* full audit trail
+* duplicate apply prevention
+* rollback exclusion unless explicitly scoped
 
 ---
 
 ## Allowed in this phase
 
-* Advanced spoofed token regression tests
-* Forged `sign_in_provider` tests
-* Partial valid claims + malicious injected claims tests
-* Provider/user mismatch tests
-* Service Account / Admin SDK bypass regression tests
-* Full-chain hash propagation validation
-* Approval → canonicalization continuity tests
-* Canonicalization → pseudo-plan continuity tests
-* Pseudo-plan → auditEventPlan continuity tests
-* Complex nested config hash regression tests
-* Apply token continuity tests
-* Audit trail continuity tests
-* Static guard / CI boundary regression tests
-* Add tests
-* Add docs
-* SSOT update
+* Feature 009 requirements discussion
+* Gemini produces Feature 009 Spec
+* Grok reviews Feature 009 Spec
+* Define real Firestore transaction implementation boundary
+* Define transaction read set
+* Define transaction write set
+* Define persisted approval read strategy
+* Define `settings/{tenantId}` read / update strategy
+* Define `settingsHistory/{tenantId}/versions/{version}` immutable write strategy
+* Define idempotency lock write strategy
+* Define audit event write strategy
+* Define expectedCurrentVersion guard
+* Define canonical hash validation inside transaction
+* Define duplicate apply handling
+* Define transaction retry behavior
+* Define transaction failure behavior
+* Define rollback inclusion / exclusion boundary
+* Define cleanup inclusion / exclusion boundary
+* Define UI inclusion / exclusion boundary
+* Define Claude Phase 1 implementation scope
+* Docs / SSOT update
 
 ---
 
 ## Forbidden in this phase
 
+* Do not let Claude implement code
+* Do not modify production code
 * Do not write Firestore
 * Do not read Firestore
-* Do not import `firebase-admin`
-* Do not import `google-cloud-firestore`
 * Do not call `runTransaction`
 * Do not modify `settings`
 * Do not write `settingsHistory`
@@ -108,8 +117,8 @@ These are mandatory Phase 3 work items.
 * Do not create real apply records
 * Do not create real rollback records
 * Do not create real cleanup jobs
-* Do not actually apply config
-* Do not actually rollback config
+* Do not apply config
+* Do not rollback config
 * Do not add UI
 * Do not add Netlify Functions
 * Do not add Cloud Functions
@@ -119,6 +128,8 @@ These are mandatory Phase 3 work items.
 * Do not modify Feature 004 dry-run boundary
 * Do not modify Feature 005 dry-run execution boundary
 * Do not modify Feature 006 dry-run transaction-readiness boundary
+* Do not modify Feature 007 dry-run real-apply readiness boundary
+* Do not modify Feature 008 dry-run executor-readiness boundary
 * Do not allow AI to apply config
 * Do not allow AI to mutate settings or rules
 * Do not change `wasteFactorWarning` automatically
@@ -128,36 +139,59 @@ These are mandatory Phase 3 work items.
 
 ## Required Guard Rails
 
-* Phase 3 must remain pure logic / contract integration only.
-* No real Firestore read/write may occur.
-* No real transaction may be executed.
-* Transaction pseudo-plans must remain non-executable.
-* `executable` must remain `false`.
-* `aiCanExecute` must remain `false`.
-* Default-deny guard must remain the first security boundary.
-* Context parsing failure must BLOCK.
-* Spoofed token claims must BLOCK.
-* Forged `sign_in_provider` must BLOCK.
-* Provider/user mismatch must BLOCK.
-* Unknown caller type must BLOCK.
-* Empty `sign_in_provider` with uid must BLOCK unless explicitly validated as human by approved guard logic.
-* Missing human user id must BLOCK.
-* AI caller must BLOCK.
-* Service Account / Admin SDK must not imply permission.
-* Tenant hard guard must execute before all other validation.
-* Canonicalization must be deterministic.
-* Full-chain hash propagation must be validated.
-* `configBeforeHash`, `currentConfigHash`, `configAfterHash`, `diffHash`, `applyToken`, and `auditTrailId` mismatch must BLOCK.
-* Audit event helper must remain pure payload generation only.
-* Static guards / CI rules must continue preventing forbidden imports and forbidden calls.
+* Claude remains HOLD until Feature 009 Spec passes Grok review.
+* Feature 009 must not begin implementation during Planning / Spec Design.
+* AI cannot apply config.
+* AI cannot mutate settings or rules.
+* AI cannot create approval records.
+* AI cannot create apply records.
+* AI cannot execute rollback.
+* Admin SDK / Service Account must not imply business permission.
+* Upstream verified human context must be mandatory.
+* Client-supplied verification must be rejected.
+* Persisted human approval must be mandatory.
+* Transaction must validate approval before writing anything.
+* Transaction must validate tenantId before writing anything.
+* Transaction must validate expectedCurrentVersion.
+* Transaction must canonicalize current config inside transaction.
+* Transaction must validate configBeforeHash against actual current config.
+* Transaction must validate configAfterHash and diffHash.
+* Transaction must write idempotency lock.
+* Transaction must write immutable settingsHistory.
+* Transaction must update settings current config and currentVersion.
+* Transaction must write audit event or define a safe atomic audit strategy.
+* Duplicate apply must be blocked or idempotently recognized.
+* settingsHistory must remain append-only.
+* Rollback must be deferred unless fully specified.
+* Cleanup job must be deferred unless fully specified.
+* UI must be deferred unless fully specified.
+
+---
+
+## Priority Risks From Feature 008 Monitoring
+
+Feature 009 Spec must address:
+1. Real Firestore transaction execution is not yet implemented.
+2. Real settings mutation is not yet implemented.
+3. Real settingsHistory write is not yet implemented.
+4. Real approval read / validation is not yet implemented.
+5. Real idempotency lock write is not yet implemented.
+6. Real audit event write strategy is not yet implemented.
+7. Token verification was modeled through production-like contract simulation.
+8. Feature 009 must define how verified context enters the executor.
+9. Feature 009 must define transaction retry / duplicate apply behavior.
+10. Feature 009 must define failure recovery and partially failed audit strategy.
+11. Feature 009 must decide whether rollback is excluded or included.
+12. Feature 009 must decide whether cleanup job is excluded or included.
+13. Feature 009 must decide whether UI is excluded or included.
 
 ---
 
 ## Team State
 
-* Claude: GO - Feature 007 Phase 3 only
-* Gemini: HOLD / support clarification only
-* Grok: Prepare Feature 007 Phase 3 code review
+* Claude: HOLD
+* Gemini: GO - Produce Feature 009 Spec
+* Grok: GO - Prepare Feature 009 Spec Review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -165,29 +199,27 @@ These are mandatory Phase 3 work items.
 
 ## Next Expected Input
 
-Claude Feature 007 Phase 3 report:
-* branch name
-* commit hash
-* changed files
-* whether only allowed files were modified
-* tests result
-* typecheck result
-* build result
-* confirmation that no Firestore read/write exists
-* confirmation that no firebase-admin / google-cloud-firestore import exists
-* confirmation that no runTransaction exists
-* confirmation that no UI was added
-* confirmation that no Netlify Function / Cloud Function was added
-* confirmation that no real apply / rollback exists
-* confirmation that no real approval / apply / rollback records are created
-* confirmation that advanced spoofed / forged context tests are added
-* confirmation that Service Account / Admin SDK cannot bypass business guard
-* confirmation that full-chain hash propagation is validated
-* confirmation that approval → canonicalization → pseudo-plan → auditEventPlan continuity is tested
-* confirmation that complex nested config hash regression tests are added
-* confirmation that transaction pseudo-plan remains executable=false
-* confirmation that aiCanExecute remains false
-* known limitations
+Gemini Feature 009 Spec.
+Spec should define:
+* real transaction executor boundary
+* real Firestore read set
+* real Firestore write set
+* persisted approval read and validation
+* verified caller context contract
+* settings current config read and validation
+* settingsHistory immutable version write
+* idempotency lock schema and write behavior
+* expectedCurrentVersion behavior
+* canonical hash validation inside transaction
+* audit event write strategy
+* duplicate apply handling
+* transaction retry behavior
+* failure / rollback strategy
+* rollback boundary decision
+* cleanup boundary decision
+* UI boundary decision
+* security rules / service guard assumptions
+* Claude Phase 1 implementation scope
 
 ---
 

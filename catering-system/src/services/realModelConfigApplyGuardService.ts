@@ -21,6 +21,11 @@
  *  - untrusted role / admin claims → BLOCKED
  *  - provider / user identity mismatch → BLOCKED
  *
+ * Phase 4 additions:
+ *  - tokenVerificationStatus forged / unverified / missing / malformed → BLOCKED
+ *  - injected permission / tenant / approval / serviceAccount / provider claims → BLOCKED
+ *  - conflicting claims → BLOCKED
+ *
  * HARD RULES:
  *  - No Firestore writes, no firebase-admin, no google-cloud-firestore
  *  - No runTransaction
@@ -198,6 +203,118 @@ function detectAdvancedForgedContext(
   return blocked;
 }
 
+// Injection claim keys that indicate forged elevation attempts
+const INJECTED_PERMISSION_KEYS = ['permissions', 'applyConfig', 'applyModelConfig', 'allowApply'] as const;
+const INJECTED_OVERRIDE_KEYS_TENANT = ['tenantOverride', 'forceTenantId', 'impersonateTenant'] as const;
+const INJECTED_OVERRIDE_KEYS_APPROVAL = ['approvalOverride', 'forceApproval', 'skipApproval'] as const;
+const INJECTED_SA_KEYS = ['isServiceAccount', 'serviceAccountFlag', 'serviceAccount'] as const;
+const INJECTED_PROVIDER_KEYS = ['providerOverride', 'forceProvider', 'overrideProvider'] as const;
+
+/**
+ * Phase 4: Validates tokenVerificationStatus on the caller context.
+ * When tokenClaims are supplied, verification status must be explicitly 'verified'.
+ * Anything else → BLOCKED.
+ */
+function detectForgedTokenSignature(
+  ctx: RealModelConfigApplyCallerContext,
+): BlockedReason[] {
+  const blocked: BlockedReason[] = [];
+
+  // Only applies when tokenClaims are supplied
+  if (!ctx.tokenClaims) return blocked;
+
+  const status = ctx.tokenVerificationStatus;
+
+  if (status === 'forged') {
+    blocked.push('REAL_EXEC_TOKEN_SIGNATURE_FORGED');
+    return blocked;
+  }
+  if (status === 'unverified') {
+    blocked.push('REAL_EXEC_TOKEN_UNVERIFIED');
+    return blocked;
+  }
+  if (status === undefined || status === null) {
+    blocked.push('REAL_EXEC_TOKEN_VERIFICATION_STATUS_MISSING');
+    return blocked;
+  }
+  if (status !== 'verified') {
+    // Any non-standard / malformed string value
+    blocked.push('REAL_EXEC_TOKEN_VERIFICATION_STATUS_MALFORMED');
+    return blocked;
+  }
+
+  return blocked;
+}
+
+/**
+ * Phase 4: Detects injected / conflicting claims that indicate multi-claim injection attacks.
+ */
+function detectInjectedClaims(
+  ctx: RealModelConfigApplyCallerContext,
+): BlockedReason[] {
+  const blocked: BlockedReason[] = [];
+  const claims = ctx.tokenClaims;
+
+  if (!claims) return blocked;
+
+  // Injected permission claims
+  for (const key of INJECTED_PERMISSION_KEYS) {
+    if (key in claims) {
+      blocked.push('REAL_EXEC_INJECTED_PERMISSION_CLAIM');
+      break;
+    }
+  }
+
+  // Injected tenant override
+  for (const key of INJECTED_OVERRIDE_KEYS_TENANT) {
+    if (key in claims) {
+      blocked.push('REAL_EXEC_INJECTED_TENANT_OVERRIDE');
+      break;
+    }
+  }
+
+  // Injected approval override
+  for (const key of INJECTED_OVERRIDE_KEYS_APPROVAL) {
+    if (key in claims) {
+      blocked.push('REAL_EXEC_INJECTED_APPROVAL_OVERRIDE');
+      break;
+    }
+  }
+
+  // Injected service account flag inside claims (not the CallerContext flag)
+  for (const key of INJECTED_SA_KEYS) {
+    if (key in claims && claims[key] === true) {
+      blocked.push('REAL_EXEC_INJECTED_SERVICE_ACCOUNT_FLAG');
+      break;
+    }
+  }
+
+  // Injected provider override
+  for (const key of INJECTED_PROVIDER_KEYS) {
+    if (key in claims) {
+      blocked.push('REAL_EXEC_INJECTED_PROVIDER_OVERRIDE');
+      break;
+    }
+  }
+
+  // Conflicting claims: callerType says AI but tokenClaims has human uid
+  if (ctx.callerType === 'HUMAN') {
+    const uid = typeof claims['uid'] === 'string' ? claims['uid'] : '';
+    // uid says 'ai-' prefix but callerType says human → conflict
+    if (uid.startsWith('ai-agent') || uid.startsWith('ai_agent')) {
+      blocked.push('REAL_EXEC_CONFLICTING_CLAIMS');
+    }
+  }
+
+  // Claims say uid is the caller but callerType is explicitly AI — contradicting pair
+  if (ctx.callerType === 'AI' && typeof claims['uid'] === 'string' && claims['uid'] === ctx.callerUserId) {
+    // AI caller with matching uid still must be blocked — this is just an extra conflict marker
+    blocked.push('REAL_EXEC_CONFLICTING_CLAIMS');
+  }
+
+  return blocked;
+}
+
 /**
  * Default-deny entrance guard for real model config apply.
  *
@@ -262,6 +379,18 @@ export function validateRealModelConfigApplyEntrance(
   // 5b. Phase 3: advanced forged / mismatched context checks (when tokenClaims supplied)
   const advancedErrors = detectAdvancedForgedContext(ctx, request.tenantId);
   for (const r of advancedErrors) {
+    if (!blocked.includes(r)) blocked.push(r);
+  }
+
+  // 5c. Phase 4: token signature verification status check
+  const sigErrors = detectForgedTokenSignature(ctx);
+  for (const r of sigErrors) {
+    if (!blocked.includes(r)) blocked.push(r);
+  }
+
+  // 5d. Phase 4: multi-claim injection detection
+  const injectionErrors = detectInjectedClaims(ctx);
+  for (const r of injectionErrors) {
     if (!blocked.includes(r)) blocked.push(r);
   }
 

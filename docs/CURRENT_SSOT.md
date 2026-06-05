@@ -20,7 +20,7 @@ Feature 009: Real Model Config Apply Transaction Implementation
 
 ## Current Phase
 
-Phase 3: Real Verification / Transaction Read-Set Contract Integration — COMPLETE
+Phase 4: Real Verification / Live Read Contract + Abort Atomicity Hardening — COMPLETE
 
 ---
 
@@ -52,7 +52,7 @@ Phase 3: Real Verification / Transaction Read-Set Contract Integration — COMPL
 
 ## Current Commit
 
-`1e28a54`
+TBD (updated after Phase 4 commit)
 
 ---
 

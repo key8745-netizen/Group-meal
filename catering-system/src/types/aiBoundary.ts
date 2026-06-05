@@ -522,7 +522,18 @@ export type BlockedReason =
   | 'F009_CONCURRENT_MODIFICATION_HASH'
   // Feature 009 Phase 3: Duplicate apply
   | 'F009_DUPLICATE_APPLY_CONSUMED'
-  | 'F009_DUPLICATE_APPLY_PENDING';
+  | 'F009_DUPLICATE_APPLY_PENDING'
+  // Feature 009 Phase 4: Live read sequence
+  | 'F009_LIVE_READ_APPROVAL_REQUIRED'
+  | 'F009_LIVE_READ_SETTINGS_REQUIRED'
+  | 'F009_LIVE_READ_LOCK_REQUIRED'
+  | 'F009_LIVE_READ_INVALID_PREVENTS_WRITE_SET'
+  // Feature 009 Phase 4: Abort atomicity
+  | 'F009_ABORT_NO_SETTINGS_MUTATION'
+  | 'F009_ABORT_NO_HISTORY_WRITE'
+  | 'F009_ABORT_DUPLICATE_IDEMPOTENT'
+  | 'F009_ABORT_CONSUMED_LOCK_NOOP'
+  | 'F009_ABORT_ABANDONED_REPLAY';
 
 // ─── Operation validation ──────────────────────────────────────────────────────
 

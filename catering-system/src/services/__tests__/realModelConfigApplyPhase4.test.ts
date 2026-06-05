@@ -764,7 +764,7 @@ console.log('\n=== Section 7: Boundary ===');
 {
   // no settingsMutationRequired=true in any abort contract
   assert(
-    allAbortContracts.every(c => c.settingsMutationRequired !== true),
+    allAbortContracts.every(c => c.settingsMutationRequired === false),
     'no settingsMutationRequired=true in any abort contract',
   );
 }
@@ -772,7 +772,7 @@ console.log('\n=== Section 7: Boundary ===');
 {
   // no historyWriteRequired=true in any abort contract
   assert(
-    allAbortContracts.every(c => c.historyWriteRequired !== true),
+    allAbortContracts.every(c => c.historyWriteRequired === false),
     'no historyWriteRequired=true in any abort contract',
   );
 }

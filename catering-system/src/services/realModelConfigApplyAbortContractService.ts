@@ -17,9 +17,8 @@ import type {
   ModelConfigApplyAbortContract,
   ModelConfigApplyAuditEventPayload,
   AbortReason,
-  ModelConfigApprovalId,
 } from '../types/realModelConfigApplyTransaction';
-import type { ApplyToken } from '../types/modelConfigApply';
+import type { ApplyToken, ModelConfigApprovalId } from '../types/modelConfigApply';
 import { buildAuditEventPayload } from './realModelConfigApplyAuditPayloadService';
 import type { AuditPayloadInput } from './realModelConfigApplyAuditPayloadService';
 

@@ -20,7 +20,7 @@ Feature 009 Phase 5D: Final Production Rollout Readiness Planning
 
 ## Current Phase
 
-Planning / Spec Design
+Phase 5D Implementation — Production Readiness Validation (Staging / Readiness-only)
 
 ---
 
@@ -39,13 +39,11 @@ Planning / Spec Design
 * Feature 009 Phase 5A Post-Emulator Monitoring: PASSED
 * Feature 009 Phase 5B Implementation: PASSED
 * Feature 009 Phase 5B Post-Monitoring: PASSED
-* Feature 009 Phase 5C Spec v1.2: PASSED
 * Feature 009 Phase 5C Implementation: PASSED
-* Feature 009 Phase 5C Implementation Commit: `b92f40b`
 * Feature 009 Phase 5C Post-Monitoring: PASSED
-* Feature 009 Phase 5C Post-Monitoring Commit: `c97494d`
-* Feature 009 Phase 5C Post-Monitoring Review: 97/100
-* ChatGPT Decision: Begin Feature 009 Phase 5D Planning only; Claude HOLD
+* Feature 009 Phase 5D Spec v1.1: PASSED
+* Feature 009 Phase 5D Spec v1.1 Grok Review: 95/100
+* ChatGPT Decision: Claude GO - Feature 009 Phase 5D Implementation only
 
 ---
 
@@ -63,83 +61,87 @@ Planning / Spec Design
 
 ## Phase 5D Goal
 
-Design the next phase for final production rollout readiness.
-Phase 5D must not immediately implement broad production rollout.
-Phase 5D must define a conservative, auditable, staged path from the existing production-gated foundation toward real production readiness.
+Implement final production rollout readiness validation.
+Phase 5D is strictly **production-readiness-only**.
+Phase 5D must validate the final production rollout safety path without enabling real production writes.
 
-Phase 5D Planning must focus on:
-1. Real CI deployment pipeline end-to-end verification
-2. Deployment gate atomicity under network / partial failure
-3. Observation mode high-concurrency validation
-4. Final production rollout acceptance criteria
-5. Production rollout kill criteria
-6. Monitoring and alerting requirements
-7. Explicit decision on whether Phase 5D remains staging-only, canary-only, or production-readiness-only
-
-Claude must remain HOLD until Gemini Spec passes Grok review and ChatGPT / ibi explicitly approve implementation.
+Phase 5D must focus on:
+1. Deployment Gate Atomicity in Real CI Pipeline
+2. Observation Mode High-Concurrency Flag Consistency
+3. Final production rollout readiness validation
+4. Readiness checklist and blocker criteria
+5. Monitoring and alerting contracts
 
 ---
 
 ## Phase 5D Priority Risks
 
-Grok identified two medium risks that must be carried into Phase 5D Planning:
+Grok identified two medium risks that must be handled during implementation:
 
-### 1. Deployment Gate Atomicity in Real CI Pipeline
-Phase 5D Spec must define:
-* real CI workflow verification strategy
-* token injection lifecycle under network failure
-* Firestore deployment_gate lifecycle under partial failure
-* behavior when token is injected but gate update fails
-* behavior when gate is updated but token is invalid
-* behavior when CI job is interrupted mid-flow
-* behavior when manual approval is granted but deploy fails
-* behavior when deployment token expires mid-flow
-* audit payload for every blocked / failed deployment-gate path
-* whether real workflow testing is in scope
-* whether CI / workflow files may be modified
-* whether Terraform / KMS assumptions remain external
+### 1. Deployment Gate Partial Failure / Orphaned Token Recovery
+Claude must implement or model:
+* interrupted CI job handling
+* orphaned token detection
+* orphaned token SELF_INVALIDATE behavior
+* token injected but deployment_gate update failed
+* deployment_gate updated but token invalid
+* token expires mid-flow
+* manual approval granted but deployment fails
+* deployment job interrupted after token injection
+* deployment job interrupted after gate update
+* deployment aborted audit payload
+* partial failure must fail closed
+* no automatic retry without fresh manual approval
+* no production write path introduced
 
-### 2. Observation Mode High-Concurrency Flag Consistency
-Phase 5D Spec must define:
-* high-concurrency observation mode test strategy
-* flag setting / reading race behavior
-* optimistic locking or versioning strategy
+### 2. Observation Mode High-Concurrency / Race Condition Validation
+Claude must implement or model:
+* observation mode optimistic locking
+* observation mode version tracking
+* concurrent reset + apply behavior
+* concurrent emergency disable + observation mode behavior
 * stale observation flag behavior
-* malformed observation flag behavior
 * missing observation flag behavior
-* observation mode monitoring payload requirements
-* observation mode expiry enforcement
-* interaction with emergency disable
-* interaction with production enablement
-* load test or concurrency simulation acceptance criteria
+* malformed observation flag behavior
+* expired observation flag behavior
+* race between observation expiry and apply attempt
+* `CONCURRENCY_VIOLATION` / `CONCURRENCY_VIOLATION_ERR` behavior
+* fallback to `HALT`
+* monitoring payload for race / concurrency failure
+* acceptance criteria for load / concurrency simulation
 
 ---
 
 ## Allowed in this phase
 
-* Phase 5D requirements discussion
-* Gemini produces Phase 5D Spec
-* Grok reviews Phase 5D Spec
-* Define real CI pipeline verification strategy
-* Define deployment gate E2E acceptance criteria
-* Define observation mode high-concurrency acceptance criteria
-* Define production readiness gate
-* Define production rollout kill criteria
-* Define canary / staging / production-readiness boundary
-* Define monitoring and alerting strategy
-* Define Claude Phase 5D implementation scope
-* Define exact allowed files
-* Define exact forbidden files
-* Docs / SSOT update
+* `src/services/concurrencyManager.ts`
+* `src/services/securityAudit.ts`
+* `tests/integration/gate-e2e.test.ts`
+* `docs/PROD_ROLLOUT_CHECKLIST.md`
+* Deployment gate readiness validation contracts
+* CI token lifecycle simulation
+* Deployment gate partial failure simulation
+* Orphaned token recovery modeling
+* SELF_INVALIDATE modeling
+* Observation mode concurrency manager
+* Observation mode load / race simulation
+* Security audit payload helpers
+* Monitoring payload helpers
+* Production readiness checklist
+* Static guards
+* Tests
+* Docs
+* SSOT update
 
 ---
 
 ## Forbidden in this phase
 
-* Do not let Claude implement code
-* Do not start Phase 5D implementation
+* Do not allow real production write
 * Do not allow broad production rollout
-* Do not enable production write path
+* Do not enable canary rollout
+* Do not enable production rollout
+* Do not modify production deployment workflow unless explicitly scoped and still readiness-only
 * Do not bypass deployment gate
 * Do not bypass tenant allowlist
 * Do not bypass operator allowlist
@@ -157,132 +159,144 @@ Phase 5D Spec must define:
 * Do not allow AI to modify production gate
 * Do not allow AI to mutate settings or rules
 * Do not change `wasteFactorWarning` automatically
-* Do not modify Feature 001–008 core flow
-* Do not modify Feature 009 Phase 5A / 5B / 5C behavior before Spec approval
+* Do not modify Feature 001 core flow
+* Do not modify Feature 002 inventory mutation logic
+* Do not modify Feature 003 prediction logic
+* Do not modify Feature 004 dry-run boundary
+* Do not modify Feature 005 dry-run execution boundary
+* Do not modify Feature 006 dry-run transaction-readiness boundary
+* Do not modify Feature 007 dry-run real-apply readiness boundary
+* Do not modify Feature 008 dry-run executor-readiness boundary
+* Do not modify Feature 009 Phase 5A / 5B / 5C behavior except through clearly isolated readiness validation contracts
 
 ---
 
-## Required Phase 5D Spec Topics
+## Required Guard Rails
 
-Gemini must explicitly define:
-
-### 1. Phase 5D Scope Decision
-* staging-only
-* canary-only
-* production-readiness-only
-* production-gated limited rollout
-* no production rollout
-
-Gemini must choose one and justify it.
-
-### 2. Real CI Deployment Pipeline Verification
-* workflow file scope
-* manual approval validation
-* token injection lifecycle
-* deployment_gate lifecycle
-* network failure handling
-* partial failure handling
-* interrupted job behavior
-* retry behavior
-* stale token behavior
-* token invalidation behavior
-* deployment gate audit payload
-* blocked deployment event payload
-* recovery path
-
-### 3. Deployment Gate Atomicity Acceptance Criteria
-* token injected but gate missing
-* gate updated but token invalid
-* token expires mid-flow
-* CI job crashes after token injection
-* CI job crashes after gate update
-* manual approval missing
-* manual approval stale
-* wrong project ID
-* wrong environment
-* local bypass
-* CI bypass
-* all must BLOCK or fail closed
-
-### 4. Observation Mode High-Concurrency Acceptance Criteria
-* concurrent reset attempts
-* concurrent apply attempts during observation mode
-* concurrent emergency disable during observation mode
-* stale observation mode flag
-* malformed observation mode flag
-* missing observation mode flag
-* expired observation mode flag
-* race between observation expiry and apply attempt
-* monitoring payload completeness
-* no bypass on any observation mode failure
-
-### 5. Production Readiness / Rollout Boundary
-* whether any real production rollout is allowed
-* whether only staging/canary is allowed
-* whether broad rollout is still forbidden
-* exact rollout approval requirements
-* exact kill criteria
-* exact rollback exclusion or inclusion
-* exact cleanup exclusion or inclusion
-* exact UI exclusion or inclusion
-
-### 6. Monitoring and Alerting
-* metrics
-* alert thresholds
-* SOC webhook assumptions
-* failure event payload
-* audit event payload
-* observation mode alerting
-* deployment gate alerting
-* emergency disable alerting
-
-### 7. Claude Phase 5D Implementation Scope
-* exact allowed files
-* exact forbidden files
-* whether CI workflow files are allowed
-* whether test files are allowed
-* whether docs only
-* whether production code can be touched
-* whether Firestore emulator tests are required
-* whether real production writes remain forbidden
+* Production-readiness-only remains mandatory.
+* Real production write remains forbidden.
+* Broad rollout remains forbidden.
+* Unknown environment must default-deny.
+* Any deployment gate failure must fail closed.
+* Any token lifecycle failure must fail closed.
+* Orphaned token must not remain usable.
+* CI retry must require fresh manual approval if scoped.
+* SELF_INVALIDATE must be auditable.
+* Deployment aborted event must be auditable.
+* Observation mode missing state must default-deny.
+* Observation mode malformed state must default-deny.
+* Observation mode expired state must default-deny if apply depends on it.
+* Observation mode concurrency violation must enter HALT or safe blocked state.
+* Emergency disable must override observation mode.
+* Emergency disable must override production enablement.
+* AI cannot apply config.
+* AI cannot reset kill switch.
+* AI cannot approve reset.
+* AI cannot modify production gate.
+* Service Account / Admin SDK must not imply business permission.
+* UI remains excluded.
+* Rollback remains excluded.
+* Cleanup remains excluded.
 
 ---
 
-## Required Phase 5D Risk Questions
+## Required Tests
 
-Gemini must explicitly answer:
-1. Is Phase 5D staging-only, canary-only, production-readiness-only, or limited production-gated rollout?
-2. Is any real production write allowed?
-3. If real production write is allowed, what exact tenant/operator/approval/canary gates are mandatory?
-4. If real production write is not allowed, what is Phase 5D validating?
-5. Can broad production rollout occur? If not, where is it blocked?
-6. How is CI token injection verified end-to-end?
-7. What happens if CI fails after token injection?
-8. What happens if CI fails after deployment_gate update?
-9. What happens if token expires mid-flow?
-10. What happens if Firestore deployment_gate is stale?
-11. How is manual approval verified?
-12. How is manual approval audited?
-13. How is observation mode tested under concurrency?
-14. What happens if observation mode flag is missing?
-15. What happens if observation mode flag is malformed?
-16. What happens if observation mode expires during apply?
-17. What happens if emergency disable fires during observation mode?
-18. What alerts fire on deployment gate failure?
-19. What alerts fire on observation mode failure?
-20. Does Phase 5D include rollback? If not, why?
-21. Does Phase 5D include cleanup? If not, why?
-22. Does Phase 5D include UI? If not, why?
-23. What is the exit criterion for Phase 5D?
-24. What is the blocker criterion for Phase 5D?
+Phase 5D must include tests for:
+
+### Deployment Gate / CI Atomicity
+* CI interrupted before token injection
+* CI interrupted after token injection
+* CI interrupted after deployment_gate update
+* orphaned token detected
+* orphaned token SELF_INVALIDATE modeled
+* token injected but gate update failed BLOCKED
+* gate updated but token invalid BLOCKED
+* token expires mid-flow BLOCKED
+* manual approval granted but deploy fails BLOCKED / ABORTED
+* retry without fresh manual approval BLOCKED if scoped
+* `DEPLOYMENT_ABORTED` audit payload complete
+* `GATE_AUTO_INVALIDATE` audit payload complete
+* `SELF_INVALIDATE` audit payload complete
+* partial failure fails closed
+* no production write path introduced
+
+### Observation Mode High-Concurrency
+* concurrent reset + apply attempt
+* concurrent emergency disable + observation mode
+* concurrent observation expiry + apply attempt
+* stale observation flag BLOCKED
+* missing observation flag BLOCKED
+* malformed observation flag BLOCKED
+* expired observation flag BLOCKED where required
+* version conflict triggers `CONCURRENCY_VIOLATION` / `CONCURRENCY_VIOLATION_ERR`
+* concurrency violation enters HALT or safe blocked state
+* monitoring payload complete for concurrency failure
+* observation mode does not override emergency disable
+* observation mode does not enable production write by itself
+
+### Production Readiness Boundary
+* real production write remains forbidden
+* broad rollout remains forbidden
+* canary rollout remains forbidden unless explicitly excluded as future work
+* UI remains absent
+* rollback remains absent
+* cleanup remains absent
+* AI cannot apply
+* AI cannot reset
+* AI cannot approve reset
+* AI cannot modify production gate
+* Service Account / Admin SDK cannot bypass
+* tests pass
+* typecheck pass
+* build pass
+* static guard pass
+
+---
+
+## Exit Criteria
+
+Phase 5D may pass only if:
+* all tests pass
+* typecheck passes
+* build passes
+* static guard passes
+* production-readiness-only boundary remains intact
+* no real production write path is introduced
+* no broad rollout path is introduced
+* deployment gate partial failure cases fail closed
+* orphaned token recovery is modeled
+* observation mode concurrency behavior is modeled or tested
+* emergency disable remains highest priority
+* PROD_ROLLOUT_CHECKLIST is updated
+* known limitations are documented
+
+---
+
+## Blocker Criteria
+
+Phase 5D must be blocked if:
+* any real production write path is introduced
+* any broad rollout path is introduced
+* deployment gate failure can fail open
+* orphaned token can remain usable
+* observation mode can enable production write
+* observation mode can override emergency disable
+* AI can apply / reset / approve reset / modify gate
+* Service Account / Admin SDK can bypass business guard
+* UI / rollback / cleanup is introduced without explicit approved scope
+* tests fail
+* typecheck fails
+* build fails
+* static guard fails
 
 ---
 
 ## Team State
 
-* Claude: HOLD
-* Gemini: GO - Produce Feature 009 Phase 5D Spec
-* Grok: GO - Prepare Phase 5D Spec Review
+* Claude: GO - Feature 009 Phase 5D Implementation only
+* Gemini: HOLD / support clarification only
+* Grok: Prepare Feature 009 Phase 5D Code Review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -290,22 +304,29 @@ Gemini must explicitly answer:
 
 ## Next Expected Input
 
-Gemini Feature 009 Phase 5D Spec.
-Spec should define:
-* Phase 5D scope decision
-* deployment gate E2E verification strategy
-* CI token injection lifecycle tests
-* deployment_gate lifecycle tests
-* network / partial failure behavior
-* observation mode high-concurrency strategy
-* production readiness boundary
-* rollout kill criteria
-* monitoring and alerting strategy
-* rollback boundary
-* cleanup boundary
-* UI boundary
-* Claude implementation scope
-* Grok red team checklist
+Claude Feature 009 Phase 5D implementation report:
+* branch name
+* commit hash
+* changed files
+* tests result
+* typecheck result
+* build result
+* static guard result
+* production-readiness-only confirmation
+* no real production write confirmation
+* deployment gate partial failure tests confirmation
+* orphaned token recovery confirmation
+* SELF_INVALIDATE confirmation
+* DEPLOYMENT_ABORTED audit confirmation
+* observation mode concurrency confirmation
+* observation mode load / race simulation confirmation
+* emergency disable override confirmation
+* PROD_ROLLOUT_CHECKLIST update confirmation
+* no broad rollout confirmation
+* no UI confirmation
+* no rollback confirmation
+* no cleanup confirmation
+* known limitations
 
 ---
 

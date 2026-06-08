@@ -46,7 +46,7 @@ const GUARD_REFERENCE_PATTERNS = [
   /ProductionEnvironmentGuard/,
 ];
 
-const root = path.resolve(__dirname, '..', '..');
+const root = path.resolve(__dirname, '..');
 let violations = 0;
 
 function fail(rel, message) {

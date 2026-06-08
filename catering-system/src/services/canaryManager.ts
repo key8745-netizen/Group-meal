@@ -901,3 +901,435 @@ export function summarizeCanaryLoadSimulation(
     atMostOneWinnerPerRound,
   };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Feature 009 Phase 5F: Production Readiness Next-Step Planning
+//
+// ADDITIVE-ONLY extensions. Nothing below modifies any Phase 5E export,
+// type, constant, or behavior — only new exports are introduced.
+//
+//   - tenant lock modeled as a blocking-decision-only, audit-only,
+//     non-write contract (ambiguous state → BLOCKED/DENY)
+//   - high-load concurrency simulation at 500 req/s (mirrors
+//     SIMULATED_HIGH_LOAD_REQ_PER_SEC from the Phase 5E section above)
+//   - rollout kill criteria modeling
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Mirrors Phase 5E's SIMULATED_HIGH_LOAD_REQ_PER_SEC for Phase 5F readiness modeling */
+export const F009_PHASE5F_SIMULATED_HIGH_LOAD_REQ_PER_SEC = 500;
+export const F009_PHASE5F_CONCURRENCY_HALT_THRESHOLD_REQ_PER_SEC = 200;
+
+// ─── Tenant lock: blocking-decision-only, non-write, audit-only ──────────────
+
+export type TenantLockObservedState = 'LOCKED' | 'UNLOCKED' | 'AMBIGUOUS' | 'UNKNOWN';
+
+export interface TenantLockDecisionInput {
+  readonly _kind: 'f009_phase5f_tenant_lock_decision_input';
+  tenantId: string;
+  observedState: TenantLockObservedState;
+  operatorId: string;
+  occurredAt: string;
+  traceId: string;
+}
+
+export interface TenantLockDecisionResult {
+  readonly _kind: 'f009_phase5f_tenant_lock_decision_result';
+  readonly executable: false;
+  readonly aiCanExecute: false;
+  /** Always 'BLOCKED' — tenant lock is modeled strictly as a blocking decision */
+  decision: 'BLOCKED';
+  /** Always true — this contract NEVER models a write to production DB/state */
+  nonWrite: true;
+  /** Always false — tenant lock evaluation never writes production state */
+  writesProductionState: false;
+  observedState: TenantLockObservedState;
+  /** Audit-only payload — emitted for every tenant-lock decision, never a write */
+  auditPayload: SocAuditLikePayload;
+  blockedReasons: BlockedReason[];
+}
+
+/**
+ * Minimal audit-only payload shape used by tenant-lock decisions, carrying
+ * the SSOT-required SOC/audit fields. This is intentionally a structural
+ * subset mirror — the canonical builder lives in `runtime_validator.ts`
+ * (`buildSocAuditPayload`); this local shape keeps `canaryManager.ts` free
+ * of any import beyond `BlockedReason` and the Phase 5B emergency-disable type.
+ */
+export interface SocAuditLikePayload {
+  readonly _kind: 'f009_phase5f_tenant_lock_audit_payload';
+  readonly executable: false;
+  eventType: 'TENANT_LOCK_DECISION';
+  tenantId: string;
+  operatorId: string;
+  decision: 'BLOCKED';
+  blockedReason: BlockedReason;
+  source: 'canaryManager.tenantLock';
+  occurredAt: string;
+  traceId: string;
+  version: number;
+  expectedState: string;
+  observedState: string;
+  /** Always false — audit-only, never authorizes a write */
+  authorizesProductionWrite: false;
+}
+
+const TENANT_LOCK_AUDIT_VERSION = 1;
+
+function buildTenantLockAuditPayload(
+  tenantId: string,
+  operatorId: string,
+  occurredAt: string,
+  traceId: string,
+  blockedReason: BlockedReason,
+  expectedState: string,
+  observedState: string,
+): SocAuditLikePayload {
+  return {
+    _kind: 'f009_phase5f_tenant_lock_audit_payload',
+    executable: false,
+    eventType: 'TENANT_LOCK_DECISION',
+    tenantId,
+    operatorId,
+    decision: 'BLOCKED',
+    blockedReason,
+    source: 'canaryManager.tenantLock',
+    occurredAt,
+    traceId,
+    version: TENANT_LOCK_AUDIT_VERSION,
+    expectedState,
+    observedState,
+    authorizesProductionWrite: false,
+  };
+}
+
+/**
+ * Models the tenant lock as a BLOCKING-DECISION-ONLY contract: every
+ * evaluation resolves to `decision: 'BLOCKED'`, `nonWrite: true`,
+ * `writesProductionState: false`, and emits an audit-only payload.
+ * Ambiguous / unknown observed state defaults to BLOCKED/DENY — there is
+ * no "unlock" or "proceed" outcome modeled anywhere in this function.
+ * This function structurally CANNOT mutate production tenant-lock state.
+ */
+export function evaluateTenantLockDecision(
+  input: TenantLockDecisionInput | null | undefined,
+): TenantLockDecisionResult {
+  const occurredAt = isNonEmpty(input?.occurredAt) ? input!.occurredAt : new Date(0).toISOString();
+  const traceId = isNonEmpty(input?.traceId) ? input!.traceId : 'unknown-trace';
+
+  if (
+    !input
+    || (input as { _kind?: string })._kind !== 'f009_phase5f_tenant_lock_decision_input'
+    || !isNonEmpty(input.tenantId)
+    || !isNonEmpty(input.operatorId)
+  ) {
+    const tenantId = isNonEmpty(input?.tenantId) ? input!.tenantId : 'unknown';
+    const operatorId = isNonEmpty(input?.operatorId) ? input!.operatorId : 'unknown';
+    return {
+      _kind: 'f009_phase5f_tenant_lock_decision_result',
+      executable: false, aiCanExecute: false,
+      decision: 'BLOCKED', nonWrite: true, writesProductionState: false,
+      observedState: 'UNKNOWN',
+      auditPayload: buildTenantLockAuditPayload(
+        tenantId, operatorId, occurredAt, traceId,
+        'F009_PHASE5F_TENANT_LOCK_AMBIGUOUS_DEFAULT_DENY', 'KNOWN_LOCK_STATE', 'UNKNOWN_INPUT',
+      ),
+      blockedReasons: ['F009_PHASE5F_UNKNOWN_STATE_DEFAULT_DENY', 'F009_PHASE5F_TENANT_LOCK_AMBIGUOUS_DEFAULT_DENY', 'F009_PHASE5F_TENANT_LOCK_BLOCKED', 'F009_PHASE5F_TENANT_LOCK_NON_WRITE'],
+    };
+  }
+
+  const reasons: BlockedReason[] = ['F009_PHASE5F_TENANT_LOCK_BLOCKED', 'F009_PHASE5F_TENANT_LOCK_NON_WRITE'];
+  let blockedReason: BlockedReason = 'F009_PHASE5F_TENANT_LOCK_BLOCKED';
+
+  if (input.observedState === 'AMBIGUOUS' || input.observedState === 'UNKNOWN') {
+    reasons.unshift('F009_PHASE5F_TENANT_LOCK_AMBIGUOUS_DEFAULT_DENY');
+    blockedReason = 'F009_PHASE5F_TENANT_LOCK_AMBIGUOUS_DEFAULT_DENY';
+  }
+
+  // NOTE: even 'UNLOCKED' resolves to BLOCKED — this contract never models
+  // an "allow" outcome. Tenant lock is permanently a blocking-decision-only
+  // model in Phase 5F; any real unlock decision is strictly out of scope.
+  return {
+    _kind: 'f009_phase5f_tenant_lock_decision_result',
+    executable: false, aiCanExecute: false,
+    decision: 'BLOCKED', nonWrite: true, writesProductionState: false,
+    observedState: input.observedState,
+    auditPayload: buildTenantLockAuditPayload(
+      input.tenantId, input.operatorId, occurredAt, traceId,
+      blockedReason, 'KNOWN_LOCK_STATE', input.observedState,
+    ),
+    blockedReasons: [...new Set(reasons)],
+  };
+}
+
+// ─── High-load concurrency simulation at 500 req/s (Phase 5F readiness) ──────
+
+export interface F009Phase5FHighLoadSimulationInput {
+  readonly _kind: 'f009_phase5f_high_load_simulation_input';
+  observedReqPerSec: number;
+  thresholdReqPerSec: number;
+  tenantId: string;
+  occurredAt: string;
+}
+
+export interface F009Phase5FHighLoadSimulationResult {
+  readonly _kind: 'f009_phase5f_high_load_simulation_result';
+  readonly executable: false;
+  readonly aiCanExecute: false;
+  haltTriggered: boolean;
+  observedReqPerSec: number;
+  thresholdReqPerSec: number;
+  blockedReasons: BlockedReason[];
+}
+
+/**
+ * Models high-load concurrency at the Phase 5F readiness threshold (mirrors
+ * the Phase 5E `evaluateHighLoadConcurrency` / `SIMULATED_HIGH_LOAD_REQ_PER_SEC`
+ * pattern at ~500 req/s). ANY load at/above threshold → HALT. Default-deny
+ * (treated as exceeding threshold) on malformed/negative inputs.
+ */
+export function evaluateF009Phase5FHighLoadConcurrency(
+  input: F009Phase5FHighLoadSimulationInput | null | undefined,
+): F009Phase5FHighLoadSimulationResult {
+  if (
+    !input
+    || (input as { _kind?: string })._kind !== 'f009_phase5f_high_load_simulation_input'
+    || typeof input.observedReqPerSec !== 'number' || !Number.isFinite(input.observedReqPerSec)
+    || typeof input.thresholdReqPerSec !== 'number' || !Number.isFinite(input.thresholdReqPerSec)
+    || input.thresholdReqPerSec <= 0
+  ) {
+    return {
+      _kind: 'f009_phase5f_high_load_simulation_result',
+      executable: false, aiCanExecute: false,
+      haltTriggered: true,
+      observedReqPerSec: typeof input?.observedReqPerSec === 'number' ? input.observedReqPerSec : -1,
+      thresholdReqPerSec: typeof input?.thresholdReqPerSec === 'number' ? input.thresholdReqPerSec : F009_PHASE5F_CONCURRENCY_HALT_THRESHOLD_REQ_PER_SEC,
+      blockedReasons: ['F009_PHASE5F_UNKNOWN_STATE_DEFAULT_DENY', 'F009_PHASE5F_HALT'],
+    };
+  }
+
+  const haltTriggered = input.observedReqPerSec >= input.thresholdReqPerSec;
+
+  return {
+    _kind: 'f009_phase5f_high_load_simulation_result',
+    executable: false, aiCanExecute: false,
+    haltTriggered,
+    observedReqPerSec: input.observedReqPerSec,
+    thresholdReqPerSec: input.thresholdReqPerSec,
+    blockedReasons: haltTriggered
+      ? ['F009_PHASE5F_HIGH_LOAD_THRESHOLD_EXCEEDED', 'F009_PHASE5F_HALT']
+      : [],
+  };
+}
+
+// ─── Rollout kill criteria modeling ──────────────────────────────────────────
+
+export interface RolloutKillCriteriaInput {
+  readonly _kind: 'f009_phase5f_rollout_kill_criteria_input';
+  errorRatePercent: number;
+  errorRateThresholdPercent: number;
+  p99Ms: number;
+  p99TargetMs: number;
+  emergencyDisable: EmergencyDisableContract | null | undefined;
+  tenantId: string;
+  occurredAt: string;
+}
+
+export interface RolloutKillCriteriaResult {
+  readonly _kind: 'f009_phase5f_rollout_kill_criteria_result';
+  readonly executable: false;
+  readonly aiCanExecute: false;
+  /** true → modeled rollout kill criteria are met (rollout must be modeled as killed) */
+  killTriggered: boolean;
+  emergencyDisableWins: boolean;
+  errorRateExceeded: boolean;
+  p99Exceeded: boolean;
+  /** Always false — kill-criteria evaluation never itself authorizes/performs a rollout action */
+  authorizesRollout: false;
+  blockedReasons: BlockedReason[];
+}
+
+/**
+ * Models rollout kill criteria: emergency disable is checked FIRST (highest
+ * priority — mirrors `checkEmergencyDisablePriority`), then error-rate and
+ * P99 thresholds. ANY one of these conditions models a "kill" — this
+ * function never authorizes a rollout to proceed; it only ever reports
+ * whether modeled kill criteria are met. Default-deny (kill triggered) on
+ * malformed input.
+ */
+export function evaluateRolloutKillCriteria(
+  input: RolloutKillCriteriaInput | null | undefined,
+): RolloutKillCriteriaResult {
+  if (
+    !input
+    || (input as { _kind?: string })._kind !== 'f009_phase5f_rollout_kill_criteria_input'
+    || typeof input.errorRatePercent !== 'number' || !Number.isFinite(input.errorRatePercent)
+    || typeof input.errorRateThresholdPercent !== 'number' || !Number.isFinite(input.errorRateThresholdPercent)
+    || typeof input.p99Ms !== 'number' || !Number.isFinite(input.p99Ms)
+    || typeof input.p99TargetMs !== 'number' || !Number.isFinite(input.p99TargetMs)
+    || !isNonEmpty(input.tenantId)
+  ) {
+    return {
+      _kind: 'f009_phase5f_rollout_kill_criteria_result',
+      executable: false, aiCanExecute: false,
+      killTriggered: true, emergencyDisableWins: true,
+      errorRateExceeded: true, p99Exceeded: true,
+      authorizesRollout: false,
+      blockedReasons: ['F009_PHASE5F_UNKNOWN_STATE_DEFAULT_DENY', 'F009_PHASE5F_ROLLOUT_KILL_CRITERIA_TRIGGERED'],
+    };
+  }
+
+  // Emergency Disable checked FIRST — highest priority, always wins.
+  const emergencyActive = !input.emergencyDisable || input.emergencyDisable.active === true;
+  if (emergencyActive) {
+    return {
+      _kind: 'f009_phase5f_rollout_kill_criteria_result',
+      executable: false, aiCanExecute: false,
+      killTriggered: true, emergencyDisableWins: true,
+      errorRateExceeded: input.errorRatePercent >= input.errorRateThresholdPercent,
+      p99Exceeded: input.p99Ms >= input.p99TargetMs,
+      authorizesRollout: false,
+      blockedReasons: ['F009_PHASE5F_EMERGENCY_DISABLE_PRIORITY_HOOK', 'F009_PHASE5F_ROLLOUT_KILL_CRITERIA_TRIGGERED'],
+    };
+  }
+
+  const errorRateExceeded = input.errorRatePercent >= input.errorRateThresholdPercent;
+  const p99Exceeded = input.p99Ms >= input.p99TargetMs;
+  const killTriggered = errorRateExceeded || p99Exceeded;
+
+  const reasons: BlockedReason[] = [];
+  if (killTriggered) reasons.push('F009_PHASE5F_ROLLOUT_KILL_CRITERIA_TRIGGERED');
+  if (errorRateExceeded) reasons.push('F009_PHASE5F_PERFORMANCE_DEGRADATION_RISK');
+  if (p99Exceeded) reasons.push('F009_PHASE5F_P99_TARGET_EXCEEDED', 'F009_PHASE5F_PERFORMANCE_DEGRADATION_RISK');
+
+  return {
+    _kind: 'f009_phase5f_rollout_kill_criteria_result',
+    executable: false, aiCanExecute: false,
+    killTriggered,
+    emergencyDisableWins: false,
+    errorRateExceeded,
+    p99Exceeded,
+    authorizesRollout: false,
+    blockedReasons: [...new Set(reasons)],
+  };
+}
+
+/**
+ * Phase 5F structural guard mirror of `IS_PRODUCTION_READINESS_ONLY` from
+ * the Phase 5E section above. Re-asserted here (additively) so that any
+ * Phase 5F-specific consumer can assert the readiness-only invariant
+ * without depending on Phase 5E naming. Always `true`.
+ */
+export const F009_PHASE5F_IS_PRODUCTION_READINESS_ONLY = true as const;
+
+/**
+ * Evaluates ANY modeled Phase 5F write-attempt path. Mirrors
+ * `evaluateCanaryWriteAttempt` — every branch is FATAL and BLOCKED.
+ * This is the structural embodiment of the Phase 5F Zero Real Write
+ * boundary; no branch ever returns `blocked: false`.
+ */
+export interface F009Phase5FWriteAttemptInput {
+  readonly _kind: 'f009_phase5f_write_attempt_input';
+  targetKind: 'PRODUCTION_WRITE' | 'PRODUCTION_CANARY_WRITE' | 'BROAD_ROLLOUT' | 'PRODUCTION_MUTATION';
+  environment: 'staging' | 'production' | string;
+  actorId: string;
+}
+
+export interface F009Phase5FWriteAttemptResult {
+  readonly _kind: 'f009_phase5f_write_attempt_result';
+  readonly executable: false;
+  readonly aiCanExecute: false;
+  blocked: true;
+  fatal: true;
+  isProductionReadinessOnly: true;
+  blockedReasons: BlockedReason[];
+}
+
+export function evaluateF009Phase5FWriteAttempt(
+  input: F009Phase5FWriteAttemptInput | null | undefined,
+): F009Phase5FWriteAttemptResult {
+  const base: BlockedReason[] = ['F009_PHASE5F_PRODUCTION_READINESS_ONLY', 'F009_PHASE5F_FATAL_SAFETY_VIOLATION'];
+
+  function fatal(reasons: BlockedReason[]): F009Phase5FWriteAttemptResult {
+    return {
+      _kind: 'f009_phase5f_write_attempt_result',
+      executable: false, aiCanExecute: false,
+      blocked: true, fatal: true,
+      isProductionReadinessOnly: F009_PHASE5F_IS_PRODUCTION_READINESS_ONLY,
+      blockedReasons: [...new Set(reasons)],
+    };
+  }
+
+  if (
+    !input
+    || (input as { _kind?: string })._kind !== 'f009_phase5f_write_attempt_input'
+    || !isNonEmpty(input.actorId)
+  ) {
+    return fatal(['F009_PHASE5F_UNKNOWN_STATE_DEFAULT_DENY', ...base, 'F009_PHASE5F_PRODUCTION_WRITE_ATTEMPT_BLOCKED']);
+  }
+
+  switch (input.targetKind) {
+    case 'PRODUCTION_WRITE':
+      return fatal([...base, 'F009_PHASE5F_PRODUCTION_WRITE_ATTEMPT_BLOCKED']);
+    case 'PRODUCTION_CANARY_WRITE':
+      return fatal([...base, 'F009_PHASE5F_PRODUCTION_CANARY_WRITE_BLOCKED']);
+    case 'BROAD_ROLLOUT':
+      return fatal([...base, 'F009_PHASE5F_BROAD_ROLLOUT_BLOCKED']);
+    case 'PRODUCTION_MUTATION':
+      return fatal([...base, 'F009_PHASE5F_PRODUCTION_MUTATION_BLOCKED']);
+    default:
+      return fatal(['F009_PHASE5F_UNKNOWN_STATE_DEFAULT_DENY', ...base, 'F009_PHASE5F_PRODUCTION_WRITE_ATTEMPT_BLOCKED']);
+  }
+}
+
+/**
+ * Phase 5F mirror of `checkEmergencyDisablePriority` — the canonical
+ * "Emergency Disable is checked FIRST" hook for all Phase 5F readiness
+ * paths (tenant lock, rollout kill criteria, dry-run audit, etc).
+ * Default-deny: missing/malformed contract treated as ACTIVE (blocked).
+ */
+export interface F009Phase5FEmergencyDisablePriorityCheckInput {
+  readonly _kind: 'f009_phase5f_emergency_disable_priority_check_input';
+  emergencyDisable: EmergencyDisableContract | null | undefined;
+  pathName: 'TENANT_LOCK' | 'ROLLOUT_KILL_CRITERIA' | 'DRY_RUN_AUDIT' | 'TRACING' | 'SCHEMA_VALIDATION';
+}
+
+export interface F009Phase5FEmergencyDisablePriorityCheckResult {
+  readonly _kind: 'f009_phase5f_emergency_disable_priority_check_result';
+  readonly executable: false;
+  readonly aiCanExecute: false;
+  emergencyDisableWins: boolean;
+  pathBlocked: boolean;
+  blockedReasons: BlockedReason[];
+}
+
+export function checkF009Phase5FEmergencyDisablePriority(
+  input: F009Phase5FEmergencyDisablePriorityCheckInput | null | undefined,
+): F009Phase5FEmergencyDisablePriorityCheckResult {
+  if (!input || (input as { _kind?: string })._kind !== 'f009_phase5f_emergency_disable_priority_check_input') {
+    return {
+      _kind: 'f009_phase5f_emergency_disable_priority_check_result',
+      executable: false, aiCanExecute: false,
+      emergencyDisableWins: true, pathBlocked: true,
+      blockedReasons: ['F009_PHASE5F_UNKNOWN_STATE_DEFAULT_DENY', 'F009_PHASE5F_EMERGENCY_DISABLE_PRIORITY_HOOK'],
+    };
+  }
+
+  const contract = input.emergencyDisable;
+  const active = !contract || contract.active === true;
+
+  if (active) {
+    return {
+      _kind: 'f009_phase5f_emergency_disable_priority_check_result',
+      executable: false, aiCanExecute: false,
+      emergencyDisableWins: true, pathBlocked: true,
+      blockedReasons: ['F009_PHASE5F_EMERGENCY_DISABLE_PRIORITY_HOOK'],
+    };
+  }
+
+  return {
+    _kind: 'f009_phase5f_emergency_disable_priority_check_result',
+    executable: false, aiCanExecute: false,
+    emergencyDisableWins: false, pathBlocked: false,
+    blockedReasons: [],
+  };
+}

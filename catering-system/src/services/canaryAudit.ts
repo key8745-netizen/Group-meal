@@ -411,3 +411,183 @@ export function summarizeAuditReconciliation(
     fullyReconciled: results.length > 0 && complete === results.length,
   };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Feature 009 Phase 5F: Production Readiness Next-Step Planning
+//
+// ADDITIVE-ONLY extensions — dry-run audit difference threshold modeling
+// (`Difference > 0 = Block`), mirroring the Phase 5E
+// `buildExpectedVsActualDiffPayload` / `evaluateTenantBlockOnDifference`
+// pattern under a Phase 5F-namespaced contract. Nothing below alters any
+// Phase 5E export, type, or behavior.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface F009Phase5FDryRunDifferenceInput {
+  readonly _kind: 'f009_phase5f_dry_run_difference_input';
+  tenantId: string;
+  dryRunId: string;
+  auditTrailId: string;
+  differenceCount: number;
+  occurredAt: string;
+}
+
+export interface F009Phase5FDryRunDifferenceResult {
+  readonly _kind: 'f009_phase5f_dry_run_difference_result';
+  readonly executable: false;
+  readonly aiCanExecute: false;
+  /** true when differenceCount > 0 — `Difference > 0 = Block` */
+  blocked: boolean;
+  differenceCount: number;
+  /** Always false — threshold decision never itself mutates production state */
+  authorizesProductionWrite: false;
+  /** Always false — threshold configurability is absent in this phase */
+  thresholdConfigurable: false;
+  blockedReasons: BlockedReason[];
+}
+
+/**
+ * Models the dry-run audit difference threshold: `Difference > 0 = Block`.
+ * `differenceCount === 0` → allowed in dry-run readiness context;
+ * `differenceCount > 0` → BLOCKED. Default-deny (blocked) on malformed
+ * input or negative counts. Threshold is NOT configurable in this phase
+ * (no GitOps + dual-sign modeling exists) — `thresholdConfigurable` is
+ * structurally always `false`.
+ */
+export function evaluateF009Phase5FDryRunDifferenceThreshold(
+  input: F009Phase5FDryRunDifferenceInput | null | undefined,
+): F009Phase5FDryRunDifferenceResult {
+  if (
+    !input
+    || (input as { _kind?: string })._kind !== 'f009_phase5f_dry_run_difference_input'
+    || !isNonEmptyString(input.tenantId)
+    || !isNonEmptyString(input.dryRunId)
+    || !isNonEmptyString(input.auditTrailId)
+    || !isNonEmptyString(input.occurredAt)
+    || typeof input.differenceCount !== 'number'
+    || !Number.isFinite(input.differenceCount)
+    || input.differenceCount < 0
+  ) {
+    return {
+      _kind: 'f009_phase5f_dry_run_difference_result',
+      executable: false, aiCanExecute: false,
+      blocked: true,
+      differenceCount: typeof input?.differenceCount === 'number' ? input.differenceCount : -1,
+      authorizesProductionWrite: false,
+      thresholdConfigurable: false,
+      blockedReasons: ['F009_PHASE5F_UNKNOWN_STATE_DEFAULT_DENY', 'F009_PHASE5F_DRY_RUN_DIFFERENCE_BLOCK'],
+    };
+  }
+
+  const blocked = input.differenceCount > 0;
+
+  return {
+    _kind: 'f009_phase5f_dry_run_difference_result',
+    executable: false, aiCanExecute: false,
+    blocked,
+    differenceCount: input.differenceCount,
+    authorizesProductionWrite: false,
+    thresholdConfigurable: false,
+    blockedReasons: blocked
+      ? ['F009_PHASE5F_AUDIT_DIFFERENCE_DETECTED', 'F009_PHASE5F_DRY_RUN_DIFFERENCE_BLOCK']
+      : [],
+  };
+}
+
+// ─── Phase 5F SOC/audit-style payload for dry-run difference decisions ───────
+
+export interface F009Phase5FDryRunAuditPayload {
+  readonly _kind: 'f009_phase5f_dry_run_audit_payload';
+  readonly executable: false;
+  eventType: 'DRY_RUN_DIFFERENCE_DECISION';
+  tenantId: string;
+  operatorId: string;
+  decision: 'ALLOW' | 'BLOCK';
+  blockedReason: BlockedReason;
+  source: 'canaryAudit.dryRunDifference';
+  occurredAt: string;
+  traceId: string;
+  version: number;
+  expectedState: string;
+  observedState: string;
+  /** Always false — audit payload never authorizes production write */
+  authorizesProductionWrite: false;
+}
+
+export interface F009Phase5FDryRunAuditPayloadInput {
+  tenantId: string;
+  operatorId: string;
+  differenceCount: number;
+  occurredAt: string;
+  traceId: string;
+}
+
+export interface F009Phase5FDryRunAuditPayloadBuildResult {
+  readonly _kind: 'f009_phase5f_dry_run_audit_payload_build_result';
+  readonly executable: false;
+  readonly aiCanExecute: false;
+  ok: boolean;
+  payload: F009Phase5FDryRunAuditPayload | null;
+  blockedReasons: BlockedReason[];
+}
+
+const F009_PHASE5F_DRY_RUN_AUDIT_VERSION = 1;
+
+/**
+ * Builds a complete SOC/audit-style payload for a dry-run difference
+ * decision, carrying all SSOT-required fields. `decision: 'BLOCK'` whenever
+ * `differenceCount > 0` — mirrors `Difference > 0 = Block`.
+ */
+export function buildF009Phase5FDryRunAuditPayload(
+  input: F009Phase5FDryRunAuditPayloadInput | null | undefined,
+): F009Phase5FDryRunAuditPayloadBuildResult {
+  if (
+    !input
+    || !isNonEmptyString(input.tenantId)
+    || !isNonEmptyString(input.operatorId)
+    || !isNonEmptyString(input.occurredAt)
+    || !isNonEmptyString(input.traceId)
+    || typeof input.differenceCount !== 'number'
+    || !Number.isFinite(input.differenceCount)
+    || input.differenceCount < 0
+  ) {
+    return {
+      _kind: 'f009_phase5f_dry_run_audit_payload_build_result',
+      executable: false, aiCanExecute: false,
+      ok: false, payload: null,
+      blockedReasons: ['F009_PHASE5F_UNKNOWN_STATE_DEFAULT_DENY', 'F009_PHASE5F_AUDIT_PAYLOAD_INCOMPLETE'],
+    };
+  }
+
+  const blocked = input.differenceCount > 0;
+  const decision: 'ALLOW' | 'BLOCK' = blocked ? 'BLOCK' : 'ALLOW';
+  const blockedReason: BlockedReason = blocked
+    ? 'F009_PHASE5F_DRY_RUN_DIFFERENCE_BLOCK'
+    : 'F009_PHASE5F_SOC_AUDIT_EMITTED';
+
+  const payload: F009Phase5FDryRunAuditPayload = {
+    _kind: 'f009_phase5f_dry_run_audit_payload',
+    executable: false,
+    eventType: 'DRY_RUN_DIFFERENCE_DECISION',
+    tenantId: input.tenantId,
+    operatorId: input.operatorId,
+    decision,
+    blockedReason,
+    source: 'canaryAudit.dryRunDifference',
+    occurredAt: input.occurredAt,
+    traceId: input.traceId,
+    version: F009_PHASE5F_DRY_RUN_AUDIT_VERSION,
+    expectedState: 'DIFFERENCE_COUNT_0',
+    observedState: `DIFFERENCE_COUNT_${input.differenceCount}`,
+    authorizesProductionWrite: false,
+  };
+
+  return {
+    _kind: 'f009_phase5f_dry_run_audit_payload_build_result',
+    executable: false, aiCanExecute: false,
+    ok: true,
+    payload,
+    blockedReasons: blocked
+      ? ['F009_PHASE5F_AUDIT_DIFFERENCE_DETECTED', 'F009_PHASE5F_DRY_RUN_DIFFERENCE_BLOCK', 'F009_PHASE5F_SOC_AUDIT_EMITTED']
+      : ['F009_PHASE5F_SOC_AUDIT_EMITTED'],
+  };
+}

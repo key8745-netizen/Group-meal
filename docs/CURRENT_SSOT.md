@@ -14,13 +14,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Post-Release Monitoring: Feature 009 Contract-Readiness Boundary
+Feature 009 Phase 5: Real Model Config Apply Transaction Execution
 
 ---
 
 ## Current Phase
 
-Post-Release Monitoring / Feature 009 Phase 5 Planning Pending
+Planning / Spec Design
 
 ---
 
@@ -36,20 +36,16 @@ Post-Release Monitoring / Feature 009 Phase 5 Planning Pending
 * Feature 008: CLOSED
 * Feature 008 Post-Release Monitoring: PASSED
 * Feature 009 Spec v1.1: PASSED
-* Feature 009 Phase 1: PASSED
-* Feature 009 Phase 1 Commit: `d2add5a`
-* Feature 009 Phase 1 Grok Code Review: 96/100
-* Feature 009 Phase 2: PASSED
-* Feature 009 Phase 2 Commit: `4c0d96d`
-* Feature 009 Phase 2 Grok Code Review: 96/100
-* Feature 009 Phase 3: PASSED
-* Feature 009 Phase 3 Commit: `56f3dfb`
-* Feature 009 Phase 3 Grok Code Review: 96/100
-* Feature 009 Phase 4: PASSED
-* Feature 009 Phase 4 Commit: `1bdc805`
-* Feature 009 Phase 4 Grok Code Review: 96/100
+* Feature 009 Phase 1: PASSED (commit `d2add5a`, Grok 96/100)
+* Feature 009 Phase 2: PASSED (commit `4c0d96d`, Grok 96/100)
+* Feature 009 Phase 3: PASSED (commit `56f3dfb`, Grok 96/100)
+* Feature 009 Phase 4: PASSED (commit `1bdc805`, Grok 96/100)
 * Feature 009 contract-readiness version: CLOSED
-* ChatGPT Decision: Feature 009 contract-readiness version CLOSED; begin Post-Release Monitoring before Phase 5 / real execution
+* Feature 009 Post-Release Monitoring: PASSED
+* Feature 009 Post-Release Monitoring Commit: `78f7965`
+* Feature 009 Post-Release Monitoring Review: 96/100
+* Feature 009 Post-Release Monitoring Recommendation: MONITORING_OK
+* ChatGPT Decision: Feature 009 Post-Release Monitoring PASSED; begin Feature 009 Phase 5 Planning / Spec Design
 
 ---
 
@@ -61,43 +57,37 @@ Post-Release Monitoring / Feature 009 Phase 5 Planning Pending
 
 ## Current Commit
 
-`1bdc805`
+`78f7965`
 
 ---
 
-## Feature 009 Status
+## Feature 009 Phase 5 Goal
 
-Feature 009 is CLOSED as a contract-readiness version.
-Feature 009 does not implement real Firestore writes.
-Feature 009 does not implement real settings mutation.
-Feature 009 does not implement real settingsHistory writes.
-Feature 009 does not implement real approval persistence.
-Feature 009 does not implement real apply.
-Feature 009 does not implement real rollback.
-Feature 009 does not implement real cleanup jobs.
-Feature 009 does not add UI.
-Feature 009 does not add Netlify Functions or Cloud Functions.
-Feature 009 models real transaction behavior as contract / simulation only.
+Design (NOT implement) the first controlled real transaction execution boundary that
+will eventually allow a verified HUMAN-approved config apply to execute inside a real
+Firestore `runTransaction`, replacing the contract-only simulation built in Phases 1–4.
+This phase produces a spec and review only — recommended split into:
+* Phase 5A — emulator-only execution boundary
+* Phase 5B — production-gated execution boundary
+* Phase 5C — post-execution monitoring
 
 ---
 
 ## Allowed in this phase
 
-* Post-release monitoring
-* Contract-readiness behavior observation
-* Documentation updates
+* Spec discussion and design documentation
+* Gemini may produce the Feature 009 Phase 5 Spec
+* Grok may prepare the Feature 009 Phase 5 Spec Review
+* Defining boundaries, contracts, and risk coverage for Phase 5
 * SSOT update
-* Risk register update
-* Feature 009 Phase 5 planning discussion only
-* Gemini may prepare Phase 5 spec only after ibi / ChatGPT approval
-* Grok may prepare Phase 5 spec review only after Gemini spec exists
+* Documentation updates related to planning only
 
 ---
 
 ## Forbidden in this phase
 
-* Do not start Phase 5 implementation
-* Do not let Claude implement new code beyond monitoring/docs unless explicitly approved
+* Do not let Claude implement any Phase 5 code
+* Do not let Claude write, modify, or scaffold any real transaction executor
 * Do not write Firestore
 * Do not mutate Firestore
 * Do not modify `settings`
@@ -111,66 +101,56 @@ Feature 009 models real transaction behavior as contract / simulation only.
 * Do not add UI
 * Do not add Netlify Functions
 * Do not add Cloud Functions
-* Do not modify Feature 001 core flow
-* Do not modify Feature 002 inventory mutation logic
-* Do not modify Feature 003 prediction logic
-* Do not modify Feature 004 dry-run boundary
-* Do not modify Feature 005 dry-run execution boundary
-* Do not modify Feature 006 dry-run transaction-readiness boundary
-* Do not modify Feature 007 dry-run real-apply readiness boundary
-* Do not modify Feature 008 dry-run executor-readiness boundary
-* Do not modify Feature 009 contract-readiness boundary
+* Do not modify Feature 001–008 core flows or boundaries
+* Do not modify the Feature 009 contract-readiness boundary (Phases 1–4)
 * Do not allow AI to apply config
 * Do not allow AI to mutate settings or rules
-* Do not change `wasteFactorWarning` automatically
-* Do not introduce new production write paths
+* Do not begin Phase 5 implementation under any circumstance until explicit ChatGPT/ibi GO
 
 ---
 
 ## Required Guard Rails
 
-* Feature 009 contract-readiness boundary must remain intact.
-* AI cannot apply config.
-* AI cannot mutate settings or rules.
-* Transaction contracts must not become executable.
-* `executable` must remain `false`.
-* `aiCanExecute` must remain `false`.
-* Verified caller context validation must remain intact.
-* Middleware / Firebase token consistency validation must remain intact.
-* Approval / settings / lock read-set consistency must remain intact.
-* Concurrent modification blocking must remain intact.
-* Duplicate apply behavior modeling must remain intact.
-* Idempotency lifecycle contract must remain intact.
-* Abort atomicity contract must remain intact.
-* FAILED audit payload contract must remain intact.
-* ABANDONED lock transition contract must remain intact.
-* Abort path must not produce settings mutation.
-* Abort path must not write settingsHistory.
-* Static guards / CI rules must continue blocking forbidden imports and forbidden calls.
+* Claude remains HOLD until the Feature 009 Phase 5 Spec passes Grok review and ChatGPT/ibi explicitly authorize implementation.
+* Feature 009 contract-readiness boundary (Phases 1–4) must remain intact and untouched.
+* `executable` and `aiCanExecute` must remain `false` on all existing contracts.
+* AI cannot apply config; AI cannot mutate settings or rules.
 * Any future real transaction executor must be a new approved phase with Gemini spec, Grok review, and ChatGPT gatekeeping.
+* Static guards / CI rules must continue blocking forbidden imports and forbidden calls.
 
 ---
 
-## Known Accepted Risks / Future Work
+## Priority Risks For Phase 5 Spec
 
-* Real Firestore transaction execution is not implemented.
-* Real Firestore write is not implemented.
-* Real settings mutation is not implemented.
-* Real settingsHistory write is not implemented.
-* Real approval persistence is not implemented.
-* Real apply result persistence is not implemented.
-* Real rollback is not implemented.
-* Real cleanup job is not implemented.
-* UI approval/apply flow is not implemented.
-* Phase 5 should decide whether to introduce the first real write transaction or perform another release gate before real execution.
+Gemini's spec must explicitly address:
+1. Real `admin.auth().verifyIdToken(token)` integration and failure modes
+2. Real Firestore read of `settings/{tenantId}` inside `runTransaction`
+3. Real read of approval record and its consistency with the contract read-set order
+4. Real read of idempotency lock record and atomic check-and-write
+5. Atomicity of PENDING→ABANDONED abort transition (flagged race condition risk in Phase 4)
+6. Real `settingsHistory` immutable append semantics
+7. Real `settings` current version update and optimistic concurrency handling
+8. Real audit event write (transactional vs. committed-after)
+9. Emulator-only vs. production-gated execution boundary separation (5A/5B split)
+10. Rollback boundary scope (explicitly deferred from Feature 009)
+11. Cleanup job boundary scope (explicitly deferred from Feature 009)
+12. Tenant hard guard execution order in the real transaction
+13. Service Account / Admin SDK caller hard-block enforcement at execution time
+14. Three-way Firebase token / middleware / request consistency at execution time
+15. Concurrent modification detection (version + hash) at execution time
+16. Duplicate apply / idempotent replay handling at execution time
+17. FAILED audit payload completeness on real abort paths
+18. Static guard / CI updates required to scan new Phase 5 executor files
+19. Test strategy for real `runTransaction` execution (emulator suite design)
+20. Rollout / feature-flag strategy and kill-switch design for first real execution
 
 ---
 
 ## Team State
 
-* Claude: HOLD / post-release monitoring support only
-* Gemini: HOLD / Phase 5 planning later
-* Grok: HOLD / Prepare monitoring review if requested
+* Claude: HOLD
+* Gemini: GO - Produce Feature 009 Phase 5 Spec
+* Grok: GO - Prepare Phase 5 Spec Review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -178,13 +158,26 @@ Feature 009 models real transaction behavior as contract / simulation only.
 
 ## Next Expected Input
 
-ibi decision:
-1. Start Feature 009 post-release monitoring review
-2. Pause development and observe production
-3. Begin Feature 009 Phase 5 planning after monitoring baseline
+Gemini's Feature 009 Phase 5 Spec, which must include at minimum:
+1. Scope boundary definition (5A emulator-only / 5B production-gated / 5C monitoring)
+2. Real `runTransaction` executor service design orchestrating Phase 1–4 validators
+3. Real Firebase Admin SDK `admin.auth().verifyIdToken(token)` middleware integration design
+4. Real Firestore read design for `settings/{tenantId}`, approval, and lock inside `runTransaction`
+5. Real idempotency lock check-and-write design inside `runTransaction`
+6. Real `settingsHistory` immutable append design
+7. Real `settings` current version update design
+8. Real audit event write design (transactional or committed-after)
+9. Atomicity design for PENDING→ABANDONED abort transition
+10. File list (new files, modified files) with explicit allowed/forbidden boundaries
+11. Static guard / CI update plan for new executor files
+12. Test strategy (emulator suite, assertion counts, coverage targets)
+13. Rollout / feature-flag / kill-switch design
+14. Risk register addressing all 20 Priority Risks above
+15. Explicit non-goals (what Phase 5 will NOT do)
+16. Required Grok review checklist items
 
-Recommended next step:
-Run a short post-release monitoring window for Feature 009 contract-readiness behavior before opening Phase 5 real transaction execution.
+After Gemini's Spec is produced, Grok prepares the Phase 5 Spec Review, and ChatGPT/ibi
+will gate authorization for any Claude implementation work.
 
 ---
 

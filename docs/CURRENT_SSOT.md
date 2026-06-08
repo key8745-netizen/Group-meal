@@ -14,13 +14,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Feature 009 Phase 5B: Production-Gated Real Model Config Apply Transaction Rollout
+Post-Phase 5B Monitoring: Feature 009 Production-Gated Rollout Foundation
 
 ---
 
 ## Current Phase
 
-Phase 5B: Implementation — Staging-first / Production-gated Foundation
+Post-Phase 5B Monitoring / Phase 5C Planning Pending
 
 ---
 
@@ -38,8 +38,10 @@ Phase 5B: Implementation — Staging-first / Production-gated Foundation
 * Feature 009 Phase 5A: PASSED
 * Feature 009 Phase 5A Post-Emulator Monitoring: PASSED
 * Feature 009 Phase 5B Spec v1.2: PASSED
-* Feature 009 Phase 5B Spec v1.2 Grok Review: 95/100
-* ChatGPT Decision: Claude GO - Feature 009 Phase 5B only
+* Feature 009 Phase 5B Implementation: PASSED
+* Feature 009 Phase 5B Commit: `b16eeda`
+* Feature 009 Phase 5B Grok Code Review: 96/100
+* ChatGPT Decision: Feature 009 Phase 5B PASSED; begin Post-Phase 5B Monitoring before Phase 5C Planning
 
 ---
 
@@ -51,97 +53,58 @@ Phase 5B: Implementation — Staging-first / Production-gated Foundation
 
 ## Current Commit
 
-`c1446f2`
+`b16eeda`
 
 ---
 
-## Phase 5B Goal
+## Feature 009 Phase 5B Status
 
-Implement the production-gated rollout foundation for the real model config apply transaction executor.
-Phase 5B must remain conservative:
-* staging-first
-* production-disabled-by-default
-* tenant allowlist mandatory
-* operator allowlist mandatory
-* operator confirmation mandatory
-* kill switch mandatory
-* emergency disable mandatory
-* dry-run-to-real comparison mandatory
-* deployment pipeline hard-block mandatory
-* no broad production rollout
-* no UI
-* no rollback
-* no cleanup job
-
-Phase 5B may extend the Phase 5A emulator-only executor with production-gate infrastructure, but it must not open broad production writes.
-
----
-
-## Phase 5B Priority Risks
-
-Grok identified two medium risks that must be handled in Phase 5B implementation:
-
-### 1. Kill Switch Reset Audit Trail Integrity
-
-* Kill switch reset must not be a casual single-operator action.
-* Reset must require two-person integrity if scoped.
-* Reset audit event must include: tenantId or global scope, reset requestedBy, reset approvedBy, previous state, next state, reason, timestamp, auditTrailId.
-* Reset failure must not leave inconsistent state.
-* If implemented, reset should be transaction-protected.
-* Missing reset audit payload must BLOCK.
-
-### 2. Final Physical Production Deployment Gate
-
-* Production hard-block must not rely only on app-level runtime flags.
-* CI / deployment gate must prevent accidental production enablement.
-* Production write enablement must require explicit manual approval.
-* Canary / staging gate must be documented.
-* If pipeline gate is missing, production-gated execution must remain disabled.
-* Broad production rollout remains forbidden.
+Feature 009 Phase 5B has successfully implemented the production-gated rollout foundation.
+Production remains disabled-by-default.
+Broad production rollout remains forbidden.
+Production execution requires all gates:
+* production gate config
+* deployment gate
+* kill switch OFF
+* tenant allowlist
+* operator allowlist
+* operator confirmation
+* dry-run-to-real comparison
+* verified human caller
+* persisted approval
+* AI / Service Account / Admin SDK hard-block
 
 ---
 
 ## Allowed in this phase
 
-* ProductionAccessManager implementation
-* ProductionGate service
-* Staging-first rollout guard
-* Production disabled-by-default guard
-* Tenant allowlist validator
-* Operator allowlist validator
-* Operator confirmation validator
-* Kill switch validator
-* Kill switch reset contract
-* Two-person integrity reset contract if scoped
-* Emergency disable contract
-* DryRunToRealComparer
-* ProductionEnvironmentGuard extension
-* Production write enable flag validation
-* Staging environment validation
-* Deployment pipeline gate contract
-* CI / static guard enforcement
-* Audit payload for operator confirmation
-* Audit payload for blocked production attempt
-* Audit payload for kill switch block
-* Audit payload for kill switch reset
-* Audit payload for emergency disable
-* Monitoring metric payload helpers
-* Tests for production hard-block
-* Tests for tenant allowlist
-* Tests for operator allowlist
-* Tests for operator confirmation
-* Tests for kill switch
-* Tests for kill switch reset audit
-* Tests for emergency disable
-* Tests for dry-run-to-real comparison
-* Tests for deployment gate hard-block
-* Docs
+* Post-Phase 5B monitoring
+* Re-run tests
+* Re-run typecheck / build
+* Re-run static guard
+* Verify production disabled-by-default
+* Verify missing gate config BLOCKED
+* Verify missing deployment gate BLOCKED
+* Verify kill switch ON BLOCKED
+* Verify kill switch reset audit payload
+* Verify emergency disable contract
+* Verify tenant allowlist enforcement
+* Verify operator allowlist enforcement
+* Verify operator confirmation enforcement
+* Verify dry-run-to-real comparison
+* Verify no broad production rollout
+* Verify no UI
+* Verify no rollback
+* Verify no cleanup
+* Documentation updates
 * SSOT update
+* Risk register update
 
 ---
 
 ## Forbidden in this phase
 
+* Do not start Phase 5C implementation
 * Do not allow broad production rollout
 * Do not allow production write without explicit gate
 * Do not allow production write without tenant allowlist
@@ -170,103 +133,68 @@ Grok identified two medium risks that must be handled in Phase 5B implementation
 
 ---
 
-## Required Guard Rails
+## Required Monitoring Checks
 
-* Production rollout must be disabled by default.
-* Unknown environment must default-deny.
-* Missing production gate config must BLOCK.
-* Missing deployment pipeline gate must BLOCK.
-* Missing tenant allowlist must BLOCK.
-* Missing operator allowlist must BLOCK.
-* Missing operator confirmation must BLOCK.
-* Kill switch ON must BLOCK.
-* Kill switch missing must BLOCK.
-* Production write enable flag must be explicit.
-* Tenant must be explicitly allowlisted.
-* Operator must be explicitly allowlisted.
-* Operator confirmation must bind: tenantId, approvalId, applyToken, expectedCurrentVersion, configBeforeHash, configAfterHash, diffHash, operatorUserId, timestamp.
-* Dry-run-to-real comparison must validate: tenantId, approvalId, sourceRecommendationId, auditTrailId, expectedCurrentVersion, configBeforeHash, configAfterHash, diffHash, applyToken, payloadHash.
-* Any mismatch must BLOCK.
-* AI caller must remain hard-blocked.
-* Service Account / Admin SDK must not imply business permission.
-* Verified human caller remains mandatory.
-* Persisted approval remains mandatory.
-* expectedCurrentVersion remains mandatory.
-* Canonical hash validation remains mandatory.
-* Idempotency lock behavior remains mandatory.
-* settingsHistory remains immutable append-only.
-* Audit event atomicity remains mandatory.
-* Kill switch reset must be audited if implemented.
-* Emergency disable must be auditable.
-* Rollback remains excluded.
-* Cleanup remains excluded.
-* UI remains excluded.
-
----
-
-## Required Tests
-
-Phase 5B must include tests for:
-* production disabled by default
-* unknown environment BLOCKED
-* missing gate config BLOCKED
-* missing deployment gate BLOCKED
-* production disabled flag BLOCKED
-* production enabled without tenant allowlist BLOCKED
-* production enabled without operator allowlist BLOCKED
-* production enabled without operator confirmation BLOCKED
-* kill switch ON BLOCKED
-* kill switch missing BLOCKED
-* kill switch OFF + all gates valid passes
-* kill switch reset requires complete audit payload
-* kill switch reset missing audit payload BLOCKED
-* emergency disable modeled
+Post-Phase 5B Monitoring must confirm:
+* production disabled-by-default remains intact
+* missing gate config remains BLOCKED
+* missing deployment gate remains BLOCKED
+* kill switch ON remains BLOCKED
+* kill switch missing remains BLOCKED
+* kill switch reset audit remains complete
+* kill switch reset failure does not leave inconsistent state
+* emergency disable remains modeled
 * emergency disabled state blocks future apply
-* tenant allowlisted passes
-* tenant not allowlisted BLOCKED
-* missing tenant allowlist BLOCKED
-* operator allowlisted passes
-* operator not allowlisted BLOCKED
-* missing operator allowlist BLOCKED
-* valid operator confirmation passes
-* missing operator confirmation BLOCKED
-* malformed operator confirmation BLOCKED
-* tenant mismatch BLOCKED
-* approvalId mismatch BLOCKED
-* applyToken mismatch BLOCKED
-* expectedCurrentVersion mismatch BLOCKED
-* configBeforeHash mismatch BLOCKED
-* configAfterHash mismatch BLOCKED
-* diffHash mismatch BLOCKED
-* operatorUserId mismatch BLOCKED
-* dry-run-to-real exact match passes
-* dry-run-to-real tenantId mismatch BLOCKED
-* dry-run-to-real approvalId mismatch BLOCKED
-* dry-run-to-real sourceRecommendationId mismatch BLOCKED
-* dry-run-to-real auditTrailId mismatch BLOCKED
-* dry-run-to-real expectedCurrentVersion mismatch BLOCKED
-* dry-run-to-real configBeforeHash mismatch BLOCKED
-* dry-run-to-real configAfterHash mismatch BLOCKED
-* dry-run-to-real diffHash mismatch BLOCKED
-* dry-run-to-real applyToken mismatch BLOCKED
-* dry-run-to-real payloadHash mismatch BLOCKED
-* AI caller BLOCKED
-* Service Account / Admin SDK bypass BLOCKED
-* no broad production rollout
-* no UI
-* no rollback
-* no cleanup
+* tenant allowlist remains mandatory
+* operator allowlist remains mandatory
+* operator confirmation remains mandatory
+* dry-run-to-real comparison remains complete
+* AI caller remains BLOCKED
+* Service Account / Admin SDK bypass remains BLOCKED
+* no broad production rollout exists
+* no UI exists
+* no rollback exists
+* no cleanup exists
 * tests pass
 * typecheck pass
 * build pass
+* static guard passes
+
+---
+
+## Priority Monitoring Risks
+
+Grok identified two medium risks to monitor:
+
+### 1. Kill Switch Reset Transaction Protection
+
+Monitoring should verify:
+* reset audit event is complete
+* reset cannot be performed with missing requestedBy
+* reset cannot be performed with missing approvedBy
+* reset cannot be performed with same requestedBy and approvedBy if TPI is required
+* reset cannot be performed with missing reason
+* reset cannot be performed with previousState / nextState mismatch
+* reset failure does not leave inconsistent state
+* reset flow is transaction-protected if implemented
+
+### 2. Deployment Pipeline Gate CI / Terraform Enforcement
+
+Monitoring should verify:
+* deployment gate is not only app-level
+* CI / deployment script includes hard-block logic
+* manual approval step is documented if production enablement is ever attempted
+* missing CI deployment gate blocks production-gated execution
+* KMS / Terraform / CI gate assumptions are documented
+* broad production rollout remains forbidden
 
 ---
 
 ## Team State
 
-* Claude: GO - Feature 009 Phase 5B only
-* Gemini: HOLD / support clarification only
-* Grok: Prepare Feature 009 Phase 5B code review
+* Claude: HOLD / post-Phase 5B monitoring support only
+* Gemini: HOLD / Phase 5C planning later
+* Grok: GO - Prepare Post-Phase 5B Monitoring Review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -274,27 +202,32 @@ Phase 5B must include tests for:
 
 ## Next Expected Input
 
-Claude Feature 009 Phase 5B report:
+Claude Feature 009 Phase 5B Post-Monitoring report:
+* observation window
 * branch name
 * commit hash
-* changed files
 * tests result
 * typecheck result
 * build result
+* static guard result
 * production disabled-by-default confirmation
-* tenant allowlist validator confirmation
-* operator allowlist validator confirmation
-* operator confirmation validator confirmation
-* kill switch validator confirmation
+* missing gate config BLOCKED confirmation
+* missing deployment gate BLOCKED confirmation
+* kill switch ON BLOCKED confirmation
 * kill switch reset audit confirmation
-* emergency disable contract confirmation
-* deployment gate hard-block confirmation
+* kill switch reset failure consistency confirmation
+* emergency disable confirmation
+* tenant allowlist confirmation
+* operator allowlist confirmation
+* operator confirmation confirmation
 * dry-run-to-real comparison confirmation
 * no broad production rollout confirmation
 * no UI confirmation
 * no rollback confirmation
 * no cleanup confirmation
+* deployment gate / CI enforcement notes
 * known limitations
+* final recommendation: MONITORING_OK / NEEDS_PATCH / BLOCKED
 
 ---
 

@@ -14,13 +14,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Feature 009 Phase 5: Real Model Config Apply Transaction Execution
+Feature 009 Phase 5A: Emulator-only Real Model Config Apply Transaction Executor
 
 ---
 
 ## Current Phase
 
-Planning / Spec Design
+Phase 5A: Emulator-only Real Transaction Executor Implementation
 
 ---
 
@@ -34,18 +34,13 @@ Planning / Spec Design
 * Feature 006: CLOSED
 * Feature 007: CLOSED
 * Feature 008: CLOSED
-* Feature 008 Post-Release Monitoring: PASSED
-* Feature 009 Spec v1.1: PASSED
-* Feature 009 Phase 1: PASSED (commit `d2add5a`, Grok 96/100)
-* Feature 009 Phase 2: PASSED (commit `4c0d96d`, Grok 96/100)
-* Feature 009 Phase 3: PASSED (commit `56f3dfb`, Grok 96/100)
-* Feature 009 Phase 4: PASSED (commit `1bdc805`, Grok 96/100)
 * Feature 009 contract-readiness version: CLOSED
 * Feature 009 Post-Release Monitoring: PASSED
-* Feature 009 Post-Release Monitoring Commit: `78f7965`
-* Feature 009 Post-Release Monitoring Review: 96/100
-* Feature 009 Post-Release Monitoring Recommendation: MONITORING_OK
-* ChatGPT Decision: Feature 009 Post-Release Monitoring PASSED; begin Feature 009 Phase 5 Planning / Spec Design
+* Feature 009 Phase 5 Spec v1.1: PASSED
+* Feature 009 Phase 5 Spec v1.1 Grok Review: 96/100
+* ChatGPT Decision: Claude GO - Feature 009 Phase 5A only
+* Scope: Emulator-only real transaction executor
+* Production write: FORBIDDEN
 
 ---
 
@@ -61,96 +56,150 @@ Planning / Spec Design
 
 ---
 
-## Feature 009 Phase 5 Goal
+## Phase 5A Goal
 
-Design (NOT implement) the first controlled real transaction execution boundary that
-will eventually allow a verified HUMAN-approved config apply to execute inside a real
-Firestore `runTransaction`, replacing the contract-only simulation built in Phases 1–4.
-This phase produces a spec and review only — recommended split into:
-* Phase 5A — emulator-only execution boundary
-* Phase 5B — production-gated execution boundary
-* Phase 5C — post-execution monitoring
+Implement the first real Firestore transaction executor for human-approved model config apply, but only in Firebase Emulator / test environment.
+Phase 5A may introduce real `runTransaction` only behind a strict emulator-only guard.
+Phase 5A must hard-block all production writes.
+Phase 5A must not expose UI.
+Phase 5A must not add Netlify Functions or Cloud Functions.
+Phase 5A must not enable production settings mutation.
 
 ---
 
 ## Allowed in this phase
 
-* Spec discussion and design documentation
-* Gemini may produce the Feature 009 Phase 5 Spec
-* Grok may prepare the Feature 009 Phase 5 Spec Review
-* Defining boundaries, contracts, and risk coverage for Phase 5
+* Emulator-only real transaction executor
+* ProductionEnvironmentGuard
+* Firebase Emulator environment detection
+* Hard-block production project IDs
+* Real `runTransaction` only in emulator / test environment
+* Real emulator read of approval document
+* Real emulator read of settings document
+* Real emulator read/write of idempotency lock
+* Real emulator write of immutable settingsHistory version
+* Real emulator update of settings current config and currentVersion
+* Real emulator audit event write
+* Emulator integration tests
+* Negative tests proving production write is blocked
+* Verified human caller validation
+* Persisted approval validation
+* expectedCurrentVersion validation
+* canonical hash validation inside emulator transaction
+* idempotency lock behavior
+* duplicate apply tests
+* transaction atomicity tests
+* abort / failure recovery tests
+* docs
+* tests
 * SSOT update
-* Documentation updates related to planning only
 
 ---
 
 ## Forbidden in this phase
 
-* Do not let Claude implement any Phase 5 code
-* Do not let Claude write, modify, or scaffold any real transaction executor
-* Do not write Firestore
-* Do not mutate Firestore
-* Do not modify `settings`
-* Do not write `settingsHistory`
-* Do not create real approval records
-* Do not create real apply records
-* Do not create real rollback records
-* Do not create real cleanup jobs
-* Do not actually apply config
-* Do not actually rollback config
+* Do not allow production Firestore write
+* Do not mutate production settings
+* Do not write production settingsHistory
+* Do not create production approval records
+* Do not create production apply records
+* Do not create production rollback records
+* Do not create production cleanup jobs
+* Do not apply config in production
+* Do not rollback config in production
 * Do not add UI
 * Do not add Netlify Functions
 * Do not add Cloud Functions
-* Do not modify Feature 001–008 core flows or boundaries
-* Do not modify the Feature 009 contract-readiness boundary (Phases 1–4)
+* Do not implement rollback
+* Do not implement cleanup job
+* Do not modify Feature 001 core flow
+* Do not modify Feature 002 inventory mutation logic
+* Do not modify Feature 003 prediction logic
+* Do not modify Feature 004 dry-run boundary
+* Do not modify Feature 005 dry-run execution boundary
+* Do not modify Feature 006 dry-run transaction-readiness boundary
+* Do not modify Feature 007 dry-run real-apply readiness boundary
+* Do not modify Feature 008 dry-run executor-readiness boundary
 * Do not allow AI to apply config
 * Do not allow AI to mutate settings or rules
-* Do not begin Phase 5 implementation under any circumstance until explicit ChatGPT/ibi GO
+* Do not change `wasteFactorWarning` automatically
+* Do not introduce production write paths
 
 ---
 
 ## Required Guard Rails
 
-* Claude remains HOLD until the Feature 009 Phase 5 Spec passes Grok review and ChatGPT/ibi explicitly authorize implementation.
-* Feature 009 contract-readiness boundary (Phases 1–4) must remain intact and untouched.
-* `executable` and `aiCanExecute` must remain `false` on all existing contracts.
-* AI cannot apply config; AI cannot mutate settings or rules.
-* Any future real transaction executor must be a new approved phase with Gemini spec, Grok review, and ChatGPT gatekeeping.
-* Static guards / CI rules must continue blocking forbidden imports and forbidden calls.
+* ProductionEnvironmentGuard must execute before any transaction.
+* Emulator-only check must hard-block production writes.
+* Production project IDs must be explicitly blocked.
+* Unknown environment must default-deny.
+* Missing emulator flag must BLOCK.
+* `NODE_ENV=test` alone is not sufficient unless combined with explicit emulator project guard.
+* AI caller must be hard-blocked.
+* Service Account / Admin SDK must not imply business permission.
+* Verified human caller is mandatory.
+* Persisted human approval is mandatory.
+* Approval status must be `APPROVED`.
+* Approval tenantId must match request tenantId.
+* Approval approvedBy must match verified caller unless delegated apply is explicitly modeled.
+* Transaction must validate approval before any write.
+* Transaction must validate settings currentVersion.
+* Transaction must canonicalize current config inside transaction.
+* Transaction must validate configBeforeHash against actual current config.
+* Transaction must validate configAfterHash and diffHash.
+* Transaction must write idempotency lock.
+* Transaction must write immutable settingsHistory.
+* Transaction must update settings current config and currentVersion.
+* Transaction must write audit event.
+* Duplicate apply must be blocked or explicitly idempotent.
+* Same token + same payload behavior must be tested.
+* Same token + different payload must BLOCK.
+* Same approvalId + different token must BLOCK.
+* Abort path must not partially mutate settings.
+* settingsHistory must remain append-only.
+* Rollback remains excluded.
+* Cleanup job remains excluded.
+* UI remains excluded.
 
 ---
 
-## Priority Risks For Phase 5 Spec
+## Required Tests
 
-Gemini's spec must explicitly address:
-1. Real `admin.auth().verifyIdToken(token)` integration and failure modes
-2. Real Firestore read of `settings/{tenantId}` inside `runTransaction`
-3. Real read of approval record and its consistency with the contract read-set order
-4. Real read of idempotency lock record and atomic check-and-write
-5. Atomicity of PENDING→ABANDONED abort transition (flagged race condition risk in Phase 4)
-6. Real `settingsHistory` immutable append semantics
-7. Real `settings` current version update and optimistic concurrency handling
-8. Real audit event write (transactional vs. committed-after)
-9. Emulator-only vs. production-gated execution boundary separation (5A/5B split)
-10. Rollback boundary scope (explicitly deferred from Feature 009)
-11. Cleanup job boundary scope (explicitly deferred from Feature 009)
-12. Tenant hard guard execution order in the real transaction
-13. Service Account / Admin SDK caller hard-block enforcement at execution time
-14. Three-way Firebase token / middleware / request consistency at execution time
-15. Concurrent modification detection (version + hash) at execution time
-16. Duplicate apply / idempotent replay handling at execution time
-17. FAILED audit payload completeness on real abort paths
-18. Static guard / CI updates required to scan new Phase 5 executor files
-19. Test strategy for real `runTransaction` execution (emulator suite design)
-20. Rollout / feature-flag strategy and kill-switch design for first real execution
+Phase 5A must include tests for:
+* valid emulator transaction success
+* production project hard-block
+* missing emulator flag BLOCKED
+* unknown environment BLOCKED
+* AI caller BLOCKED
+* Service Account / Admin SDK bypass attempt BLOCKED
+* invalid approval BLOCKED
+* tenant mismatch BLOCKED
+* approvedBy mismatch BLOCKED
+* expectedCurrentVersion mismatch BLOCKED
+* currentConfig hash mismatch BLOCKED
+* configAfterHash mismatch BLOCKED
+* diffHash mismatch BLOCKED
+* duplicate apply behavior
+* same token + same payload behavior
+* same token + different payload BLOCKED
+* same approvalId + different token BLOCKED
+* settingsHistory immutable append-only write in emulator
+* settings currentVersion update in emulator
+* audit event write in emulator
+* transaction atomicity
+* abort path
+* no production write path
+* no UI
+* no Netlify Function
+* no Cloud Function
 
 ---
 
 ## Team State
 
-* Claude: HOLD
-* Gemini: GO - Produce Feature 009 Phase 5 Spec
-* Grok: GO - Prepare Phase 5 Spec Review
+* Claude: GO - Feature 009 Phase 5A only
+* Gemini: HOLD / support clarification only
+* Grok: Prepare Feature 009 Phase 5A code review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -158,26 +207,28 @@ Gemini's spec must explicitly address:
 
 ## Next Expected Input
 
-Gemini's Feature 009 Phase 5 Spec, which must include at minimum:
-1. Scope boundary definition (5A emulator-only / 5B production-gated / 5C monitoring)
-2. Real `runTransaction` executor service design orchestrating Phase 1–4 validators
-3. Real Firebase Admin SDK `admin.auth().verifyIdToken(token)` middleware integration design
-4. Real Firestore read design for `settings/{tenantId}`, approval, and lock inside `runTransaction`
-5. Real idempotency lock check-and-write design inside `runTransaction`
-6. Real `settingsHistory` immutable append design
-7. Real `settings` current version update design
-8. Real audit event write design (transactional or committed-after)
-9. Atomicity design for PENDING→ABANDONED abort transition
-10. File list (new files, modified files) with explicit allowed/forbidden boundaries
-11. Static guard / CI update plan for new executor files
-12. Test strategy (emulator suite, assertion counts, coverage targets)
-13. Rollout / feature-flag / kill-switch design
-14. Risk register addressing all 20 Priority Risks above
-15. Explicit non-goals (what Phase 5 will NOT do)
-16. Required Grok review checklist items
-
-After Gemini's Spec is produced, Grok prepares the Phase 5 Spec Review, and ChatGPT/ibi
-will gate authorization for any Claude implementation work.
+Claude Feature 009 Phase 5A report:
+* branch name
+* commit hash
+* changed files
+* tests result
+* typecheck result
+* build result
+* emulator integration test result
+* confirmation that production write is hard-blocked
+* confirmation that ProductionEnvironmentGuard is implemented
+* confirmation that real transaction only runs in emulator / test environment
+* confirmation that no production settings mutation exists
+* confirmation that no production settingsHistory write exists
+* confirmation that no UI was added
+* confirmation that no Netlify Function / Cloud Function was added
+* confirmation that AI caller is blocked
+* confirmation that Service Account / Admin SDK cannot bypass business guard
+* confirmation that idempotency lock behavior works
+* confirmation that settingsHistory append-only behavior works in emulator
+* confirmation that audit event write works in emulator
+* confirmation that abort path is safe
+* known limitations
 
 ---
 

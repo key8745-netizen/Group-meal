@@ -20,7 +20,7 @@ Feature 009 Phase 5B: Production-Gated Real Model Config Apply Transaction Rollo
 
 ## Current Phase
 
-Planning / Spec Design
+Phase 5B: Implementation — Staging-first / Production-gated Foundation
 
 ---
 
@@ -35,15 +35,11 @@ Planning / Spec Design
 * Feature 007: CLOSED
 * Feature 008: CLOSED
 * Feature 009 contract-readiness version: CLOSED
-* Feature 009 Post-Release Monitoring: PASSED
-* Feature 009 Phase 5 Spec v1.1: PASSED
 * Feature 009 Phase 5A: PASSED
-* Feature 009 Phase 5A Commit: `018dd34`
-* Feature 009 Phase 5A Grok Code Review: 95/100
 * Feature 009 Phase 5A Post-Emulator Monitoring: PASSED
-* Feature 009 Phase 5A Monitoring Commit: `c1446f2`
-* Feature 009 Phase 5A Monitoring Review: 96/100
-* ChatGPT Decision: Begin Feature 009 Phase 5B Planning only; Claude HOLD
+* Feature 009 Phase 5B Spec v1.2: PASSED
+* Feature 009 Phase 5B Spec v1.2 Grok Review: 95/100
+* ChatGPT Decision: Claude GO - Feature 009 Phase 5B only
 
 ---
 
@@ -61,61 +57,108 @@ Planning / Spec Design
 
 ## Phase 5B Goal
 
-Design a production-gated rollout strategy for the real model config apply transaction executor.
-Phase 5A proved the transaction executor works safely in Firebase Emulator.
-Phase 5B must define how, whether, and under what strict gates this executor may be introduced toward production.
-Phase 5B is Planning / Spec Design only.
-No production write is allowed in this phase.
-Claude must remain HOLD until Gemini Spec passes Grok review and ChatGPT / ibi explicitly approve implementation.
+Implement the production-gated rollout foundation for the real model config apply transaction executor.
+Phase 5B must remain conservative:
+* staging-first
+* production-disabled-by-default
+* tenant allowlist mandatory
+* operator allowlist mandatory
+* operator confirmation mandatory
+* kill switch mandatory
+* emergency disable mandatory
+* dry-run-to-real comparison mandatory
+* deployment pipeline hard-block mandatory
+* no broad production rollout
+* no UI
+* no rollback
+* no cleanup job
+
+Phase 5B may extend the Phase 5A emulator-only executor with production-gate infrastructure, but it must not open broad production writes.
+
+---
+
+## Phase 5B Priority Risks
+
+Grok identified two medium risks that must be handled in Phase 5B implementation:
+
+### 1. Kill Switch Reset Audit Trail Integrity
+
+* Kill switch reset must not be a casual single-operator action.
+* Reset must require two-person integrity if scoped.
+* Reset audit event must include: tenantId or global scope, reset requestedBy, reset approvedBy, previous state, next state, reason, timestamp, auditTrailId.
+* Reset failure must not leave inconsistent state.
+* If implemented, reset should be transaction-protected.
+* Missing reset audit payload must BLOCK.
+
+### 2. Final Physical Production Deployment Gate
+
+* Production hard-block must not rely only on app-level runtime flags.
+* CI / deployment gate must prevent accidental production enablement.
+* Production write enablement must require explicit manual approval.
+* Canary / staging gate must be documented.
+* If pipeline gate is missing, production-gated execution must remain disabled.
+* Broad production rollout remains forbidden.
 
 ---
 
 ## Allowed in this phase
 
-* Phase 5B requirements discussion
-* Gemini produces Phase 5B Spec
-* Grok reviews Phase 5B Spec
-* Define production rollout gate
-* Define production allowlist / tenant allowlist
-* Define operator approval requirement
-* Define production kill switch
-* Define rollout mode:
-  * emulator-only continuation
-  * staging-only rollout
-  * production canary
-  * production disabled by default
-* Define production environment guard extension
-* Define production write enable flag
-* Define dry-run-to-real comparison strategy
-* Define audit / monitoring strategy
-* Define failure / abort strategy
-* Define rollback boundary
-* Define cleanup boundary
-* Define UI boundary
-* Define post-rollout monitoring strategy
-* Define Claude Phase 5B implementation scope
-* Docs / SSOT update
+* ProductionAccessManager implementation
+* ProductionGate service
+* Staging-first rollout guard
+* Production disabled-by-default guard
+* Tenant allowlist validator
+* Operator allowlist validator
+* Operator confirmation validator
+* Kill switch validator
+* Kill switch reset contract
+* Two-person integrity reset contract if scoped
+* Emergency disable contract
+* DryRunToRealComparer
+* ProductionEnvironmentGuard extension
+* Production write enable flag validation
+* Staging environment validation
+* Deployment pipeline gate contract
+* CI / static guard enforcement
+* Audit payload for operator confirmation
+* Audit payload for blocked production attempt
+* Audit payload for kill switch block
+* Audit payload for kill switch reset
+* Audit payload for emergency disable
+* Monitoring metric payload helpers
+* Tests for production hard-block
+* Tests for tenant allowlist
+* Tests for operator allowlist
+* Tests for operator confirmation
+* Tests for kill switch
+* Tests for kill switch reset audit
+* Tests for emergency disable
+* Tests for dry-run-to-real comparison
+* Tests for deployment gate hard-block
+* Docs
+* SSOT update
 
 ---
 
 ## Forbidden in this phase
 
-* Do not let Claude implement code
-* Do not modify production code
-* Do not allow production Firestore write
-* Do not mutate production settings
-* Do not write production settingsHistory
-* Do not create production approval records
-* Do not create production apply records
-* Do not create production rollback records
-* Do not create production cleanup jobs
-* Do not apply config in production
-* Do not rollback config in production
+* Do not allow broad production rollout
+* Do not allow production write without explicit gate
+* Do not allow production write without tenant allowlist
+* Do not allow production write without operator allowlist
+* Do not allow production write without operator confirmation
+* Do not allow production write when kill switch is ON
+* Do not allow production write when gate config is missing
+* Do not allow production write when deployment gate is missing
+* Do not allow production write in unknown environment
 * Do not add UI
 * Do not add Netlify Functions
 * Do not add Cloud Functions
 * Do not implement rollback
 * Do not implement cleanup job
+* Do not allow AI to apply config
+* Do not allow AI to mutate settings or rules
+* Do not change `wasteFactorWarning` automatically
 * Do not modify Feature 001 core flow
 * Do not modify Feature 002 inventory mutation logic
 * Do not modify Feature 003 prediction logic
@@ -124,93 +167,106 @@ Claude must remain HOLD until Gemini Spec passes Grok review and ChatGPT / ibi e
 * Do not modify Feature 006 dry-run transaction-readiness boundary
 * Do not modify Feature 007 dry-run real-apply readiness boundary
 * Do not modify Feature 008 dry-run executor-readiness boundary
-* Do not allow AI to apply config
-* Do not allow AI to mutate settings or rules
-* Do not change `wasteFactorWarning` automatically
-* Do not introduce production write paths before Spec approval
 
 ---
 
-## Required Guard Rails For Phase 5B Spec
+## Required Guard Rails
 
-Gemini must define:
-* Whether Phase 5B remains staging-only or allows limited production canary
-* Production write flag strategy
-* Tenant allowlist strategy
-* Operator approval requirement
-* Manual confirmation requirement
-* Kill switch
-* Default-deny behavior
-* Production project ID hard-block behavior unless explicitly allowlisted
-* Environment verification
-* Verified human caller requirement
-* Persisted approval requirement
-* AI caller hard-block
-* Service Account / Admin SDK bypass prevention
-* Idempotency lock behavior in production-gated context
-* Duplicate apply behavior
-* expectedCurrentVersion guard
-* canonical currentConfig hash validation
-* immutable settingsHistory write strategy
-* audit event atomicity
-* failure / abort behavior
-* rollback boundary
-* cleanup boundary
-* UI boundary
-* post-rollout monitoring
-* emergency disable procedure
-
----
-
-## Required Phase 5B Risk Questions
-
-Gemini must explicitly answer:
-1. Is Phase 5B staging-only, production-canary, or production-disabled-by-default?
-2. If production-canary is allowed, which tenant(s) are eligible?
-3. Who is allowed to enable production writes?
-4. What environment variables must be present?
-5. What project IDs are allowed?
-6. What project IDs are explicitly blocked?
-7. What happens if the allowlist is missing?
-8. What happens if the kill switch is ON?
-9. What happens if production flag is accidentally ON in the wrong project?
-10. How is dry-run output compared to real write intent?
-11. How is final human confirmation recorded?
-12. How are duplicate apply attempts handled in production?
-13. How is audit event atomicity guaranteed?
-14. How is failure rollback or abort handled?
-15. How is post-rollout monitoring performed?
-16. How can rollout be immediately disabled?
-17. Does Phase 5B include rollback? If not, why?
-18. Does Phase 5B include cleanup? If not, why?
-19. Does Phase 5B include UI? If not, why?
-20. What is Claude allowed to implement in the next phase?
+* Production rollout must be disabled by default.
+* Unknown environment must default-deny.
+* Missing production gate config must BLOCK.
+* Missing deployment pipeline gate must BLOCK.
+* Missing tenant allowlist must BLOCK.
+* Missing operator allowlist must BLOCK.
+* Missing operator confirmation must BLOCK.
+* Kill switch ON must BLOCK.
+* Kill switch missing must BLOCK.
+* Production write enable flag must be explicit.
+* Tenant must be explicitly allowlisted.
+* Operator must be explicitly allowlisted.
+* Operator confirmation must bind: tenantId, approvalId, applyToken, expectedCurrentVersion, configBeforeHash, configAfterHash, diffHash, operatorUserId, timestamp.
+* Dry-run-to-real comparison must validate: tenantId, approvalId, sourceRecommendationId, auditTrailId, expectedCurrentVersion, configBeforeHash, configAfterHash, diffHash, applyToken, payloadHash.
+* Any mismatch must BLOCK.
+* AI caller must remain hard-blocked.
+* Service Account / Admin SDK must not imply business permission.
+* Verified human caller remains mandatory.
+* Persisted approval remains mandatory.
+* expectedCurrentVersion remains mandatory.
+* Canonical hash validation remains mandatory.
+* Idempotency lock behavior remains mandatory.
+* settingsHistory remains immutable append-only.
+* Audit event atomicity remains mandatory.
+* Kill switch reset must be audited if implemented.
+* Emergency disable must be auditable.
+* Rollback remains excluded.
+* Cleanup remains excluded.
+* UI remains excluded.
 
 ---
 
-## Recommended Default
+## Required Tests
 
-Recommended Phase 5B design:
-* Staging-first
-* Production disabled by default
-* Production canary only after explicit future approval
-* No UI
-* No rollback
-* No cleanup
-* No broad production rollout
-* Tenant allowlist mandatory
-* Kill switch mandatory
-* Operator manual confirmation mandatory
-* Dry-run-to-real comparison mandatory
-* Post-rollout monitoring mandatory
+Phase 5B must include tests for:
+* production disabled by default
+* unknown environment BLOCKED
+* missing gate config BLOCKED
+* missing deployment gate BLOCKED
+* production disabled flag BLOCKED
+* production enabled without tenant allowlist BLOCKED
+* production enabled without operator allowlist BLOCKED
+* production enabled without operator confirmation BLOCKED
+* kill switch ON BLOCKED
+* kill switch missing BLOCKED
+* kill switch OFF + all gates valid passes
+* kill switch reset requires complete audit payload
+* kill switch reset missing audit payload BLOCKED
+* emergency disable modeled
+* emergency disabled state blocks future apply
+* tenant allowlisted passes
+* tenant not allowlisted BLOCKED
+* missing tenant allowlist BLOCKED
+* operator allowlisted passes
+* operator not allowlisted BLOCKED
+* missing operator allowlist BLOCKED
+* valid operator confirmation passes
+* missing operator confirmation BLOCKED
+* malformed operator confirmation BLOCKED
+* tenant mismatch BLOCKED
+* approvalId mismatch BLOCKED
+* applyToken mismatch BLOCKED
+* expectedCurrentVersion mismatch BLOCKED
+* configBeforeHash mismatch BLOCKED
+* configAfterHash mismatch BLOCKED
+* diffHash mismatch BLOCKED
+* operatorUserId mismatch BLOCKED
+* dry-run-to-real exact match passes
+* dry-run-to-real tenantId mismatch BLOCKED
+* dry-run-to-real approvalId mismatch BLOCKED
+* dry-run-to-real sourceRecommendationId mismatch BLOCKED
+* dry-run-to-real auditTrailId mismatch BLOCKED
+* dry-run-to-real expectedCurrentVersion mismatch BLOCKED
+* dry-run-to-real configBeforeHash mismatch BLOCKED
+* dry-run-to-real configAfterHash mismatch BLOCKED
+* dry-run-to-real diffHash mismatch BLOCKED
+* dry-run-to-real applyToken mismatch BLOCKED
+* dry-run-to-real payloadHash mismatch BLOCKED
+* AI caller BLOCKED
+* Service Account / Admin SDK bypass BLOCKED
+* no broad production rollout
+* no UI
+* no rollback
+* no cleanup
+* tests pass
+* typecheck pass
+* build pass
 
 ---
 
 ## Team State
 
-* Claude: HOLD
-* Gemini: GO - Produce Feature 009 Phase 5B Spec
-* Grok: GO - Prepare Phase 5B Spec Review
+* Claude: GO - Feature 009 Phase 5B only
+* Gemini: HOLD / support clarification only
+* Grok: Prepare Feature 009 Phase 5B code review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -218,24 +274,27 @@ Recommended Phase 5B design:
 
 ## Next Expected Input
 
-Gemini Feature 009 Phase 5B Spec.
-Spec should define:
-* Phase 5B scope decision
-* staging / production rollout boundary
-* production allowlist
-* tenant allowlist
-* operator confirmation
-* kill switch
-* production write flag
-* environment guard
-* dry-run-to-real comparison
-* transaction executor rollout strategy
-* audit and monitoring strategy
-* failure / abort strategy
-* rollback boundary
-* cleanup boundary
-* UI boundary
-* Claude implementation scope
+Claude Feature 009 Phase 5B report:
+* branch name
+* commit hash
+* changed files
+* tests result
+* typecheck result
+* build result
+* production disabled-by-default confirmation
+* tenant allowlist validator confirmation
+* operator allowlist validator confirmation
+* operator confirmation validator confirmation
+* kill switch validator confirmation
+* kill switch reset audit confirmation
+* emergency disable contract confirmation
+* deployment gate hard-block confirmation
+* dry-run-to-real comparison confirmation
+* no broad production rollout confirmation
+* no UI confirmation
+* no rollback confirmation
+* no cleanup confirmation
+* known limitations
 
 ---
 

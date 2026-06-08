@@ -14,13 +14,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Feature 009 Phase 5C: Deployment Gate Hardening + Kill Switch Reset Transaction Protection
+Feature 009 Phase 5E: Limited Production Readiness / Canary Planning
 
 ---
 
 ## Current Phase
 
-Phase 5C Implementation — Deployment Pipeline Hardening & TPI Reset Transaction
+Phase 5E Implementation — Limited Staging-only Canary / Dry-run Enabled
 
 ---
 
@@ -39,9 +39,15 @@ Phase 5C Implementation — Deployment Pipeline Hardening & TPI Reset Transactio
 * Feature 009 Phase 5A Post-Emulator Monitoring: PASSED
 * Feature 009 Phase 5B Implementation: PASSED
 * Feature 009 Phase 5B Post-Monitoring: PASSED
-* Feature 009 Phase 5C Spec v1.2: PASSED
-* Feature 009 Phase 5C Spec v1.2 Grok Review: 96/100
-* ChatGPT Decision: Claude GO - Feature 009 Phase 5C Implementation only
+* Feature 009 Phase 5C Implementation: PASSED
+* Feature 009 Phase 5C Post-Monitoring: PASSED
+* Feature 009 Phase 5D Spec v1.1: PASSED
+* Feature 009 Phase 5D Implementation: PASSED
+* Feature 009 Phase 5D Post-Monitoring: PASSED
+* Feature 009 Phase 5D Post-Monitoring Commit: `5334d15`
+* Feature 009 Phase 5E Spec v1.3 Final: PASSED
+* Feature 009 Phase 5E Grok Spec Review: PASS
+* ChatGPT Decision: Claude GO - Feature 009 Phase 5E Implementation only
 
 ---
 
@@ -53,233 +59,179 @@ Phase 5C Implementation — Deployment Pipeline Hardening & TPI Reset Transactio
 
 ## Current Commit
 
-`f5f7343`
+`5334d15`
 
 ---
 
-## Phase 5C Goal
+## Phase 5E Scope Decision
 
-Implement deployment gate hardening and kill switch reset transaction protection.
-Phase 5C must harden the final two production-gate layers:
-1. Deployment Pipeline Gate physical enforcement
-2. Kill Switch Reset end-to-end transaction protection
+Phase 5E scope is:
+**Limited Staging-only Canary / Dry-run Enabled**
 
-Phase 5C must remain strictly staging-first and production-disabled-by-default.
-Broad production rollout remains forbidden.
+This means:
+* staging-only validation is allowed
+* dry-run canary simulation is allowed
+* limited canary planning is allowed
+* real production write is forbidden
+* production canary write is forbidden
+* broad rollout is forbidden
+* UI / rollback / cleanup remain forbidden
 
 ---
 
-## Phase 5C Required Priority Fixes
+## Phase 5E Goal
 
-Grok identified two medium risks that must be handled during implementation:
+Implement the Phase 5E limited staging-only canary / dry-run enabled readiness layer.
+The implementation must validate:
+1. real CI pipeline E2E failure behavior in staging / mock mode
+2. deployment token injection failure handling
+3. deployment_gate update failure handling
+4. network interruption after token injection
+5. network interruption after deployment_gate update
+6. orphaned token workflow behavior
+7. SELF_INVALIDATE under workflow-like conditions
+8. manual approval revalidation
+9. observation mode extreme high-load concurrency
+10. HALT recovery version alignment
+11. dry-run audit difference logging
+12. static guard enforcement for zero real write
+13. feature flag isolation for future canary expansion
+14. emergency disable priority hook
 
-### 1. Deployment Gate Atomicity in Real CI Pipeline
-Claude must ensure:
-* CI token injection and Firestore deployment gate lifecycle are consistently modeled.
-* Missing deployment token must hard-block.
-* Stale deployment token must hard-block.
-* Malformed deployment token must hard-block.
-* Invalid HMAC must hard-block.
-* KMS mismatch must hard-block.
-* Local bypass must hard-block.
-* CI bypass must hard-block.
-* Token injected but Firestore gate missing must hard-block.
-* Firestore gate updated but token invalid must hard-block.
-* Network / partial failure scenarios must be modeled.
-* Development fallback must never create a production write path.
-* Deployment gate failure must be auditable.
+---
 
-### 2. Observation Mode High-Concurrency and Flag Consistency
-Claude must ensure:
-* Post-reset observation mode cannot become a bypass channel.
-* Observation mode flag failure must default-deny.
-* Observation mode malformed state must default-deny.
-* Observation mode missing state must block if required.
-* Observation mode must not enable production writes by itself.
-* Observation mode must produce monitoring payload.
-* Observation mode expiry must be explicit.
-* Observation mode must not override emergency disable.
-* High-concurrency observation-mode edge cases must be tested or modeled.
-* Negative tests must cover observation mode failure cases.
+## Mandatory Implementation Conditions
+
+Claude must satisfy these before reporting completion:
+1. Static Guard tests must pass before the implementation report is considered valid.
+2. Feature Flag isolation must be implemented or explicitly modeled.
+3. `IS_PRODUCTION_READINESS_ONLY` or equivalent zero-write guard must remain hard-enforced.
+4. Any production write attempt must trigger `FATAL_SAFETY_VIOLATION` or equivalent hard block.
+5. Dry-run audit differences must be recorded.
+6. HALT recovery must include version alignment check.
+7. Emergency Disable must remain the highest-priority hook.
+8. Exit criteria must be automatable.
 
 ---
 
 ## Allowed in this phase
 
-* Deployment gate validator
-* Deployment token HMAC / KMS contract
-* SecurityCoordinator contract
-* CI token injection lifecycle model
-* Firestore deployment_gate lifecycle contract
-* CI security-check script
-* Workflow YAML example or hardening file if explicitly scoped
-* Manual approval integration contract
-* Deployment gate audit payload
-* Local bypass hard-block
-* CI bypass hard-block
-* Missing / stale / malformed deployment token blocking logic
-* Invalid HMAC / KMS mismatch blocking logic
-* Kill switch reset service
-* Kill switch reset transaction contract
-* Kill switch reset audit payload
-* Two-person integrity reset validation
-* requestedBy / approvedBy mismatch enforcement
-* reset idempotency via auditTrailId
-* previousState / nextState validation
-* reset failure consistency modeling
-* post-reset observation mode
-* observation mode monitoring payload
-* observation mode negative tests
-* emergency disable override
-* static guards
-* docs
+* Limited staging-only canary simulation
+* Dry-run enabled canary validation
+* CI E2E mock / staging workflow validation
+* network / partial failure simulation
+* orphaned token workflow validation
+* SELF_INVALIDATE workflow validation
+* manual approval revalidation modeling
+* observation mode high-load concurrency simulation
+* HALT recovery version alignment
+* dry-run audit difference logging
+* feature flag isolation
+* emergency disable priority hook
+* static guard expansion
+* monitoring payload helpers
 * tests
+* docs
 * SSOT update
+
+Allowed files / areas:
+* `canaryManager.ts`
+* `canaryAudit.ts`
+* `integration/canary-e2e.test.ts`
+* `src/services/canary_feature_flag.ts`
+* narrowly scoped static guard updates if required
+* docs
+* `docs/CURRENT_SSOT.md`
 
 ---
 
 ## Forbidden in this phase
 
+* Do not allow real production write
+* Do not allow production canary write
 * Do not allow broad production rollout
-* Do not allow production write without deployment gate
-* Do not allow production write without tenant allowlist
-* Do not allow production write without operator allowlist
-* Do not allow production write without operator confirmation
-* Do not allow production write when kill switch is ON
-* Do not allow production write when emergency disable is active
-* Do not allow production write when deployment token is missing, stale, invalid, or bypassed
-* Do not allow production write in unknown environment
+* Do not enable real canary rollout in production
 * Do not add UI
 * Do not add Netlify Functions
 * Do not add Cloud Functions
-* Do not implement rollback
+* Do not implement automated rollback
 * Do not implement cleanup job
 * Do not allow AI to apply config
 * Do not allow AI to reset kill switch
-* Do not allow AI to approve kill switch reset
+* Do not allow AI to approve reset
 * Do not allow AI to modify production gate
-* Do not allow AI to mutate settings or rules
-* Do not change `wasteFactorWarning` automatically
-* Do not modify Feature 001 core flow
-* Do not modify Feature 002 inventory mutation logic
-* Do not modify Feature 003 prediction logic
-* Do not modify Feature 004 dry-run boundary
-* Do not modify Feature 005 dry-run execution boundary
-* Do not modify Feature 006 dry-run transaction-readiness boundary
-* Do not modify Feature 007 dry-run real-apply readiness boundary
-* Do not modify Feature 008 dry-run executor-readiness boundary
-
----
-
-## Required Guard Rails
-
-* Production remains disabled-by-default.
-* Broad production rollout remains forbidden.
-* Unknown environment must default-deny.
-* Missing deployment gate must BLOCK.
-* Missing deployment token must BLOCK.
-* Stale deployment token must BLOCK.
-* Malformed deployment token must BLOCK.
-* Invalid deployment token must BLOCK.
-* Invalid HMAC must BLOCK.
-* KMS mismatch must BLOCK.
-* Local bypass must BLOCK.
-* CI bypass must BLOCK.
-* Emergency disable must override production enablement.
-* Emergency disable must override kill switch reset.
-* Kill switch reset must be transaction-protected if implemented.
-* Kill switch reset audit must be atomic with reset state transition.
-* Kill switch reset must require two-person integrity.
-* `requestedBy !== approvedBy` must be enforced.
-* Reset reason must be mandatory.
-* previousState / nextState must be mandatory.
-* reset auditTrailId must be mandatory.
-* reset idempotency must be modeled.
-* reset failure must not leave inconsistent state.
-* observation mode must not create a write bypass.
-* observation mode failure must default-deny.
-* observation mode must not override emergency disable.
-* AI cannot apply config.
-* AI cannot reset kill switch.
-* AI cannot approve reset.
-* AI cannot modify production gate.
-* Service Account / Admin SDK must not imply business permission.
-* UI remains excluded.
-* Rollback remains excluded.
-* Cleanup remains excluded.
+* Do not bypass deployment gate
+* Do not bypass tenant allowlist
+* Do not bypass operator allowlist
+* Do not bypass operator confirmation
+* Do not bypass kill switch
+* Do not bypass emergency disable
+* Do not modify Feature 001–008 core flow
+* Do not modify Feature 009 Phase 5A / 5B / 5C / 5D behavior except through isolated Phase 5E readiness contracts
+* Do not modify `src/core/` business logic
+* Do not touch production DB
 
 ---
 
 ## Required Tests
 
-Phase 5C must include tests for:
+### Zero Real Write / Canary Boundary
+* production write attempt BLOCKED
+* production canary write attempt BLOCKED
+* broad rollout attempt BLOCKED
+* canary without dry-run BLOCKED
+* staging-only dry-run allowed
+* dry-run audit difference recorded
+* `FATAL_SAFETY_VIOLATION` or equivalent emitted on write attempt
+* static guard catches forbidden write / rollout patterns
+* `IS_PRODUCTION_READINESS_ONLY` or equivalent guard verified
+* `canary_feature_flag_gate` isolation verified
 
-### Deployment Pipeline Gate
-* valid deployment token passes only with all other gates
-* missing deployment token BLOCKED
-* stale deployment token BLOCKED
-* malformed deployment token BLOCKED
-* invalid HMAC BLOCKED
-* KMS mismatch BLOCKED
-* wrong project ID BLOCKED
-* wrong environment BLOCKED
-* local bypass BLOCKED
-* CI bypass BLOCKED
-* token injected but Firestore gate missing BLOCKED
-* Firestore gate updated but token invalid BLOCKED
-* token injected but gate update failed BLOCKED / token invalidated
-* missing deployment gate BLOCKED
-* deployment gate audit payload complete
-* deployment gate blocked event payload complete
+### Real CI E2E / Partial Failure
+* token injection failure BLOCKED
+* deployment_gate update failure BLOCKED
+* network interruption after token injection BLOCKED
+* network interruption after deployment_gate update BLOCKED
+* orphaned token detected
+* orphaned token SELF_INVALIDATE
+* retry requires manual approval revalidation
+* failed deployment audit payload complete
+* no production DB touched
+* no automatic retry after failed CI path
 
-### Kill Switch Reset Transaction Protection
-* valid reset with TPI passes
-* requestedBy === approvedBy BLOCKED
-* missing requestedBy BLOCKED
-* missing approvedBy BLOCKED
-* missing reason BLOCKED
-* missing previousState BLOCKED
-* missing nextState BLOCKED
-* previousState mismatch BLOCKED
-* nextState mismatch BLOCKED
-* missing auditTrailId BLOCKED
-* duplicate reset idempotency modeled
-* reset audit failure blocks state transition
-* reset state failure blocks audit completion
-* reset failure leaves no inconsistent state
-* reset transaction read set modeled
-* reset transaction write set modeled
+### Observation Mode High-load / HALT Recovery
+* 500 req/s or equivalent high-load simulation modeled / tested
+* concurrency threshold exceeded triggers HALT
+* violation enters HALT within defined acceptance target
+* HALT recovery requires version alignment
+* GATE_RESET after HALT requires version alignment check
+* concurrent reset + apply BLOCKED / safe
+* concurrent emergency disable + observation mode BLOCKED / safe
+* concurrent observation expiry + apply BLOCKED / safe
+* stale / missing / malformed / expired flag default-deny
+* emergency disable remains highest priority
+* observation mode does not enable production write
 
-### Observation Mode
-* post-reset observation mode created
-* observation mode has explicit expiry
-* observation mode payload complete
-* observation mode missing state BLOCKED if required
-* observation mode malformed state BLOCKED
-* observation mode failure default-deny
-* observation mode high-concurrency behavior modeled or tested
-* observation mode does not override emergency disable
-* observation mode does not enable production write by itself
-
-### Emergency Disable
-* emergency disable overrides production enablement
-* emergency disable overrides reset
-* emergency disable clears / supersedes observation mode
-* emergency disable blocks future apply
-* emergency disable audit payload complete
+### Monitoring / Alerting
+* SOC / monitoring payload complete
+* dry-run audit payload complete
+* HALT event payload complete
+* recovery payload complete
+* audit difference payload complete
+* Expected vs Actual difference logging complete
+* tenant block on dry-run audit difference > 0 modeled / tested
 
 ### Boundary
-* no broad production rollout
 * no UI
-* no Netlify Function
-* no Cloud Function
 * no rollback
 * no cleanup
+* no Netlify Function
+* no Cloud Function
 * AI cannot apply
 * AI cannot reset
 * AI cannot approve reset
-* AI cannot modify gate
-* Service Account / Admin SDK cannot bypass
+* AI cannot modify production gate
+* Service Account / Admin SDK cannot bypass business guard
 * tests pass
 * typecheck pass
 * build pass
@@ -287,11 +239,63 @@ Phase 5C must include tests for:
 
 ---
 
+## Exit Criteria
+
+Phase 5E may pass only if:
+* all tests pass
+* typecheck passes
+* build passes
+* static guard passes
+* zero real write boundary remains intact
+* dry-run enabled canary remains staging-only
+* no production canary write path exists
+* no broad rollout path exists
+* Phase 5D carry-over risks are covered
+* CI E2E partial failure is modeled or tested
+* observation mode high-load simulation is modeled or tested
+* HALT recovery version alignment is implemented or modeled
+* dry-run audit difference logging is implemented or modeled
+* feature flag isolation is implemented or modeled
+* emergency disable priority hook is implemented or modeled
+* monitoring payloads are complete
+* known limitations are documented
+
+Target exit criteria from Spec v1.3:
+* 100% Audit Reconciliation
+* `<50ms` HALT response target, or documented safe fallback if only contract-level timing is possible
+* ≥95% test coverage target where measurable
+* 30 minutes zero WARN/FATAL monitoring target, if simulated or modeled
+
+---
+
+## Blocker Criteria
+
+Phase 5E must be blocked if:
+* any real production write path is introduced
+* any production canary write path is introduced
+* any broad rollout path is introduced
+* zero-write guard can be bypassed
+* dry-run can mutate production state
+* observation mode can enable production write
+* emergency disable can be overridden
+* HALT recovery can proceed without version alignment
+* orphaned token can remain usable
+* feature flag isolation fails
+* AI can apply / reset / approve reset / modify gate
+* Service Account / Admin SDK can bypass business guard
+* UI / rollback / cleanup is introduced
+* tests fail
+* typecheck fails
+* build fails
+* static guard fails
+
+---
+
 ## Team State
 
-* Claude: GO - Feature 009 Phase 5C Implementation only
+* Claude: GO - Feature 009 Phase 5E Implementation only
 * Gemini: HOLD / support clarification only
-* Grok: Prepare Feature 009 Phase 5C Code Review
+* Grok: Prepare Feature 009 Phase 5E Code Review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -299,33 +303,29 @@ Phase 5C must include tests for:
 
 ## Next Expected Input
 
-Claude Feature 009 Phase 5C implementation report:
-* branch name
-* commit hash
-* changed files
-* tests result
-* typecheck result
-* build result
-* static guard result
-* deployment gate hard-block confirmation
-* deployment token HMAC / KMS contract confirmation
-* SecurityCoordinator contract confirmation
-* CI token injection lifecycle confirmation
-* CI / workflow security-check confirmation
-* local bypass hard-block confirmation
-* kill switch reset transaction confirmation
-* TPI reset confirmation
-* reset audit atomicity confirmation
-* reset failure consistency confirmation
-* observation mode confirmation
-* observation mode negative tests confirmation
-* observation mode high-concurrency behavior confirmation
-* emergency disable override confirmation
-* no broad production rollout confirmation
-* no UI confirmation
-* no rollback confirmation
-* no cleanup confirmation
-* known limitations
+Claude Feature 009 Phase 5E implementation report:
+1. branch
+2. commit hash
+3. changed files
+4. tests result
+5. typecheck result
+6. build result
+7. static guard result
+8. zero real write confirmation
+9. staging-only dry-run confirmation
+10. no production canary write confirmation
+11. no broad rollout confirmation
+12. real CI E2E partial failure confirmation
+13. orphaned token SELF_INVALIDATE confirmation
+14. manual approval revalidation confirmation
+15. observation mode high-load simulation confirmation
+16. HALT recovery version alignment confirmation
+17. dry-run audit difference logging confirmation
+18. feature flag isolation confirmation
+19. emergency disable priority confirmation
+20. no UI / rollback / cleanup confirmation
+21. known limitations
+22. final recommendation
 
 ---
 

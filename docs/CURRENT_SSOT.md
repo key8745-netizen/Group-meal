@@ -20,7 +20,7 @@ Feature 009 Phase 5E: Limited Production Readiness / Canary Planning
 
 ## Current Phase
 
-Planning / Spec Design
+Phase 5E Implementation — Limited Staging-only Canary / Dry-run Enabled
 
 ---
 
@@ -43,11 +43,11 @@ Planning / Spec Design
 * Feature 009 Phase 5C Post-Monitoring: PASSED
 * Feature 009 Phase 5D Spec v1.1: PASSED
 * Feature 009 Phase 5D Implementation: PASSED
-* Feature 009 Phase 5D Implementation Commit: `f589413`
 * Feature 009 Phase 5D Post-Monitoring: PASSED
 * Feature 009 Phase 5D Post-Monitoring Commit: `5334d15`
-* Feature 009 Phase 5D Grok Monitoring Review: 97/100
-* ChatGPT Decision: Phase 5D Monitoring PASSED; begin Phase 5E Planning only
+* Feature 009 Phase 5E Spec v1.3 Final: PASSED
+* Feature 009 Phase 5E Grok Spec Review: PASS
+* ChatGPT Decision: Claude GO - Feature 009 Phase 5E Implementation only
 
 ---
 
@@ -63,83 +63,98 @@ Planning / Spec Design
 
 ---
 
-## Phase 5E Goal
+## Phase 5E Scope Decision
 
-Plan the next stage after final production-readiness validation.
-Phase 5E must define whether the project remains:
-1. production-readiness-only,
-2. staging-only,
-3. limited canary planning only,
-4. limited production-gated canary,
-5. or no production rollout.
+Phase 5E scope is:
+**Limited Staging-only Canary / Dry-run Enabled**
 
-Phase 5E must not begin implementation until Gemini produces a full Spec, Grok reviews it, and ChatGPT / ibi explicitly approve Claude to proceed.
+This means:
+* staging-only validation is allowed
+* dry-run canary simulation is allowed
+* limited canary planning is allowed
+* real production write is forbidden
+* production canary write is forbidden
+* broad rollout is forbidden
+* UI / rollback / cleanup remain forbidden
 
 ---
 
-## Phase 5E Required Risk Carry-over
+## Phase 5E Goal
 
-Phase 5E Spec must explicitly address the following risks carried over from Phase 5D Monitoring:
+Implement the Phase 5E limited staging-only canary / dry-run enabled readiness layer.
+The implementation must validate:
+1. real CI pipeline E2E failure behavior in staging / mock mode
+2. deployment token injection failure handling
+3. deployment_gate update failure handling
+4. network interruption after token injection
+5. network interruption after deployment_gate update
+6. orphaned token workflow behavior
+7. SELF_INVALIDATE under workflow-like conditions
+8. manual approval revalidation
+9. observation mode extreme high-load concurrency
+10. HALT recovery version alignment
+11. dry-run audit difference logging
+12. static guard enforcement for zero real write
+13. feature flag isolation for future canary expansion
+14. emergency disable priority hook
 
-### 1. Real CI Pipeline Network / Partial Failure E2E
-Spec must define:
-* real CI workflow mock or staging workflow validation strategy
-* deployment token injection failure behavior
-* deployment_gate update failure behavior
-* network interruption after token injection
-* network interruption after deployment_gate update
-* orphaned token detection in workflow-like conditions
-* SELF_INVALIDATE behavior in workflow-like conditions
-* retry policy after partial deployment failure
-* manual approval revalidation
-* audit payload for failed deployment path
-* whether Terraform / KMS remains operational assumption
-* whether workflow YAML can be changed
-* whether production DB remains untouched
+---
 
-### 2. Observation Mode Extreme High-Load Concurrency
-Spec must define:
-* load / race simulation strategy
-* concurrency level or simulated request count
-* concurrent reset + apply behavior
-* concurrent emergency disable + observation mode behavior
-* concurrent observation expiry + apply behavior
-* stale / missing / malformed / expired flag behavior
-* optimistic locking acceptance criteria
-* version tracking acceptance criteria
-* CONCURRENCY_VIOLATION / CONCURRENCY_VIOLATION_ERR handling
-* fallback to HALT / safe blocked state
-* monitoring payload completeness
-* whether load testing is contract-level, emulator-level, or staging-level
+## Mandatory Implementation Conditions
+
+Claude must satisfy these before reporting completion:
+1. Static Guard tests must pass before the implementation report is considered valid.
+2. Feature Flag isolation must be implemented or explicitly modeled.
+3. `IS_PRODUCTION_READINESS_ONLY` or equivalent zero-write guard must remain hard-enforced.
+4. Any production write attempt must trigger `FATAL_SAFETY_VIOLATION` or equivalent hard block.
+5. Dry-run audit differences must be recorded.
+6. HALT recovery must include version alignment check.
+7. Emergency Disable must remain the highest-priority hook.
+8. Exit criteria must be automatable.
 
 ---
 
 ## Allowed in this phase
 
-* Gemini produces Phase 5E Spec
-* Grok prepares Phase 5E Spec Review
-* requirements discussion
-* docs / SSOT update
-* risk analysis
-* acceptance criteria design
-* monitoring / alerting design
-* rollout boundary design
-* canary boundary design
-* kill criteria design
-* Claude remains HOLD
+* Limited staging-only canary simulation
+* Dry-run enabled canary validation
+* CI E2E mock / staging workflow validation
+* network / partial failure simulation
+* orphaned token workflow validation
+* SELF_INVALIDATE workflow validation
+* manual approval revalidation modeling
+* observation mode high-load concurrency simulation
+* HALT recovery version alignment
+* dry-run audit difference logging
+* feature flag isolation
+* emergency disable priority hook
+* static guard expansion
+* monitoring payload helpers
+* tests
+* docs
+* SSOT update
+
+Allowed files / areas:
+* `canaryManager.ts`
+* `canaryAudit.ts`
+* `integration/canary-e2e.test.ts`
+* `src/services/canary_feature_flag.ts`
+* narrowly scoped static guard updates if required
+* docs
+* `docs/CURRENT_SSOT.md`
 
 ---
 
 ## Forbidden in this phase
 
-* Do not let Claude implement Phase 5E
-* Do not enable real production write
-* Do not enable broad production rollout
-* Do not enable canary rollout unless a future Spec explicitly passes review
+* Do not allow real production write
+* Do not allow production canary write
+* Do not allow broad production rollout
+* Do not enable real canary rollout in production
 * Do not add UI
 * Do not add Netlify Functions
 * Do not add Cloud Functions
-* Do not implement rollback
+* Do not implement automated rollback
 * Do not implement cleanup job
 * Do not allow AI to apply config
 * Do not allow AI to reset kill switch
@@ -152,42 +167,135 @@ Spec must define:
 * Do not bypass kill switch
 * Do not bypass emergency disable
 * Do not modify Feature 001–008 core flow
-* Do not modify Feature 009 Phase 5A / 5B / 5C / 5D implementation behavior
+* Do not modify Feature 009 Phase 5A / 5B / 5C / 5D behavior except through isolated Phase 5E readiness contracts
+* Do not modify `src/core/` business logic
+* Do not touch production DB
 
 ---
 
-## Required Phase 5E Spec Topics
+## Required Tests
 
-Gemini must explicitly define:
-1. Phase 5E scope decision
-2. whether any production write is allowed
-3. whether canary rollout is in scope
-4. whether Phase 5E is planning-only, readiness-only, staging-only, or limited canary
-5. real CI pipeline E2E validation strategy
-6. network / partial failure handling
-7. orphaned token workflow validation
-8. SELF_INVALIDATE workflow validation
-9. manual approval revalidation
-10. observation mode extreme high-load simulation
-11. emergency disable priority
-12. monitoring and alerting
-13. rollout kill criteria
-14. rollback boundary
-15. cleanup boundary
-16. UI boundary
-17. exact Claude implementation scope
-18. exact allowed files
-19. exact forbidden files
-20. exit criteria
-21. blocker criteria
+### Zero Real Write / Canary Boundary
+* production write attempt BLOCKED
+* production canary write attempt BLOCKED
+* broad rollout attempt BLOCKED
+* canary without dry-run BLOCKED
+* staging-only dry-run allowed
+* dry-run audit difference recorded
+* `FATAL_SAFETY_VIOLATION` or equivalent emitted on write attempt
+* static guard catches forbidden write / rollout patterns
+* `IS_PRODUCTION_READINESS_ONLY` or equivalent guard verified
+* `canary_feature_flag_gate` isolation verified
+
+### Real CI E2E / Partial Failure
+* token injection failure BLOCKED
+* deployment_gate update failure BLOCKED
+* network interruption after token injection BLOCKED
+* network interruption after deployment_gate update BLOCKED
+* orphaned token detected
+* orphaned token SELF_INVALIDATE
+* retry requires manual approval revalidation
+* failed deployment audit payload complete
+* no production DB touched
+* no automatic retry after failed CI path
+
+### Observation Mode High-load / HALT Recovery
+* 500 req/s or equivalent high-load simulation modeled / tested
+* concurrency threshold exceeded triggers HALT
+* violation enters HALT within defined acceptance target
+* HALT recovery requires version alignment
+* GATE_RESET after HALT requires version alignment check
+* concurrent reset + apply BLOCKED / safe
+* concurrent emergency disable + observation mode BLOCKED / safe
+* concurrent observation expiry + apply BLOCKED / safe
+* stale / missing / malformed / expired flag default-deny
+* emergency disable remains highest priority
+* observation mode does not enable production write
+
+### Monitoring / Alerting
+* SOC / monitoring payload complete
+* dry-run audit payload complete
+* HALT event payload complete
+* recovery payload complete
+* audit difference payload complete
+* Expected vs Actual difference logging complete
+* tenant block on dry-run audit difference > 0 modeled / tested
+
+### Boundary
+* no UI
+* no rollback
+* no cleanup
+* no Netlify Function
+* no Cloud Function
+* AI cannot apply
+* AI cannot reset
+* AI cannot approve reset
+* AI cannot modify production gate
+* Service Account / Admin SDK cannot bypass business guard
+* tests pass
+* typecheck pass
+* build pass
+* static guard pass
+
+---
+
+## Exit Criteria
+
+Phase 5E may pass only if:
+* all tests pass
+* typecheck passes
+* build passes
+* static guard passes
+* zero real write boundary remains intact
+* dry-run enabled canary remains staging-only
+* no production canary write path exists
+* no broad rollout path exists
+* Phase 5D carry-over risks are covered
+* CI E2E partial failure is modeled or tested
+* observation mode high-load simulation is modeled or tested
+* HALT recovery version alignment is implemented or modeled
+* dry-run audit difference logging is implemented or modeled
+* feature flag isolation is implemented or modeled
+* emergency disable priority hook is implemented or modeled
+* monitoring payloads are complete
+* known limitations are documented
+
+Target exit criteria from Spec v1.3:
+* 100% Audit Reconciliation
+* `<50ms` HALT response target, or documented safe fallback if only contract-level timing is possible
+* ≥95% test coverage target where measurable
+* 30 minutes zero WARN/FATAL monitoring target, if simulated or modeled
+
+---
+
+## Blocker Criteria
+
+Phase 5E must be blocked if:
+* any real production write path is introduced
+* any production canary write path is introduced
+* any broad rollout path is introduced
+* zero-write guard can be bypassed
+* dry-run can mutate production state
+* observation mode can enable production write
+* emergency disable can be overridden
+* HALT recovery can proceed without version alignment
+* orphaned token can remain usable
+* feature flag isolation fails
+* AI can apply / reset / approve reset / modify gate
+* Service Account / Admin SDK can bypass business guard
+* UI / rollback / cleanup is introduced
+* tests fail
+* typecheck fails
+* build fails
+* static guard fails
 
 ---
 
 ## Team State
 
-* Claude: HOLD
-* Gemini: GO - Produce Feature 009 Phase 5E Spec
-* Grok: GO - Prepare Phase 5E Spec Review
+* Claude: GO - Feature 009 Phase 5E Implementation only
+* Gemini: HOLD / support clarification only
+* Grok: Prepare Feature 009 Phase 5E Code Review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -195,8 +303,29 @@ Gemini must explicitly define:
 
 ## Next Expected Input
 
-Gemini Feature 009 Phase 5E Spec.
-Spec must include the two Phase 5D monitoring carry-over risks as explicit acceptance criteria.
+Claude Feature 009 Phase 5E implementation report:
+1. branch
+2. commit hash
+3. changed files
+4. tests result
+5. typecheck result
+6. build result
+7. static guard result
+8. zero real write confirmation
+9. staging-only dry-run confirmation
+10. no production canary write confirmation
+11. no broad rollout confirmation
+12. real CI E2E partial failure confirmation
+13. orphaned token SELF_INVALIDATE confirmation
+14. manual approval revalidation confirmation
+15. observation mode high-load simulation confirmation
+16. HALT recovery version alignment confirmation
+17. dry-run audit difference logging confirmation
+18. feature flag isolation confirmation
+19. emergency disable priority confirmation
+20. no UI / rollback / cleanup confirmation
+21. known limitations
+22. final recommendation
 
 ---
 

@@ -14,13 +14,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Feature 009 Phase 5A: Emulator-only Real Model Config Apply Transaction Executor
+Post-Emulator Monitoring: Feature 009 Phase 5A Emulator-only Real Transaction Executor
 
 ---
 
 ## Current Phase
 
-Phase 5A: Emulator-only Real Transaction Executor Implementation
+Post-Emulator Monitoring / Phase 5B Planning Pending
 
 ---
 
@@ -37,10 +37,10 @@ Phase 5A: Emulator-only Real Transaction Executor Implementation
 * Feature 009 contract-readiness version: CLOSED
 * Feature 009 Post-Release Monitoring: PASSED
 * Feature 009 Phase 5 Spec v1.1: PASSED
-* Feature 009 Phase 5 Spec v1.1 Grok Review: 96/100
-* ChatGPT Decision: Claude GO - Feature 009 Phase 5A only
-* Scope: Emulator-only real transaction executor
-* Production write: FORBIDDEN
+* Feature 009 Phase 5A: PASSED
+* Feature 009 Phase 5A Commit: `018dd34`
+* Feature 009 Phase 5A Grok Code Review: 95/100
+* ChatGPT Decision: Feature 009 Phase 5A PASSED; begin Post-Emulator Monitoring before Phase 5B
 
 ---
 
@@ -52,52 +52,45 @@ Phase 5A: Emulator-only Real Transaction Executor Implementation
 
 ## Current Commit
 
-`78f7965`
+`018dd34`
 
 ---
 
-## Phase 5A Goal
+## Feature 009 Phase 5A Status
 
-Implement the first real Firestore transaction executor for human-approved model config apply, but only in Firebase Emulator / test environment.
-Phase 5A may introduce real `runTransaction` only behind a strict emulator-only guard.
-Phase 5A must hard-block all production writes.
-Phase 5A must not expose UI.
-Phase 5A must not add Netlify Functions or Cloud Functions.
-Phase 5A must not enable production settings mutation.
+Feature 009 Phase 5A has successfully implemented the first emulator-only real transaction executor.
+The executor is allowed only in Firebase Emulator / test environment.
+Production write remains forbidden.
+Production settings mutation remains forbidden.
+Production settingsHistory write remains forbidden.
+Production approval / apply / rollback records remain forbidden.
+Production rollback remains forbidden.
+UI remains excluded.
+Netlify Functions and Cloud Functions remain excluded.
 
 ---
 
 ## Allowed in this phase
 
-* Emulator-only real transaction executor
-* ProductionEnvironmentGuard
-* Firebase Emulator environment detection
-* Hard-block production project IDs
-* Real `runTransaction` only in emulator / test environment
-* Real emulator read of approval document
-* Real emulator read of settings document
-* Real emulator read/write of idempotency lock
-* Real emulator write of immutable settingsHistory version
-* Real emulator update of settings current config and currentVersion
-* Real emulator audit event write
-* Emulator integration tests
-* Negative tests proving production write is blocked
-* Verified human caller validation
-* Persisted approval validation
-* expectedCurrentVersion validation
-* canonical hash validation inside emulator transaction
-* idempotency lock behavior
-* duplicate apply tests
-* transaction atomicity tests
-* abort / failure recovery tests
-* docs
-* tests
+* Post-emulator monitoring
+* Emulator transaction behavior observation
+* ProductionEnvironmentGuard regression checks
+* Production hard-block regression checks
+* Emulator integration test reruns
+* Idempotency behavior observation
+* settingsHistory append-only behavior observation in emulator
+* audit event behavior observation in emulator
+* abort / failure atomicity observation in emulator
+* Documentation updates
 * SSOT update
+* Risk register update
+* Phase 5B planning discussion only after monitoring baseline
 
 ---
 
 ## Forbidden in this phase
 
+* Do not start Phase 5B implementation
 * Do not allow production Firestore write
 * Do not mutate production settings
 * Do not write production settingsHistory
@@ -129,16 +122,16 @@ Phase 5A must not enable production settings mutation.
 
 ## Required Guard Rails
 
-* ProductionEnvironmentGuard must execute before any transaction.
-* Emulator-only check must hard-block production writes.
-* Production project IDs must be explicitly blocked.
+* ProductionEnvironmentGuard must remain first-layer guard.
+* Emulator-only check must continue hard-blocking production writes.
+* Production project IDs must remain explicitly blocked.
 * Unknown environment must default-deny.
 * Missing emulator flag must BLOCK.
 * `NODE_ENV=test` alone is not sufficient unless combined with explicit emulator project guard.
-* AI caller must be hard-blocked.
+* AI caller must remain hard-blocked.
 * Service Account / Admin SDK must not imply business permission.
-* Verified human caller is mandatory.
-* Persisted human approval is mandatory.
+* Verified human caller remains mandatory.
+* Persisted human approval remains mandatory.
 * Approval status must be `APPROVED`.
 * Approval tenantId must match request tenantId.
 * Approval approvedBy must match verified caller unless delegated apply is explicitly modeled.
@@ -147,12 +140,12 @@ Phase 5A must not enable production settings mutation.
 * Transaction must canonicalize current config inside transaction.
 * Transaction must validate configBeforeHash against actual current config.
 * Transaction must validate configAfterHash and diffHash.
-* Transaction must write idempotency lock.
-* Transaction must write immutable settingsHistory.
-* Transaction must update settings current config and currentVersion.
-* Transaction must write audit event.
+* Transaction must write idempotency lock only in emulator.
+* Transaction must write immutable settingsHistory only in emulator.
+* Transaction must update settings current config and currentVersion only in emulator.
+* Transaction must write audit event only in emulator.
 * Duplicate apply must be blocked or explicitly idempotent.
-* Same token + same payload behavior must be tested.
+* Same token + same payload behavior must remain safe.
 * Same token + different payload must BLOCK.
 * Same approvalId + different token must BLOCK.
 * Abort path must not partially mutate settings.
@@ -163,43 +156,45 @@ Phase 5A must not enable production settings mutation.
 
 ---
 
-## Required Tests
+## Required Monitoring Checks
 
-Phase 5A must include tests for:
-* valid emulator transaction success
-* production project hard-block
-* missing emulator flag BLOCKED
-* unknown environment BLOCKED
-* AI caller BLOCKED
-* Service Account / Admin SDK bypass attempt BLOCKED
-* invalid approval BLOCKED
-* tenant mismatch BLOCKED
-* approvedBy mismatch BLOCKED
-* expectedCurrentVersion mismatch BLOCKED
-* currentConfig hash mismatch BLOCKED
-* configAfterHash mismatch BLOCKED
-* diffHash mismatch BLOCKED
-* duplicate apply behavior
-* same token + same payload behavior
-* same token + different payload BLOCKED
-* same approvalId + different token BLOCKED
-* settingsHistory immutable append-only write in emulator
-* settings currentVersion update in emulator
-* audit event write in emulator
-* transaction atomicity
-* abort path
-* no production write path
-* no UI
-* no Netlify Function
-* no Cloud Function
+Post-Emulator Monitoring must confirm:
+* emulator-only real transaction still works
+* production write remains hard-blocked
+* ProductionEnvironmentGuard still executes before transaction
+* no production settings mutation exists
+* no production settingsHistory write exists
+* no production approval / apply / rollback records are created
+* AI caller remains BLOCKED
+* Service Account / Admin SDK cannot bypass business guard
+* verified human caller is mandatory
+* persisted approval is mandatory
+* expectedCurrentVersion is enforced
+* canonical hash validation is enforced inside emulator transaction
+* idempotency lock behavior remains correct
+* duplicate apply behavior remains safe
+* same token + same payload behavior remains safe
+* same token + different payload remains BLOCKED
+* same approvalId + different token remains BLOCKED
+* settingsHistory append-only behavior remains correct in emulator
+* settings currentVersion update remains correct in emulator
+* audit event write remains correct in emulator
+* abort / failure atomicity remains correct
+* rollback remains excluded
+* cleanup remains excluded
+* UI remains excluded
+* tests pass
+* emulator tests pass
+* typecheck pass
+* build pass
 
 ---
 
 ## Team State
 
-* Claude: GO - Feature 009 Phase 5A only
-* Gemini: HOLD / support clarification only
-* Grok: Prepare Feature 009 Phase 5A code review
+* Claude: HOLD / post-emulator monitoring support only
+* Gemini: HOLD / Phase 5B planning later
+* Grok: GO - Prepare Post-Emulator Monitoring Review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -207,28 +202,29 @@ Phase 5A must include tests for:
 
 ## Next Expected Input
 
-Claude Feature 009 Phase 5A report:
+Claude Feature 009 Phase 5A Post-Emulator Monitoring report:
+* observation window
 * branch name
 * commit hash
-* changed files
 * tests result
+* emulator integration test result
 * typecheck result
 * build result
-* emulator integration test result
-* confirmation that production write is hard-blocked
-* confirmation that ProductionEnvironmentGuard is implemented
-* confirmation that real transaction only runs in emulator / test environment
-* confirmation that no production settings mutation exists
-* confirmation that no production settingsHistory write exists
-* confirmation that no UI was added
-* confirmation that no Netlify Function / Cloud Function was added
-* confirmation that AI caller is blocked
-* confirmation that Service Account / Admin SDK cannot bypass business guard
-* confirmation that idempotency lock behavior works
-* confirmation that settingsHistory append-only behavior works in emulator
-* confirmation that audit event write works in emulator
-* confirmation that abort path is safe
+* ProductionEnvironmentGuard status
+* production write hard-block confirmation
+* emulator-only real transaction confirmation
+* no production settings mutation confirmation
+* no production settingsHistory write confirmation
+* AI caller blocked confirmation
+* Service Account / Admin SDK blocked confirmation
+* idempotency behavior status
+* settingsHistory append-only status
+* audit event write status
+* abort / failure atomicity status
+* rollback / cleanup / UI exclusion confirmation
+* production error summary
 * known limitations
+* final recommendation: MONITORING_OK / NEEDS_PATCH / BLOCKED
 
 ---
 

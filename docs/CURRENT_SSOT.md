@@ -14,13 +14,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Post-Phase 5D Monitoring: Feature 009 Final Production Rollout Readiness Planning
+Feature 009 Phase 5E: Limited Production Readiness / Canary Planning
 
 ---
 
 ## Current Phase
 
-Post-Phase 5D Monitoring / Phase 5E Planning Pending
+Planning / Spec Design
 
 ---
 
@@ -44,9 +44,10 @@ Post-Phase 5D Monitoring / Phase 5E Planning Pending
 * Feature 009 Phase 5D Spec v1.1: PASSED
 * Feature 009 Phase 5D Implementation: PASSED
 * Feature 009 Phase 5D Implementation Commit: `f589413`
-* Feature 009 Phase 5D SSOT Commit: `c6ab2f7`
-* Feature 009 Phase 5D Grok Code Review: 96/100
-* ChatGPT Decision: Phase 5D PASSED; begin Post-Phase 5D Monitoring before Phase 5E Planning
+* Feature 009 Phase 5D Post-Monitoring: PASSED
+* Feature 009 Phase 5D Post-Monitoring Commit: `5334d15`
+* Feature 009 Phase 5D Grok Monitoring Review: 97/100
+* ChatGPT Decision: Phase 5D Monitoring PASSED; begin Phase 5E Planning only
 
 ---
 
@@ -58,64 +59,83 @@ Post-Phase 5D Monitoring / Phase 5E Planning Pending
 
 ## Current Commit
 
-`f589413`
+`5334d15`
 
 ---
 
-## Phase 5D Status
+## Phase 5E Goal
 
-Phase 5D has successfully implemented production-readiness validation.
-Confirmed:
-* production-readiness-only maintained
-* no real production write path introduced
-* no broad rollout path introduced
-* no canary rollout path introduced
-* deployment gate partial failure handling implemented / modeled
-* orphaned token SELF_INVALIDATE implemented / modeled
-* DEPLOYMENT_ABORTED audit payload implemented / modeled
-* GATE_AUTO_INVALIDATE audit payload implemented / modeled
-* observation mode high-concurrency behavior implemented / modeled
-* CONCURRENCY_VIOLATION routes to HALT / safe blocked state
-* emergency disable remains highest priority
-* PROD_ROLLOUT_CHECKLIST updated
-* tests / typecheck / build / static guard pass
+Plan the next stage after final production-readiness validation.
+Phase 5E must define whether the project remains:
+1. production-readiness-only,
+2. staging-only,
+3. limited canary planning only,
+4. limited production-gated canary,
+5. or no production rollout.
+
+Phase 5E must not begin implementation until Gemini produces a full Spec, Grok reviews it, and ChatGPT / ibi explicitly approve Claude to proceed.
+
+---
+
+## Phase 5E Required Risk Carry-over
+
+Phase 5E Spec must explicitly address the following risks carried over from Phase 5D Monitoring:
+
+### 1. Real CI Pipeline Network / Partial Failure E2E
+Spec must define:
+* real CI workflow mock or staging workflow validation strategy
+* deployment token injection failure behavior
+* deployment_gate update failure behavior
+* network interruption after token injection
+* network interruption after deployment_gate update
+* orphaned token detection in workflow-like conditions
+* SELF_INVALIDATE behavior in workflow-like conditions
+* retry policy after partial deployment failure
+* manual approval revalidation
+* audit payload for failed deployment path
+* whether Terraform / KMS remains operational assumption
+* whether workflow YAML can be changed
+* whether production DB remains untouched
+
+### 2. Observation Mode Extreme High-Load Concurrency
+Spec must define:
+* load / race simulation strategy
+* concurrency level or simulated request count
+* concurrent reset + apply behavior
+* concurrent emergency disable + observation mode behavior
+* concurrent observation expiry + apply behavior
+* stale / missing / malformed / expired flag behavior
+* optimistic locking acceptance criteria
+* version tracking acceptance criteria
+* CONCURRENCY_VIOLATION / CONCURRENCY_VIOLATION_ERR handling
+* fallback to HALT / safe blocked state
+* monitoring payload completeness
+* whether load testing is contract-level, emulator-level, or staging-level
 
 ---
 
 ## Allowed in this phase
 
-* Post-Phase 5D monitoring
-* Re-run tests
-* Re-run typecheck
-* Re-run build
-* Re-run static guard
-* Verify production-readiness-only boundary
-* Verify no real production write path
-* Verify no broad rollout path
-* Verify no canary rollout path
-* Verify deployment gate partial failure recovery
-* Verify orphaned token SELF_INVALIDATE
-* Verify DEPLOYMENT_ABORTED audit payload
-* Verify GATE_AUTO_INVALIDATE audit payload
-* Verify SELF_INVALIDATE audit payload
-* Verify observation mode high-concurrency behavior
-* Verify observation mode stale / missing / malformed / expired flag default-deny
-* Verify CONCURRENCY_VIOLATION / CONCURRENCY_VIOLATION_ERR safe fallback
-* Verify emergency disable priority
-* Verify PROD_ROLLOUT_CHECKLIST
-* Documentation updates
-* Monitoring report
-* SSOT update
+* Gemini produces Phase 5E Spec
+* Grok prepares Phase 5E Spec Review
+* requirements discussion
+* docs / SSOT update
+* risk analysis
+* acceptance criteria design
+* monitoring / alerting design
+* rollout boundary design
+* canary boundary design
+* kill criteria design
+* Claude remains HOLD
 
 ---
 
 ## Forbidden in this phase
 
-* Do not start Phase 5E implementation
-* Do not begin Phase 5E planning until monitoring passes and ChatGPT / ibi explicitly approve it
-* Do not allow real production write
-* Do not allow broad production rollout
-* Do not allow canary rollout
+* Do not let Claude implement Phase 5E
+* Do not enable real production write
+* Do not enable broad production rollout
+* Do not enable canary rollout unless a future Spec explicitly passes review
 * Do not add UI
 * Do not add Netlify Functions
 * Do not add Cloud Functions
@@ -132,80 +152,42 @@ Confirmed:
 * Do not bypass kill switch
 * Do not bypass emergency disable
 * Do not modify Feature 001–008 core flow
-* Do not modify Feature 009 Phase 5A / 5B / 5C behavior except through monitoring documentation
+* Do not modify Feature 009 Phase 5A / 5B / 5C / 5D implementation behavior
 
 ---
 
-## Required Monitoring Checks
+## Required Phase 5E Spec Topics
 
-### 1. Deployment Gate Partial Failure / Orphaned Token
-Monitoring must verify:
-* interrupted CI job remains fail-closed
-* orphaned token detection remains effective
-* orphaned token SELF_INVALIDATE remains effective
-* token injected but deployment_gate update failed remains BLOCKED
-* deployment_gate updated but token invalid remains BLOCKED
-* token expires mid-flow remains BLOCKED
-* manual approval granted but deploy fails remains BLOCKED / ABORTED
-* retry without fresh manual approval remains BLOCKED if scoped
-* DEPLOYMENT_ABORTED audit payload remains complete
-* GATE_AUTO_INVALIDATE audit payload remains complete
-* SELF_INVALIDATE audit payload remains complete
-* no production write path exists
-
-### 2. Observation Mode High-Concurrency / Race Condition
-Monitoring must verify:
-* observation mode optimistic locking remains effective
-* observation mode version tracking remains effective
-* concurrent reset + apply remains BLOCKED / safe
-* concurrent emergency disable + observation mode remains safe
-* concurrent observation expiry + apply remains safe
-* stale observation flag remains BLOCKED
-* missing observation flag remains BLOCKED
-* malformed observation flag remains BLOCKED
-* expired observation flag remains BLOCKED where required
-* CONCURRENCY_VIOLATION / CONCURRENCY_VIOLATION_ERR enters HALT / safe blocked state
-* observation mode does not override emergency disable
-* observation mode does not enable production write by itself
-* monitoring payload remains complete
-
-### 3. Boundary
-Monitoring must verify:
-* no real production write
-* no broad rollout
-* no canary rollout
-* no UI
-* no Netlify Function
-* no Cloud Function
-* no rollback
-* no cleanup
-* AI cannot apply
-* AI cannot reset
-* AI cannot approve reset
-* AI cannot modify production gate
-* Service Account / Admin SDK cannot bypass business guard
-* tests pass
-* typecheck pass
-* build pass
-* static guard pass
-
----
-
-## Priority Monitoring Risks
-
-Grok identified two follow-up items:
-1. Deployment Gate partial failure in real CI pipeline network / partial failure end-to-end behavior
-2. Observation Mode high-concurrency load / race simulation extreme cases
-
-These are not blockers for Phase 5D, but must be tracked in monitoring.
+Gemini must explicitly define:
+1. Phase 5E scope decision
+2. whether any production write is allowed
+3. whether canary rollout is in scope
+4. whether Phase 5E is planning-only, readiness-only, staging-only, or limited canary
+5. real CI pipeline E2E validation strategy
+6. network / partial failure handling
+7. orphaned token workflow validation
+8. SELF_INVALIDATE workflow validation
+9. manual approval revalidation
+10. observation mode extreme high-load simulation
+11. emergency disable priority
+12. monitoring and alerting
+13. rollout kill criteria
+14. rollback boundary
+15. cleanup boundary
+16. UI boundary
+17. exact Claude implementation scope
+18. exact allowed files
+19. exact forbidden files
+20. exit criteria
+21. blocker criteria
 
 ---
 
 ## Team State
 
-* Claude: HOLD / post-Phase 5D monitoring support only
-* Gemini: HOLD
-* Grok: GO - Prepare Post-Phase 5D Monitoring Review
+* Claude: HOLD
+* Gemini: GO - Produce Feature 009 Phase 5E Spec
+* Grok: GO - Prepare Phase 5E Spec Review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -213,30 +195,8 @@ These are not blockers for Phase 5D, but must be tracked in monitoring.
 
 ## Next Expected Input
 
-Claude Feature 009 Phase 5D Post-Monitoring report:
-1. observation window
-2. branch
-3. commit hash
-4. tests result
-5. typecheck result
-6. build result
-7. static guard result
-8. production-readiness-only confirmation
-9. no real production write confirmation
-10. no broad rollout confirmation
-11. no canary rollout confirmation
-12. deployment gate partial failure monitoring confirmation
-13. orphaned token SELF_INVALIDATE monitoring confirmation
-14. DEPLOYMENT_ABORTED audit monitoring confirmation
-15. GATE_AUTO_INVALIDATE audit monitoring confirmation
-16. SELF_INVALIDATE audit monitoring confirmation
-17. observation mode concurrency monitoring confirmation
-18. observation mode load / race simulation confirmation
-19. emergency disable priority confirmation
-20. PROD_ROLLOUT_CHECKLIST confirmation
-21. no UI / rollback / cleanup confirmation
-22. known limitations
-23. final recommendation: MONITORING_OK / NEEDS_PATCH / BLOCKED
+Gemini Feature 009 Phase 5E Spec.
+Spec must include the two Phase 5D monitoring carry-over risks as explicit acceptance criteria.
 
 ---
 

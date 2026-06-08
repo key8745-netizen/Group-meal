@@ -14,13 +14,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Feature 009 Phase 5F: Production Readiness Next-Step Planning
+Post-Phase 5F Monitoring: Feature 009 Production Readiness Next-Step Planning
 
 ---
 
 ## Current Phase
 
-Phase 5F Implementation — Readiness-only / Zero Real Write
+Phase 5F Post-Implementation Monitoring / Readiness Verification
 
 ---
 
@@ -38,10 +38,11 @@ Phase 5F Implementation — Readiness-only / Zero Real Write
 * Feature 009 Phase 5D Post-Monitoring: PASSED
 * Feature 009 Phase 5E Implementation: PASSED
 * Feature 009 Phase 5E Post-Monitoring: PASSED
-* Feature 009 Phase 5E Post-Monitoring Commit: `6c9f7c4`
 * Feature 009 Phase 5F Spec v1.3: PASSED
-* Feature 009 Phase 5F Grok Spec Review: PASS
-* ChatGPT Decision: Claude GO - Feature 009 Phase 5F Implementation only
+* Feature 009 Phase 5F Implementation: PASSED
+* Feature 009 Phase 5F Implementation Commit: `54d2d87`
+* Feature 009 Phase 5F Grok Code Review: PASS
+* ChatGPT Decision: Phase 5F Implementation PASSED; begin Phase 5F Post-Implementation Monitoring / Readiness Verification
 
 ---
 
@@ -53,91 +54,69 @@ Phase 5F Implementation — Readiness-only / Zero Real Write
 
 ## Current Commit
 
-`6c9f7c4`
+`54d2d87`
 
 ---
 
-## Phase 5F Scope Decision
+## Phase 5F Status
 
-Phase 5F scope is: **Readiness Implementation only / Zero Real Write**
-
-This means:
-* defensive monitoring and validation logic is allowed
-* readiness-only implementation is allowed
-* staging / contract-level validation is allowed
-* runtime schema hardening is allowed
-* tracing / timing sampling is allowed only in isolated readiness paths
-* tenant lock may only be modeled as a blocking decision
-* audit payload generation is allowed
-* real production write is forbidden
-* production canary write is forbidden
-* broad rollout is forbidden
-* production mutation is forbidden
-* UI / rollback / cleanup remain forbidden
-
----
-
-## Phase 5F Goal
-
-Implement the Phase 5F readiness layer for production-gated canary planning.
-The implementation must validate or model:
-
-1. HALT runtime timing validation
-2. P99 `<50ms` readiness / staging / contract target
-3. `Performance_Degradation_Risk` alert behavior
-4. high-load concurrency at 500 req/s or equivalent simulation
-5. token / flag runtime schema hardening
-6. malformed / missing / stale token / flag default-deny
-7. dry-run audit difference threshold: `Difference > 0 = Block`
-8. emergency disable highest-priority hook
-9. feature flag isolation
-10. tenant lock as modeled blocking decision only
-11. tenant lock non-write behavior
-12. SOC / audit payload fields
-13. rollout kill criteria
-14. rollback / cleanup / UI exclusion
-15. static guard enforcement for Zero Real Write
+Phase 5F has successfully implemented the Readiness-only / Zero Real Write layer.
+Confirmed by Grok Code Review:
+* Zero Real Write maintained
+* Readiness-only boundary maintained
+* no production canary write
+* no broad rollout
+* no production mutation
+* no `src/core/`, `src/database/`, or `src/production/` imports
+* `FATAL_SAFETY_VIOLATION` / equivalent hard block exists
+* `IS_PRODUCTION_READINESS_ONLY` / equivalent guard remains hard-enforced
+* TracingInterceptor isolated under `src/monitoring/`
+* TracingInterceptor only samples timing / metadata
+* runtime validator default-deny behavior implemented
+* malformed / missing / stale token / flag BLOCKED
+* tenant lock modeled as non-write / audit-only
+* ambiguous tenant lock state defaults to BLOCKED / DENY
+* dry-run audit difference > 0 BLOCKED
+* emergency disable remains highest priority
+* feature flag isolation maintained
+* SOC / audit payload fields complete
+* static guard blocks forbidden patterns
+* rollback / cleanup / UI excluded
+* tests / typecheck / build / static guard pass
 
 ---
 
 ## Allowed in this phase
 
-* readiness-only implementation
-* defensive monitoring helpers
-* validation helpers
-* staging / contract-level timing validation
-* high-load concurrency simulation
-* runtime schema hardening
-* token / flag validation
-* tenant lock non-write modeling
-* audit-only blocking decision modeling
-* dry-run audit threshold modeling
-* emergency disable priority check
-* feature flag isolation
-* monitoring / alerting payload helpers
-* tests
-* static guard updates
-* docs
+* Phase 5F post-implementation monitoring
+* Re-run tests
+* Re-run typecheck
+* Re-run build
+* Re-run static guard
+* Verify Zero Real Write boundary
+* Verify Readiness-only boundary
+* Verify no production canary write
+* Verify no broad rollout
+* Verify no production mutation
+* Verify TracingInterceptor isolation
+* Verify runtime validator default-deny behavior
+* Verify token / flag schema hardening
+* Verify tenant lock non-write / audit-only behavior
+* Verify dry-run audit Difference > 0 = Block
+* Verify emergency disable highest priority
+* Verify feature flag isolation
+* Verify SOC / audit payload completeness
+* Verify old Phase 5A–5E no regression
+* Documentation updates
+* Monitoring report
 * SSOT update
-
-Allowed files / areas:
-* `src/monitoring/tracingInterceptor.ts`
-* `src/schema/runtime_validator.ts`
-* `src/services/canary_feature_flag.ts`
-* `src/services/canaryManager.ts`
-* `src/services/canaryAudit.ts`
-* `integration/canary-e2e.test.ts`
-* narrowly scoped test helpers
-* narrowly scoped static guard updates
-* docs
-* `docs/CURRENT_SSOT.md`
-
-`canaryManager.ts` and `canaryAudit.ts` changes must be additive-only and must not alter Phase 5E behavior.
 
 ---
 
 ## Forbidden in this phase
 
+* Do not start Phase 5G Planning until monitoring passes and ChatGPT / ibi explicitly approve it
+* Do not start any next implementation phase
 * Do not allow real production write
 * Do not allow production canary write
 * Do not allow broad production rollout
@@ -148,7 +127,7 @@ Allowed files / areas:
 * Do not add UI
 * Do not add Netlify Functions
 * Do not add Cloud Functions
-* Do not implement automated rollback
+* Do not implement rollback
 * Do not implement cleanup job
 * Do not allow AI to apply config
 * Do not allow AI to reset kill switch
@@ -165,122 +144,71 @@ Allowed files / areas:
 * Do not import from `src/database/`
 * Do not import from `src/production/`
 * Do not modify Feature 001–008 core flow
-* Do not modify Feature 009 Phase 5A / 5B / 5C / 5D / 5E behavior except through isolated Phase 5F readiness contracts
+* Do not modify Feature 009 Phase 5A / 5B / 5C / 5D / 5E behavior except through monitoring documentation
 
 ---
 
-## Static Guard Required Patterns
+## Required Monitoring Checks
 
-Static guard must block or detect:
-* import from `src/core/`
-* import from `src/database/`
-* import from `src/production/`
-* production write APIs
-* production `runTransaction` path
-* rollback / cleanup patterns
-* UI / Netlify / Cloud Function patterns
-* production canary execution patterns
-* broad rollout patterns
-* AI apply / reset / approve reset / modify gate patterns
-* Service Account / Admin SDK bypass patterns
-* Feature 001–008 modification patterns
+### 1. Zero Real Write / Production Boundary
+Monitoring must verify:
+* production write attempt remains BLOCKED
+* production canary write attempt remains BLOCKED
+* broad rollout attempt remains BLOCKED
+* production mutation attempt remains BLOCKED
+* real rollout path remains absent
+* `FATAL_SAFETY_VIOLATION` or equivalent remains active
+* `IS_PRODUCTION_READINESS_ONLY` or equivalent remains active
+* static guard continues blocking forbidden production write / rollout patterns
 
----
+### 2. TracingInterceptor Isolation
+Monitoring must verify:
+* TracingInterceptor remains isolated under `src/monitoring/`
+* no import from `src/core/`
+* no import from `src/database/`
+* no import from `src/production/`
+* no business flow mutation
+* timing / metadata sampling only
+* `Performance_Degradation_Risk` behavior remains modeled / documented
 
-## SOC / Audit Payload Required Fields
+### 3. Runtime Validator / Token / Flag Schema
+Monitoring must verify:
+* malformed token remains BLOCKED
+* missing token remains BLOCKED
+* stale token remains BLOCKED
+* malformed flag remains BLOCKED
+* missing flag remains BLOCKED
+* stale flag remains BLOCKED
+* version mismatch remains BLOCKED
+* SOC / audit payload emitted for rejected malformed / stale input
 
-SOC / Audit payloads must include:
-* `eventType`
-* `tenantId`
-* `operatorId`
-* `decision`
-* `blockedReason`
-* `source`
-* `occurredAt`
-* `traceId`
-* `version`
-* `expectedState`
-* `observedState`
-
----
-
-## Mandatory Implementation Conditions
-
-Claude must satisfy these before reporting completion:
-
-1. `FATAL_SAFETY_VIOLATION` or equivalent hard block must remain active for any production write attempt.
-2. `IS_PRODUCTION_READINESS_ONLY` or equivalent guard must remain hard-enforced.
-3. Emergency Disable must be the highest-priority hook.
-4. Runtime schema validation must default-deny malformed / missing / stale token or flag.
-5. Dry-run audit threshold must remain `Difference > 0 = Block`.
-6. Tenant lock must be modeled as blocking decision only.
-7. Tenant lock must not write to production DB or production state.
-8. TracingInterceptor must not import from or modify `src/core/`.
-9. TracingInterceptor must be isolated under `src/monitoring/`.
-10. Runtime validator must be isolated under `src/schema/`.
-11. Feature flag isolation must prevent leakage into Feature 001–008 / core path.
-12. Static guard must block forbidden production write / rollout / UI / rollback / cleanup patterns.
-13. Known limitations must be documented.
-
----
-
-## Required Tests
-
-### Zero Real Write / Production Boundary
-* production write attempt BLOCKED
-* production canary write attempt BLOCKED
-* broad rollout attempt BLOCKED
-* production mutation attempt BLOCKED
-* real rollout path absent
-* `FATAL_SAFETY_VIOLATION` emitted on production write attempt
-* `IS_PRODUCTION_READINESS_ONLY` or equivalent guard verified
-* static guard catches forbidden production write / rollout patterns
-
-### TracingInterceptor Isolation
-* TracingInterceptor isolated under `src/monitoring/`
-* TracingInterceptor does not import from `src/core/`
-* TracingInterceptor does not import from `src/database/`
-* TracingInterceptor does not import from `src/production/`
-* TracingInterceptor only samples timing / metadata
-* TracingInterceptor does not mutate business flow
-* P99 `<50ms` target is modeled / validated / documented
-* `Performance_Degradation_Risk` emitted when threshold exceeded
-
-### Runtime Validator / Token / Flag Schema
-* valid token / flag accepted only in allowed readiness context
-* malformed token BLOCKED
-* missing token BLOCKED
-* stale token BLOCKED
-* malformed flag BLOCKED
-* missing flag BLOCKED
-* stale flag BLOCKED
-* version mismatch BLOCKED
-* SOC payload emitted for rejected malformed / stale input
-
-### Tenant Lock Non-write Behavior
-* tenant lock modeled as blocking decision only
+### 4. Tenant Lock Non-write Behavior
+Monitoring must verify:
+* tenant lock remains modeled as blocking decision only
 * ambiguous tenant lock state defaults to BLOCKED / DENY
 * tenant lock does not write production DB
 * tenant lock does not mutate production state
-* audit-only payload emitted
-* real tenant lock state mutation absent
+* audit-only payload remains complete
+* real tenant lock state mutation remains absent
 
-### Dry-run Audit Difference Threshold
-* difference = 0 allowed in dry-run readiness context
-* difference > 0 BLOCKED
-* audit payload complete
-* threshold configurability absent unless modeled as GitOps + dual-sign
+### 5. Dry-run Audit Difference Threshold
+Monitoring must verify:
+* difference = 0 allowed only in dry-run readiness context
+* difference > 0 remains BLOCKED
+* audit payload remains complete
 * no production mutation occurs from threshold decision
 
-### Emergency Disable / Feature Flag Isolation
-* emergency disable highest priority
+### 6. Emergency Disable / Feature Flag Isolation
+Monitoring must verify:
+* emergency disable remains highest priority
 * emergency disable cannot be bypassed
-* feature flag isolation active
+* feature flag isolation remains active
 * feature flag cannot override core Feature 001–008 behavior
 * feature flag cannot enable production write
 * feature flag cannot enable production canary write
 
-### Boundary
+### 7. Boundary
+Monitoring must verify:
 * no UI
 * no rollback
 * no cleanup
@@ -295,64 +223,26 @@ Claude must satisfy these before reporting completion:
 * typecheck pass
 * build pass
 * static guard pass
+* old Phase 5A–5E regressions remain absent
 
 ---
 
-## Exit Criteria
+## Known Monitoring Focus
 
-Phase 5F may pass only if:
-* all tests pass
-* typecheck passes
-* build passes
-* static guard passes
-* Zero Real Write boundary remains intact
-* no production canary write path exists
-* no broad rollout path exists
-* no production mutation path exists
-* TracingInterceptor isolation is verified
-* runtime validator default-deny behavior is verified
-* tenant lock non-write behavior is verified
-* dry-run audit threshold behavior is verified
-* emergency disable priority is enforced
-* feature flag isolation is enforced
-* SOC / audit payload fields are complete
-* known limitations are documented
+Grok identified only low-risk known limitations:
+* P99 `<50ms` in staging remains partly simulation / contract-level
+* Tenant Lock remains non-write in Phase 5F, but future production stage must re-validate
+* contract-level readiness behavior must not be mistaken for production canary execution
 
----
-
-## Blocker Criteria
-
-Phase 5F must be blocked if:
-* any real production write path is introduced
-* any production canary write path is introduced
-* any broad rollout path is introduced
-* any production mutation path is introduced
-* Zero Real Write guard can be bypassed
-* Emergency Disable can be bypassed
-* token / flag malformed input can pass validation
-* stale token / flag can pass validation
-* dry-run audit difference > 0 does not block
-* tenant lock writes production DB
-* tenant lock mutates production state
-* feature flag isolation fails
-* TracingInterceptor imports from `src/core/`
-* TracingInterceptor imports from `src/database/`
-* TracingInterceptor imports from `src/production/`
-* AI can apply / reset / approve reset / modify gate
-* Service Account / Admin SDK can bypass business guard
-* UI / rollback / cleanup is introduced
-* tests fail
-* typecheck fails
-* build fails
-* static guard fails
+These do not block monitoring but must be documented.
 
 ---
 
 ## Team State
 
-* Claude: GO - Feature 009 Phase 5F Implementation only
-* Gemini: HOLD / support clarification only
-* Grok: Prepare Feature 009 Phase 5F Code Review
+* Claude: HOLD / Phase 5F post-monitoring support only
+* Gemini: HOLD
+* Grok: GO - Prepare Phase 5F Post-Monitoring Review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -360,10 +250,10 @@ Phase 5F must be blocked if:
 
 ## Next Expected Input
 
-Claude Feature 009 Phase 5F implementation report:
-1. branch
-2. commit hash
-3. changed files
+Claude Feature 009 Phase 5F Post-Monitoring report:
+1. observation window
+2. branch
+3. commit hash
 4. tests result
 5. typecheck result
 6. build result
@@ -372,18 +262,19 @@ Claude Feature 009 Phase 5F implementation report:
 9. no production canary write confirmation
 10. no broad rollout confirmation
 11. no production mutation confirmation
-12. TracingInterceptor isolation confirmation
-13. runtime validator default-deny confirmation
-14. token / flag schema hardening confirmation
-15. tenant lock non-write confirmation
-16. dry-run audit threshold confirmation
-17. emergency disable priority confirmation
-18. feature flag isolation confirmation
-19. monitoring / alerting payload confirmation
+12. TracingInterceptor isolation monitoring confirmation
+13. runtime validator default-deny monitoring confirmation
+14. token / flag schema hardening monitoring confirmation
+15. tenant lock non-write monitoring confirmation
+16. dry-run audit threshold monitoring confirmation
+17. emergency disable priority monitoring confirmation
+18. feature flag isolation monitoring confirmation
+19. SOC / audit payload monitoring confirmation
 20. no UI / rollback / cleanup confirmation
-21. no `src/core/` import / modification confirmation
-22. known limitations
-23. final recommendation
+21. no `src/core/`, `src/database/`, `src/production/` import confirmation
+22. old Phase 5A–5E regression confirmation
+23. known limitations
+24. final recommendation: MONITORING_OK / NEEDS_PATCH / BLOCKED
 
 ---
 

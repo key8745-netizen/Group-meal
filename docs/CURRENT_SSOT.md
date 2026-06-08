@@ -14,7 +14,7 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Feature 009: Real Model Config Apply Transaction Implementation
+Feature 009 Phase 5: Real Model Config Apply Transaction Execution
 
 ---
 
@@ -33,14 +33,19 @@ Planning / Spec Design
 * Feature 005: CLOSED
 * Feature 006: CLOSED
 * Feature 007: CLOSED
-* Feature 008 dry-run executor-readiness version: CLOSED
+* Feature 008: CLOSED
 * Feature 008 Post-Release Monitoring: PASSED
-* Feature 008 Post-Release Monitoring Commit: `1e28a54`
-* Feature 008 Monitoring Review: 95/100
-* Feature 008 Monitoring Recommendation: MONITORING_OK
-* Production Release: COMPLETED
-* Post-Release Monitoring: PASSED
-* ChatGPT Decision: Begin Feature 009 Planning only; Claude HOLD
+* Feature 009 Spec v1.1: PASSED
+* Feature 009 Phase 1: PASSED (commit `d2add5a`, Grok 96/100)
+* Feature 009 Phase 2: PASSED (commit `4c0d96d`, Grok 96/100)
+* Feature 009 Phase 3: PASSED (commit `56f3dfb`, Grok 96/100)
+* Feature 009 Phase 4: PASSED (commit `1bdc805`, Grok 96/100)
+* Feature 009 contract-readiness version: CLOSED
+* Feature 009 Post-Release Monitoring: PASSED
+* Feature 009 Post-Release Monitoring Commit: `78f7965`
+* Feature 009 Post-Release Monitoring Review: 96/100
+* Feature 009 Post-Release Monitoring Recommendation: MONITORING_OK
+* ChatGPT Decision: Feature 009 Post-Release Monitoring PASSED; begin Feature 009 Phase 5 Planning / Spec Design
 
 ---
 
@@ -52,146 +57,100 @@ Planning / Spec Design
 
 ## Current Commit
 
-`1e28a54`
+`78f7965`
 
 ---
 
-## Feature 009 Goal
+## Feature 009 Phase 5 Goal
 
-Design the first real Firestore transaction implementation for human-approved model config apply.
-Feature 009 may implement real model config apply only if the Spec is approved by Grok and explicitly authorized by ChatGPT / ibi.
-The real transaction must preserve:
-* human final control
-* explicit persisted approval
-* verified human caller context
-* default-deny service guard
-* AI caller hard block
-* single Firestore transaction
-* immutable `settingsHistory` write
-* `settings.currentVersion` update
-* idempotency lock write
-* expectedCurrentVersion guard
-* canonical hash validation inside transaction
-* full audit trail
-* duplicate apply prevention
-* rollback exclusion unless explicitly scoped
+Design (NOT implement) the first controlled real transaction execution boundary that
+will eventually allow a verified HUMAN-approved config apply to execute inside a real
+Firestore `runTransaction`, replacing the contract-only simulation built in Phases 1–4.
+This phase produces a spec and review only — recommended split into:
+* Phase 5A — emulator-only execution boundary
+* Phase 5B — production-gated execution boundary
+* Phase 5C — post-execution monitoring
 
 ---
 
 ## Allowed in this phase
 
-* Feature 009 requirements discussion
-* Gemini produces Feature 009 Spec
-* Grok reviews Feature 009 Spec
-* Define real Firestore transaction implementation boundary
-* Define transaction read set
-* Define transaction write set
-* Define persisted approval read strategy
-* Define `settings/{tenantId}` read / update strategy
-* Define `settingsHistory/{tenantId}/versions/{version}` immutable write strategy
-* Define idempotency lock write strategy
-* Define audit event write strategy
-* Define expectedCurrentVersion guard
-* Define canonical hash validation inside transaction
-* Define duplicate apply handling
-* Define transaction retry behavior
-* Define transaction failure behavior
-* Define rollback inclusion / exclusion boundary
-* Define cleanup inclusion / exclusion boundary
-* Define UI inclusion / exclusion boundary
-* Define Claude Phase 1 implementation scope
-* Docs / SSOT update
+* Spec discussion and design documentation
+* Gemini may produce the Feature 009 Phase 5 Spec
+* Grok may prepare the Feature 009 Phase 5 Spec Review
+* Defining boundaries, contracts, and risk coverage for Phase 5
+* SSOT update
+* Documentation updates related to planning only
 
 ---
 
 ## Forbidden in this phase
 
-* Do not let Claude implement code
-* Do not modify production code
+* Do not let Claude implement any Phase 5 code
+* Do not let Claude write, modify, or scaffold any real transaction executor
 * Do not write Firestore
-* Do not read Firestore
-* Do not call `runTransaction`
+* Do not mutate Firestore
 * Do not modify `settings`
 * Do not write `settingsHistory`
 * Do not create real approval records
 * Do not create real apply records
 * Do not create real rollback records
 * Do not create real cleanup jobs
-* Do not apply config
-* Do not rollback config
+* Do not actually apply config
+* Do not actually rollback config
 * Do not add UI
 * Do not add Netlify Functions
 * Do not add Cloud Functions
-* Do not modify Feature 001 core flow
-* Do not modify Feature 002 inventory mutation logic
-* Do not modify Feature 003 prediction logic
-* Do not modify Feature 004 dry-run boundary
-* Do not modify Feature 005 dry-run execution boundary
-* Do not modify Feature 006 dry-run transaction-readiness boundary
-* Do not modify Feature 007 dry-run real-apply readiness boundary
-* Do not modify Feature 008 dry-run executor-readiness boundary
+* Do not modify Feature 001–008 core flows or boundaries
+* Do not modify the Feature 009 contract-readiness boundary (Phases 1–4)
 * Do not allow AI to apply config
 * Do not allow AI to mutate settings or rules
-* Do not change `wasteFactorWarning` automatically
-* Do not introduce new production write paths
+* Do not begin Phase 5 implementation under any circumstance until explicit ChatGPT/ibi GO
 
 ---
 
 ## Required Guard Rails
 
-* Claude remains HOLD until Feature 009 Spec passes Grok review.
-* Feature 009 must not begin implementation during Planning / Spec Design.
-* AI cannot apply config.
-* AI cannot mutate settings or rules.
-* AI cannot create approval records.
-* AI cannot create apply records.
-* AI cannot execute rollback.
-* Admin SDK / Service Account must not imply business permission.
-* Upstream verified human context must be mandatory.
-* Client-supplied verification must be rejected.
-* Persisted human approval must be mandatory.
-* Transaction must validate approval before writing anything.
-* Transaction must validate tenantId before writing anything.
-* Transaction must validate expectedCurrentVersion.
-* Transaction must canonicalize current config inside transaction.
-* Transaction must validate configBeforeHash against actual current config.
-* Transaction must validate configAfterHash and diffHash.
-* Transaction must write idempotency lock.
-* Transaction must write immutable settingsHistory.
-* Transaction must update settings current config and currentVersion.
-* Transaction must write audit event or define a safe atomic audit strategy.
-* Duplicate apply must be blocked or idempotently recognized.
-* settingsHistory must remain append-only.
-* Rollback must be deferred unless fully specified.
-* Cleanup job must be deferred unless fully specified.
-* UI must be deferred unless fully specified.
+* Claude remains HOLD until the Feature 009 Phase 5 Spec passes Grok review and ChatGPT/ibi explicitly authorize implementation.
+* Feature 009 contract-readiness boundary (Phases 1–4) must remain intact and untouched.
+* `executable` and `aiCanExecute` must remain `false` on all existing contracts.
+* AI cannot apply config; AI cannot mutate settings or rules.
+* Any future real transaction executor must be a new approved phase with Gemini spec, Grok review, and ChatGPT gatekeeping.
+* Static guards / CI rules must continue blocking forbidden imports and forbidden calls.
 
 ---
 
-## Priority Risks From Feature 008 Monitoring
+## Priority Risks For Phase 5 Spec
 
-Feature 009 Spec must address:
-1. Real Firestore transaction execution is not yet implemented.
-2. Real settings mutation is not yet implemented.
-3. Real settingsHistory write is not yet implemented.
-4. Real approval read / validation is not yet implemented.
-5. Real idempotency lock write is not yet implemented.
-6. Real audit event write strategy is not yet implemented.
-7. Token verification was modeled through production-like contract simulation.
-8. Feature 009 must define how verified context enters the executor.
-9. Feature 009 must define transaction retry / duplicate apply behavior.
-10. Feature 009 must define failure recovery and partially failed audit strategy.
-11. Feature 009 must decide whether rollback is excluded or included.
-12. Feature 009 must decide whether cleanup job is excluded or included.
-13. Feature 009 must decide whether UI is excluded or included.
+Gemini's spec must explicitly address:
+1. Real `admin.auth().verifyIdToken(token)` integration and failure modes
+2. Real Firestore read of `settings/{tenantId}` inside `runTransaction`
+3. Real read of approval record and its consistency with the contract read-set order
+4. Real read of idempotency lock record and atomic check-and-write
+5. Atomicity of PENDING→ABANDONED abort transition (flagged race condition risk in Phase 4)
+6. Real `settingsHistory` immutable append semantics
+7. Real `settings` current version update and optimistic concurrency handling
+8. Real audit event write (transactional vs. committed-after)
+9. Emulator-only vs. production-gated execution boundary separation (5A/5B split)
+10. Rollback boundary scope (explicitly deferred from Feature 009)
+11. Cleanup job boundary scope (explicitly deferred from Feature 009)
+12. Tenant hard guard execution order in the real transaction
+13. Service Account / Admin SDK caller hard-block enforcement at execution time
+14. Three-way Firebase token / middleware / request consistency at execution time
+15. Concurrent modification detection (version + hash) at execution time
+16. Duplicate apply / idempotent replay handling at execution time
+17. FAILED audit payload completeness on real abort paths
+18. Static guard / CI updates required to scan new Phase 5 executor files
+19. Test strategy for real `runTransaction` execution (emulator suite design)
+20. Rollout / feature-flag strategy and kill-switch design for first real execution
 
 ---
 
 ## Team State
 
 * Claude: HOLD
-* Gemini: GO - Produce Feature 009 Spec
-* Grok: GO - Prepare Feature 009 Spec Review
+* Gemini: GO - Produce Feature 009 Phase 5 Spec
+* Grok: GO - Prepare Phase 5 Spec Review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -199,27 +158,26 @@ Feature 009 Spec must address:
 
 ## Next Expected Input
 
-Gemini Feature 009 Spec.
-Spec should define:
-* real transaction executor boundary
-* real Firestore read set
-* real Firestore write set
-* persisted approval read and validation
-* verified caller context contract
-* settings current config read and validation
-* settingsHistory immutable version write
-* idempotency lock schema and write behavior
-* expectedCurrentVersion behavior
-* canonical hash validation inside transaction
-* audit event write strategy
-* duplicate apply handling
-* transaction retry behavior
-* failure / rollback strategy
-* rollback boundary decision
-* cleanup boundary decision
-* UI boundary decision
-* security rules / service guard assumptions
-* Claude Phase 1 implementation scope
+Gemini's Feature 009 Phase 5 Spec, which must include at minimum:
+1. Scope boundary definition (5A emulator-only / 5B production-gated / 5C monitoring)
+2. Real `runTransaction` executor service design orchestrating Phase 1–4 validators
+3. Real Firebase Admin SDK `admin.auth().verifyIdToken(token)` middleware integration design
+4. Real Firestore read design for `settings/{tenantId}`, approval, and lock inside `runTransaction`
+5. Real idempotency lock check-and-write design inside `runTransaction`
+6. Real `settingsHistory` immutable append design
+7. Real `settings` current version update design
+8. Real audit event write design (transactional or committed-after)
+9. Atomicity design for PENDING→ABANDONED abort transition
+10. File list (new files, modified files) with explicit allowed/forbidden boundaries
+11. Static guard / CI update plan for new executor files
+12. Test strategy (emulator suite, assertion counts, coverage targets)
+13. Rollout / feature-flag / kill-switch design
+14. Risk register addressing all 20 Priority Risks above
+15. Explicit non-goals (what Phase 5 will NOT do)
+16. Required Grok review checklist items
+
+After Gemini's Spec is produced, Grok prepares the Phase 5 Spec Review, and ChatGPT/ibi
+will gate authorization for any Claude implementation work.
 
 ---
 

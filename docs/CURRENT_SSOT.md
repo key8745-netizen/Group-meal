@@ -14,13 +14,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Feature 009 Phase 5C: Production Deployment Gate Hardening + Kill Switch Reset Transaction Protection
+Feature 009 Phase 5C: Deployment Gate Hardening + Kill Switch Reset Transaction Protection
 
 ---
 
 ## Current Phase
 
-Planning / Spec Design
+Phase 5C Implementation — Deployment Pipeline Hardening & TPI Reset Transaction
 
 ---
 
@@ -37,13 +37,11 @@ Planning / Spec Design
 * Feature 009 contract-readiness version: CLOSED
 * Feature 009 Phase 5A: PASSED
 * Feature 009 Phase 5A Post-Emulator Monitoring: PASSED
-* Feature 009 Phase 5B Spec v1.2: PASSED
 * Feature 009 Phase 5B Implementation: PASSED
-* Feature 009 Phase 5B Commit: `b16eeda`
 * Feature 009 Phase 5B Post-Monitoring: PASSED
-* Feature 009 Phase 5B Post-Monitoring Commit: `8fe7b31`
-* Feature 009 Phase 5B Monitoring Review: 97/100
-* ChatGPT Decision: Begin Feature 009 Phase 5C Planning only; Claude HOLD
+* Feature 009 Phase 5C Spec v1.2: PASSED
+* Feature 009 Phase 5C Spec v1.2 Grok Review: 96/100
+* ChatGPT Decision: Claude GO - Feature 009 Phase 5C Implementation only
 
 ---
 
@@ -55,74 +53,111 @@ Planning / Spec Design
 
 ## Current Commit
 
-`8fe7b31`
+`f5f7343`
 
 ---
 
 ## Phase 5C Goal
 
-Design the next hardening layer for Feature 009 production-gated rollout.
-Phase 5B established the production-gated rollout foundation:
-* production disabled-by-default
-* tenant allowlist mandatory
-* operator allowlist mandatory
-* operator confirmation mandatory
-* kill switch mandatory
-* emergency disable modeled
-* dry-run-to-real comparison complete
-* no broad production rollout
-* no UI
-* no rollback
-* no cleanup
-
-Phase 5C must focus on two remaining production-hardening areas:
+Implement deployment gate hardening and kill switch reset transaction protection.
+Phase 5C must harden the final two production-gate layers:
 1. Deployment Pipeline Gate physical enforcement
 2. Kill Switch Reset end-to-end transaction protection
 
-Phase 5C is Planning / Spec Design only.
-Claude must remain HOLD until Gemini Spec passes Grok review and ChatGPT / ibi explicitly approve implementation.
+Phase 5C must remain strictly staging-first and production-disabled-by-default.
+Broad production rollout remains forbidden.
+
+---
+
+## Phase 5C Required Priority Fixes
+
+Grok identified two medium risks that must be handled during implementation:
+
+### 1. Deployment Gate Atomicity in Real CI Pipeline
+Claude must ensure:
+* CI token injection and Firestore deployment gate lifecycle are consistently modeled.
+* Missing deployment token must hard-block.
+* Stale deployment token must hard-block.
+* Malformed deployment token must hard-block.
+* Invalid HMAC must hard-block.
+* KMS mismatch must hard-block.
+* Local bypass must hard-block.
+* CI bypass must hard-block.
+* Token injected but Firestore gate missing must hard-block.
+* Firestore gate updated but token invalid must hard-block.
+* Network / partial failure scenarios must be modeled.
+* Development fallback must never create a production write path.
+* Deployment gate failure must be auditable.
+
+### 2. Observation Mode High-Concurrency and Flag Consistency
+Claude must ensure:
+* Post-reset observation mode cannot become a bypass channel.
+* Observation mode flag failure must default-deny.
+* Observation mode malformed state must default-deny.
+* Observation mode missing state must block if required.
+* Observation mode must not enable production writes by itself.
+* Observation mode must produce monitoring payload.
+* Observation mode expiry must be explicit.
+* Observation mode must not override emergency disable.
+* High-concurrency observation-mode edge cases must be tested or modeled.
+* Negative tests must cover observation mode failure cases.
 
 ---
 
 ## Allowed in this phase
 
-* Phase 5C requirements discussion
-* Gemini produces Phase 5C Spec
-* Grok reviews Phase 5C Spec
-* Define CI / deployment pipeline gate hardening
-* Define Terraform / KMS / manual approval assumptions
-* Define production enablement final physical gate
-* Define deployment script hard-block behavior
-* Define deployment audit payload
-* Define deployment gate missing behavior
-* Define kill switch reset transaction boundary
-* Define kill switch reset audit atomicity
-* Define two-person integrity reset flow
-* Define reset failure consistency model
-* Define emergency disable recovery strategy
-* Define acceptance criteria for Phase 5C implementation
-* Define Claude Phase 5C implementation scope
-* Docs / SSOT update
+* Deployment gate validator
+* Deployment token HMAC / KMS contract
+* SecurityCoordinator contract
+* CI token injection lifecycle model
+* Firestore deployment_gate lifecycle contract
+* CI security-check script
+* Workflow YAML example or hardening file if explicitly scoped
+* Manual approval integration contract
+* Deployment gate audit payload
+* Local bypass hard-block
+* CI bypass hard-block
+* Missing / stale / malformed deployment token blocking logic
+* Invalid HMAC / KMS mismatch blocking logic
+* Kill switch reset service
+* Kill switch reset transaction contract
+* Kill switch reset audit payload
+* Two-person integrity reset validation
+* requestedBy / approvedBy mismatch enforcement
+* reset idempotency via auditTrailId
+* previousState / nextState validation
+* reset failure consistency modeling
+* post-reset observation mode
+* observation mode monitoring payload
+* observation mode negative tests
+* emergency disable override
+* static guards
+* docs
+* tests
+* SSOT update
 
 ---
 
 ## Forbidden in this phase
 
-* Do not let Claude implement code
-* Do not modify production code
 * Do not allow broad production rollout
-* Do not allow production write without explicit gate
+* Do not allow production write without deployment gate
 * Do not allow production write without tenant allowlist
 * Do not allow production write without operator allowlist
 * Do not allow production write without operator confirmation
 * Do not allow production write when kill switch is ON
-* Do not allow production write when deployment gate is missing
+* Do not allow production write when emergency disable is active
+* Do not allow production write when deployment token is missing, stale, invalid, or bypassed
+* Do not allow production write in unknown environment
 * Do not add UI
 * Do not add Netlify Functions
 * Do not add Cloud Functions
 * Do not implement rollback
 * Do not implement cleanup job
 * Do not allow AI to apply config
+* Do not allow AI to reset kill switch
+* Do not allow AI to approve kill switch reset
+* Do not allow AI to modify production gate
 * Do not allow AI to mutate settings or rules
 * Do not change `wasteFactorWarning` automatically
 * Do not modify Feature 001 core flow
@@ -133,130 +168,130 @@ Claude must remain HOLD until Gemini Spec passes Grok review and ChatGPT / ibi e
 * Do not modify Feature 006 dry-run transaction-readiness boundary
 * Do not modify Feature 007 dry-run real-apply readiness boundary
 * Do not modify Feature 008 dry-run executor-readiness boundary
-* Do not modify Feature 009 Phase 5A / 5B behavior before Spec approval
 
 ---
 
-## Required Phase 5C Spec Topics
+## Required Guard Rails
 
-Gemini must explicitly define:
-
-### 1. Deployment Pipeline Gate Physical Enforcement
-* CI hard-block behavior
-* deployment workflow gate
-* manual approval requirement
-* production enablement approval source
-* Terraform / KMS / environment-secret assumptions
-* whether production enablement flag can be injected only by CI
-* blocked project IDs
-* allowed project IDs
-* staging-first behavior
-* production-disabled-by-default behavior
-* missing deployment gate behavior
-* stale deployment gate behavior
-* deployment gate audit payload
-* deployment gate monitoring signal
-* emergency disable interaction
-
-### 2. Kill Switch Reset Transaction Protection
-* reset transaction boundary
-* reset read set
-* reset write set
-* reset audit event
-* two-person integrity requirement
-* requestedBy / approvedBy mismatch requirement
-* previousState / nextState validation
-* reset reason requirement
-* reset timestamp requirement
-* reset auditTrailId requirement
-* reset failure behavior
-* inconsistent state prevention
-* reset idempotency behavior
-* reset monitoring signal
-
-### 3. Phase 5C Implementation Boundary
-* exact allowed files
-* exact forbidden files
-* whether implementation is app-level contract only, CI-level scripts, or both
-* whether any deployment workflow file may be modified
-* whether Terraform/KMS files are in scope
-* whether production write remains disabled-by-default
-* whether broad production rollout remains forbidden
-
----
-
-## Required Guard Rails For Phase 5C Spec
-
-* Claude remains HOLD until Spec passes.
-* AI cannot apply config.
-* AI cannot mutate settings or rules.
 * Production remains disabled-by-default.
 * Broad production rollout remains forbidden.
-* Tenant allowlist remains mandatory.
-* Operator allowlist remains mandatory.
-* Operator confirmation remains mandatory.
-* Kill switch remains mandatory.
-* Kill switch reset must be audited.
-* Kill switch reset must not be single-person if TPI is required.
-* Deployment gate must not be app-level only if Phase 5C chooses physical enforcement.
+* Unknown environment must default-deny.
 * Missing deployment gate must BLOCK.
-* Missing reset audit payload must BLOCK.
-* Reset failure must not leave inconsistent state.
-* Rollback remains excluded unless fully specified.
-* Cleanup remains excluded unless fully specified.
-* UI remains excluded unless fully specified.
+* Missing deployment token must BLOCK.
+* Stale deployment token must BLOCK.
+* Malformed deployment token must BLOCK.
+* Invalid deployment token must BLOCK.
+* Invalid HMAC must BLOCK.
+* KMS mismatch must BLOCK.
+* Local bypass must BLOCK.
+* CI bypass must BLOCK.
+* Emergency disable must override production enablement.
+* Emergency disable must override kill switch reset.
+* Kill switch reset must be transaction-protected if implemented.
+* Kill switch reset audit must be atomic with reset state transition.
+* Kill switch reset must require two-person integrity.
+* `requestedBy !== approvedBy` must be enforced.
+* Reset reason must be mandatory.
+* previousState / nextState must be mandatory.
+* reset auditTrailId must be mandatory.
+* reset idempotency must be modeled.
+* reset failure must not leave inconsistent state.
+* observation mode must not create a write bypass.
+* observation mode failure must default-deny.
+* observation mode must not override emergency disable.
+* AI cannot apply config.
+* AI cannot reset kill switch.
+* AI cannot approve reset.
+* AI cannot modify production gate.
+* Service Account / Admin SDK must not imply business permission.
+* UI remains excluded.
+* Rollback remains excluded.
+* Cleanup remains excluded.
 
 ---
 
-## Required Phase 5C Risk Questions
+## Required Tests
 
-Gemini must explicitly answer:
-1. Is Phase 5C app-level only, CI-level, Terraform/KMS-level, or mixed?
-2. Which deployment files, if any, may be modified?
-3. What is the final production enablement source of truth?
-4. Can production enablement be set outside CI?
-5. What happens if CI gate is missing?
-6. What happens if manual approval is missing?
-7. What happens if Terraform/KMS assumption is unavailable?
-8. What happens if production flag is accidentally enabled?
-9. How does emergency disable override production enablement?
-10. Is kill switch reset implemented in this phase or only specified?
-11. If reset is implemented, is it transaction-protected?
-12. Does reset require two-person integrity?
-13. How is reset audit written?
-14. What happens if reset audit write fails?
-15. What happens if reset state update succeeds but audit fails?
-16. How is reset idempotency handled?
-17. How is post-reset monitoring performed?
-18. Does Phase 5C include rollback? If not, why?
-19. Does Phase 5C include cleanup? If not, why?
-20. Does Phase 5C include UI? If not, why?
+Phase 5C must include tests for:
 
----
+### Deployment Pipeline Gate
+* valid deployment token passes only with all other gates
+* missing deployment token BLOCKED
+* stale deployment token BLOCKED
+* malformed deployment token BLOCKED
+* invalid HMAC BLOCKED
+* KMS mismatch BLOCKED
+* wrong project ID BLOCKED
+* wrong environment BLOCKED
+* local bypass BLOCKED
+* CI bypass BLOCKED
+* token injected but Firestore gate missing BLOCKED
+* Firestore gate updated but token invalid BLOCKED
+* token injected but gate update failed BLOCKED / token invalidated
+* missing deployment gate BLOCKED
+* deployment gate audit payload complete
+* deployment gate blocked event payload complete
 
-## Recommended Default
+### Kill Switch Reset Transaction Protection
+* valid reset with TPI passes
+* requestedBy === approvedBy BLOCKED
+* missing requestedBy BLOCKED
+* missing approvedBy BLOCKED
+* missing reason BLOCKED
+* missing previousState BLOCKED
+* missing nextState BLOCKED
+* previousState mismatch BLOCKED
+* nextState mismatch BLOCKED
+* missing auditTrailId BLOCKED
+* duplicate reset idempotency modeled
+* reset audit failure blocks state transition
+* reset state failure blocks audit completion
+* reset failure leaves no inconsistent state
+* reset transaction read set modeled
+* reset transaction write set modeled
 
-Recommended Phase 5C design:
-* Keep production disabled-by-default
-* No broad production rollout
-* Add deployment gate hardening
-* Add CI/static/deployment script checks if in repo scope
-* Keep Terraform/KMS as documented assumption unless files exist and are in scope
-* Add kill switch reset transaction contract
-* Require two-person integrity for reset
-* Require full reset audit payload
-* Block reset on audit failure
-* Continue excluding UI
-* Continue excluding rollback
-* Continue excluding cleanup
+### Observation Mode
+* post-reset observation mode created
+* observation mode has explicit expiry
+* observation mode payload complete
+* observation mode missing state BLOCKED if required
+* observation mode malformed state BLOCKED
+* observation mode failure default-deny
+* observation mode high-concurrency behavior modeled or tested
+* observation mode does not override emergency disable
+* observation mode does not enable production write by itself
+
+### Emergency Disable
+* emergency disable overrides production enablement
+* emergency disable overrides reset
+* emergency disable clears / supersedes observation mode
+* emergency disable blocks future apply
+* emergency disable audit payload complete
+
+### Boundary
+* no broad production rollout
+* no UI
+* no Netlify Function
+* no Cloud Function
+* no rollback
+* no cleanup
+* AI cannot apply
+* AI cannot reset
+* AI cannot approve reset
+* AI cannot modify gate
+* Service Account / Admin SDK cannot bypass
+* tests pass
+* typecheck pass
+* build pass
+* static guard pass
 
 ---
 
 ## Team State
 
-* Claude: HOLD
-* Gemini: GO - Produce Feature 009 Phase 5C Spec
-* Grok: GO - Prepare Phase 5C Spec Review
+* Claude: GO - Feature 009 Phase 5C Implementation only
+* Gemini: HOLD / support clarification only
+* Grok: Prepare Feature 009 Phase 5C Code Review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -264,26 +299,33 @@ Recommended Phase 5C design:
 
 ## Next Expected Input
 
-Gemini Feature 009 Phase 5C Spec.
-Spec should define:
-* Phase 5C scope decision
-* deployment pipeline gate physical enforcement
-* CI / workflow / Terraform / KMS boundary
-* production enablement source of truth
-* manual approval requirement
-* deployment gate audit payload
-* missing deployment gate behavior
-* kill switch reset transaction boundary
-* kill switch reset audit atomicity
-* TPI reset flow
-* reset failure consistency
-* reset idempotency
-* emergency disable interaction
-* monitoring strategy
-* rollback boundary
-* cleanup boundary
-* UI boundary
-* Claude implementation scope
+Claude Feature 009 Phase 5C implementation report:
+* branch name
+* commit hash
+* changed files
+* tests result
+* typecheck result
+* build result
+* static guard result
+* deployment gate hard-block confirmation
+* deployment token HMAC / KMS contract confirmation
+* SecurityCoordinator contract confirmation
+* CI token injection lifecycle confirmation
+* CI / workflow security-check confirmation
+* local bypass hard-block confirmation
+* kill switch reset transaction confirmation
+* TPI reset confirmation
+* reset audit atomicity confirmation
+* reset failure consistency confirmation
+* observation mode confirmation
+* observation mode negative tests confirmation
+* observation mode high-concurrency behavior confirmation
+* emergency disable override confirmation
+* no broad production rollout confirmation
+* no UI confirmation
+* no rollback confirmation
+* no cleanup confirmation
+* known limitations
 
 ---
 

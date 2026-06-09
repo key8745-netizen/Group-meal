@@ -14,13 +14,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Feature 009 Phase 5G: Production Readiness Final Boundary Planning
+Feature 009 Phase 5H: Production Readiness Decision Planning
 
 ---
 
 ## Current Phase
 
-Phase 5G Spec / Simulation Design: PASSED — Awaiting Next Phase Planning
+Planning / Spec Design
 
 ---
 
@@ -41,9 +41,9 @@ Phase 5G Spec / Simulation Design: PASSED — Awaiting Next Phase Planning
 * Feature 009 Phase 5F Implementation: PASSED
 * Feature 009 Phase 5F Post-Monitoring: PASSED
 * Feature 009 Phase 5F Post-Monitoring Commit: `ef821be`
-* Feature 009 Phase 5G Spec v1.1: PASSED
-* Feature 009 Phase 5G Grok Final Validation: PASS
-* ChatGPT Decision: Phase 5G Planning / Spec Design PASSED; Claude updates SSOT only and remains HOLD
+* Feature 009 Phase 5G Spec / Simulation Design: PASSED
+* Feature 009 Phase 5G SSOT Commit: `9258cf6`
+* ChatGPT Decision: Phase 5G CLOSED / PASSED; begin Phase 5H Planning / Spec Design only
 
 ---
 
@@ -55,77 +55,94 @@ Phase 5G Spec / Simulation Design: PASSED — Awaiting Next Phase Planning
 
 ## Current Commit
 
-`ef821be`
+`9258cf6`
 
 ---
 
-## Phase 5G Status
+## Phase 5G Final Status
 
-Phase 5G completed as **Simulation Design & Planning Only**.
-
-Confirmed:
-* Zero Real Write continues
+Phase 5G completed as Simulation Design & Planning Only. Confirmed:
+* Zero Real Write continued
 * no production mutation
 * no production canary write
 * no rollout
 * no implementation
 * no `src/` changes
-* Claude remains HOLD
 * any future implementation requires a new Gatekeeper-approved phase
 
 ---
 
-## Phase 5G Final Boundary
+## Phase 5H Goal
 
-Phase 5G defines the final planning boundary before any future production-readiness decision.
-Phase 5G does **not** authorize:
-* real production write
-* production canary write
-* tenant lock mutation
-* production gate mutation
-* runtime implementation
-* source code implementation
-* UI
-* rollback
-* cleanup
-* Netlify Function
-* Cloud Function
+Decide whether Feature 009 should:
+1. no rollout / stop here
+2. readiness-only continuation
+3. extended simulation design
+4. production-gated canary proposal only
+5. limited production-gated canary design
+6. production-gated implementation planning
+
+No implementation is allowed until Gemini produces a full Phase 5H Spec, Grok reviews it, and ChatGPT / ibi explicitly approve Claude to proceed.
 
 ---
 
-## Allowed Now
+## Phase 5H Required Carry-over Topics
 
-* SSOT update
-* documentation update only if strictly needed
-* planning discussion
-* Gemini next-phase spec drafting if ibi approves
-* Grok next-phase review preparation
+Gemini Phase 5H Spec must explicitly address:
+1. Whether Zero Real Write continues
+2. Whether no production mutation continues
+3. Whether no production canary write continues
+4. Whether to enter production-gated canary proposal
+5. Whether to stop Feature 009 Phase 5 series
+6. Whether to return to Product / Business decision rather than continue engineering phases
+
+---
+
+## Allowed in this phase
+
+* Gemini produces Phase 5H Spec
+* Grok prepares Phase 5H Spec Review
+* requirements discussion
+* docs / SSOT update
 * Claude remains HOLD
 
 ---
 
-## Forbidden Now
+## Forbidden in this phase
 
-* Do not implement Phase 5G
-* Do not modify `src/`
-* Do not modify production / canary / rollout code
-* Do not add runtime validation code
-* Do not add tracing interceptor code
-* Do not add tenant lock code
-* Do not add production gate code
-* Do not enable production write
+* Do not let Claude implement Phase 5H
+* Do not enable real production write
 * Do not enable production canary write
-* Do not enable rollout
+* Do not enable production mutation
+* Do not enable broad production rollout
 * Do not add UI / rollback / cleanup
-* Do not allow AI apply / reset / approve / modify gate
+* Do not allow AI apply / reset / approve reset / modify gate
+* Do not modify `src/`
+* Do not modify Feature 001–008 core flow
+* Do not modify Feature 009 Phase 5A–5G implementation behavior
+
+---
+
+## Required Safety Position for Phase 5H Spec
+
+Unless explicitly and sufficiently justified in the Spec:
+* no real production write
+* no production canary write
+* no production mutation
+* no broad rollout
+* no UI / rollback automation / cleanup automation
+* AI cannot apply / reset / approve reset / modify gate
+* Service Account / Admin SDK cannot bypass business guard
+* emergency disable always highest priority
+* Claude remains HOLD unless Gatekeeper explicitly approves a future implementation phase
 
 ---
 
 ## Team State
 
 * Claude: HOLD
-* Gemini: HOLD / await next instruction
-* Grok: HOLD / await next instruction
+* Gemini: GO - Produce Feature 009 Phase 5H Spec
+* Grok: Prepare Phase 5H Spec Review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -133,8 +150,7 @@ Phase 5G does **not** authorize:
 
 ## Next Expected Input
 
-ibi / ChatGPT decision on whether to begin Feature 009 Phase 5H Planning / Spec Design.
-No agent may start Phase 5H until instructed by ibi / ChatGPT.
+Gemini's full Feature 009 Phase 5H Spec v1.0 body, then Grok's full independent Spec Review body, then ChatGPT/ibi formal Gatekeeper verdict + new SSOT. Claude will not transition until all three appear as substantive bodies in-conversation (established three-artifact rule).
 
 ---
 

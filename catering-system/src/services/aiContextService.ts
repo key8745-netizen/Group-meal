@@ -193,8 +193,7 @@ export async function buildAIContextSnapshot(
   const receivedCountMap = new Map<string, number>();
   receivedOrderSnaps.forEach((snap) => {
     const data = snap.data() as { items?: Array<{ ingredientId: string }>; receivedAt?: { toMillis(): number } };
-    const receivedMs = data.receivedAt?.toMillis() ?? 0;
-    if (receivedMs < ninetyDaysAgoMs) return;
+    if ((data.receivedAt?.toMillis() ?? 0) < ninetyDaysAgoMs) return;
     for (const item of data.items ?? []) {
       receivedCountMap.set(
         item.ingredientId,

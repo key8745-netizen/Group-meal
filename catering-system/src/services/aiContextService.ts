@@ -20,10 +20,8 @@ import {
   collection,
   getDocs,
   limit,
-  orderBy,
   query,
   where,
-  Timestamp,
   type Firestore,
 } from 'firebase/firestore';
 import { configService } from './configService';
@@ -128,8 +126,6 @@ export async function buildAIContextSnapshot(
     }
   }
 
-  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
-
   const [menuSnaps, ingredientSnaps, inventorySnaps, receivedOrderSnaps, tenantSettings] =
     await Promise.all([
       getDocs(collection(db, 'menus')),
@@ -139,8 +135,6 @@ export async function buildAIContextSnapshot(
         query(
           collection(db, 'purchaseOrders'),
           where('status', '==', 'RECEIVED'),
-          where('receivedAt', '>=', Timestamp.fromDate(ninetyDaysAgo)),
-          orderBy('receivedAt', 'desc'),
           limit(200),
         ),
       ),
@@ -195,9 +189,12 @@ export async function buildAIContextSnapshot(
   });
 
   // ── Purchase history: count RECEIVED orders per ingredient (last 90 days) ─
+  const ninetyDaysAgoMs = Date.now() - 90 * 24 * 60 * 60 * 1000;
   const receivedCountMap = new Map<string, number>();
   receivedOrderSnaps.forEach((snap) => {
-    const data = snap.data() as { items?: Array<{ ingredientId: string }> };
+    const data = snap.data() as { items?: Array<{ ingredientId: string }>; receivedAt?: { toMillis(): number } };
+    const receivedMs = data.receivedAt?.toMillis() ?? 0;
+    if (receivedMs < ninetyDaysAgoMs) return;
     for (const item of data.items ?? []) {
       receivedCountMap.set(
         item.ingredientId,

@@ -177,3 +177,94 @@ export function buildDefaultOffCanaryFeatureFlag(input: {
     canEnableCanaryRollout: false,
   };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Feature 009 Phase 5F: Production Readiness Next-Step Planning
+//
+// ADDITIVE-ONLY extension — Phase 5F isolation guarantee evaluation.
+// Verifies that a feature flag cannot leak into / override Feature 001-008
+// core flow, and structurally cannot enable production write or canary
+// write. Nothing below alters any Phase 5E export or behavior.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface F009Phase5FFeatureFlagIsolationInput {
+  readonly _kind: 'f009_phase5f_feature_flag_isolation_input';
+  flag: CanaryFeatureFlag | null | undefined;
+  targetPath: 'FEATURE_001_008_CORE' | 'PHASE5F_READINESS';
+  now: string;
+}
+
+export interface F009Phase5FFeatureFlagIsolationResult {
+  readonly _kind: 'f009_phase5f_feature_flag_isolation_result';
+  readonly executable: false;
+  readonly aiCanExecute: false;
+  /** true → flag is structurally isolated from Feature 001-008 core flow */
+  isolated: boolean;
+  /** Always false — a feature flag can never override Feature 001-008 core behavior */
+  canOverrideCoreFeatures: false;
+  /** Always false — structurally cannot enable a production write */
+  canEnableProductionWrite: false;
+  /** Always false — structurally cannot enable a canary write */
+  canEnableCanaryWrite: false;
+  blockedReasons: BlockedReason[];
+}
+
+/**
+ * Evaluates Phase 5F feature-flag isolation guarantees: a flag targeting
+ * `FEATURE_001_008_CORE` is, by construction, ALWAYS rejected as a leakage
+ * attempt — isolation is structural, not configurable. Even when targeting
+ * the Phase 5F readiness path, the flag can never enable production write
+ * or canary write (`canEnableProductionWrite` / `canEnableCanaryWrite` are
+ * always `false`). Default-deny on malformed input.
+ */
+export function evaluateF009Phase5FFeatureFlagIsolation(
+  input: F009Phase5FFeatureFlagIsolationInput | null | undefined,
+): F009Phase5FFeatureFlagIsolationResult {
+  if (!input || (input as { _kind?: string })._kind !== 'f009_phase5f_feature_flag_isolation_input') {
+    return {
+      _kind: 'f009_phase5f_feature_flag_isolation_result',
+      executable: false, aiCanExecute: false,
+      isolated: false,
+      canOverrideCoreFeatures: false,
+      canEnableProductionWrite: false,
+      canEnableCanaryWrite: false,
+      blockedReasons: ['F009_PHASE5F_UNKNOWN_STATE_DEFAULT_DENY', 'F009_PHASE5F_FEATURE_FLAG_DISABLED'],
+    };
+  }
+
+  // Any attempt to target Feature 001-008 core flow is, by construction, an
+  // isolation violation — structurally rejected, never permitted.
+  if (input.targetPath === 'FEATURE_001_008_CORE') {
+    return {
+      _kind: 'f009_phase5f_feature_flag_isolation_result',
+      executable: false, aiCanExecute: false,
+      isolated: false,
+      canOverrideCoreFeatures: false,
+      canEnableProductionWrite: false,
+      canEnableCanaryWrite: false,
+      blockedReasons: [
+        'F009_PHASE5F_FEATURE_FLAG_ISOLATION_VIOLATION',
+        'F009_PHASE5F_FEATURE_FLAG_CANNOT_ENABLE_PRODUCTION_WRITE',
+        'F009_PHASE5F_FEATURE_FLAG_CANNOT_ENABLE_CANARY_WRITE',
+      ],
+    };
+  }
+
+  const gate = evaluateCanaryFeatureFlagGate({
+    _kind: 'f009_phase5e_canary_feature_flag_gate_input',
+    flag: input.flag,
+    now: input.now,
+  });
+
+  return {
+    _kind: 'f009_phase5f_feature_flag_isolation_result',
+    executable: false, aiCanExecute: false,
+    isolated: gate.isolated,
+    canOverrideCoreFeatures: false,
+    canEnableProductionWrite: false,
+    canEnableCanaryWrite: false,
+    blockedReasons: gate.isolated
+      ? []
+      : ['F009_PHASE5F_FEATURE_FLAG_DISABLED'],
+  };
+}

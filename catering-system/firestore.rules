@@ -16,6 +16,51 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.token.role == 'purchasing';
     }
 
+    // ── ingredients 共用驗證 ─────────────────────────────────────────────────
+    // 共同欄位型別/值檢查（create 與 update 皆適用）
+    function validIngredientCommon(data) {
+      return data.name is string && data.name.size() > 0
+        && data.normalizedName is string && data.normalizedName.size() > 0
+        && data.baseUnit in ['g', 'ml', 'pcs']
+        && data.conversionFactorToBaseUnit is number && data.conversionFactorToBaseUnit > 0
+        && data.isActive is bool
+        && (!('supplierId' in data) || data.supplierId == null || data.supplierId is string);
+    }
+
+    // 允許寫入的完整欄位白名單：包含 Feature 010 新欄位，以及既有功能
+    // （seedIngredients.ts / recipeMatchingService.ts / aiContextService.ts）
+    // 仍在使用的舊欄位，避免破壞現有流程。
+    function ingredientAllowedFields() {
+      return [
+        'id', 'name', 'normalizedName', 'category',
+        'unit', 'unitCost', 'minStockLevel', 'supplierIds',
+        'baseUnit', 'purchaseUnit', 'conversionFactorToBaseUnit',
+        'defaultPrice', 'defaultPriceUnit', 'supplierId',
+        'isActive', 'notes', 'wasteFactor', 'isOcr', 'verified',
+        'createdAt', 'updatedAt', 'createdBy', 'updatedBy',
+      ];
+    }
+
+    function validIngredientCreate() {
+      let data = request.resource.data;
+      return validIngredientCommon(data)
+        && data.keys().hasOnly(ingredientAllowedFields())
+        && data.createdAt is timestamp
+        && data.createdBy is string
+        && data.updatedAt is timestamp
+        && data.updatedBy is string;
+    }
+
+    function validIngredientUpdate() {
+      let data = request.resource.data;
+      return validIngredientCommon(data)
+        && data.keys().hasOnly(ingredientAllowedFields())
+        && data.updatedAt is timestamp
+        && data.updatedBy is string
+        && data.createdAt == resource.data.createdAt
+        && data.createdBy == resource.data.createdBy;
+    }
+
     // ── orders ────────────────────────────────────────────────────────────────
     // 允許讀取與新增；明確禁止刪除；更新需已登入
     match /orders/{orderId} {
@@ -59,8 +104,10 @@ service cloud.firestore {
     // ── ingredients ───────────────────────────────────────────────────────────
     // 食材主檔：已登入可讀；寫入需採購人員
     match /ingredients/{ingredientId} {
-      allow read:  if isAuthenticated();
-      allow write: if isPurchasingStaff();
+      allow read: if isAuthenticated();
+      allow create: if isPurchasingStaff() && validIngredientCreate();
+      allow update: if isPurchasingStaff() && validIngredientUpdate();
+      allow delete: if false;
     }
 
     // ── 其他所有路徑：預設拒絕 ────────────────────────────────────────────────

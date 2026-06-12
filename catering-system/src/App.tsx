@@ -10,6 +10,7 @@ import PurchasePage from '@/pages/PurchasePage';
 import PlanPage from '@/pages/PlanPage';
 import MenusPage from '@/pages/MenusPage';
 import IngredientMasterPage from '@/pages/IngredientMasterPage';
+import RecipePage from '@/pages/RecipePage';
 import Analytics from '@/pages/Analytics';
 import Login from '@/pages/Login';
 import ShareOrderPage from '@/pages/share/ShareOrderPage';
@@ -50,6 +51,7 @@ export default function App() {
           <Route path="menus" element={<MenusPage />} />
           <Route path="purchase" element={<PurchasePage />} />
           <Route path="ingredients-master" element={<IngredientMasterPage />} />
+          <Route path="recipes" element={<RecipePage />} />
           <Route path="analytics" element={<Analytics />} />
         </Route>
       </Routes>

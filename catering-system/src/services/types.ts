@@ -85,6 +85,68 @@ export interface Ingredient {
   isOcr?: boolean;
   /** true only after human verification of an OCR-sourced ingredient */
   verified?: boolean;
+
+  // ─── Ingredient Master Data (Feature 010) ───────────────────────────────────
+  /** Lowercased, whitespace-collapsed form of `name` — used for de-duplication/search. Never trust client input; always derived server-side via normalizeIngredientName(). */
+  normalizedName?: string;
+  /** Smallest unit used for purchasing/inventory math in this feature. */
+  baseUnit?: 'g' | 'ml' | 'pcs';
+  /** Human-readable purchase unit, e.g. "箱", "包" — for display only. */
+  purchaseUnit?: string;
+  /** Multiplier to convert one `purchaseUnit` into `baseUnit`. Must be > 0. */
+  conversionFactorToBaseUnit?: number;
+  /** Default unit price used when generating purchase suggestions. */
+  defaultPrice?: number;
+  /** Unit that `defaultPrice` is denominated in (baseUnit or purchaseUnit). */
+  defaultPriceUnit?: string;
+  /** Linked supplier doc ID, or null/absent when unassigned. */
+  supplierId?: string | null;
+  /** Whether this ingredient is active and selectable in new BOMs/orders. Defaults to true. */
+  isActive?: boolean;
+  /** Free-form notes for purchasing staff. */
+  notes?: string;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+  createdBy?: string;
+  updatedBy?: string;
+}
+
+// ─── Ingredient Master Data (Feature 010) ─────────────────────────────────────
+
+/** Base measurement unit for master-data conversion. */
+export type IngredientBaseUnit = 'g' | 'ml' | 'pcs';
+
+/**
+ * Master-data fields for `/ingredients/{ingredientId}`, managed via the
+ * 食材主檔管理 (Ingredient Master Data) feature. This is the SAME document
+ * as `Ingredient` above — these fields are additive/optional so existing
+ * BOM/recipe/inventory flows reading `Ingredient` continue to work.
+ */
+export interface IngredientMaster {
+  id: string;
+  name: string;
+  /** Lowercased, whitespace-collapsed form of `name`, computed server-side. */
+  normalizedName: string;
+  category: string;
+  /** Smallest unit used for stock-level conversion math. */
+  baseUnit: IngredientBaseUnit;
+  /** Unit used when placing purchase orders, e.g. "箱", "包", "kg". */
+  purchaseUnit: string;
+  /** Multiplier to convert 1 purchaseUnit into baseUnit quantity. Must be > 0. */
+  conversionFactorToBaseUnit: number;
+  /** Default unit price, denominated in `defaultPriceUnit`. */
+  defaultPrice: number;
+  /** Unit that `defaultPrice` is denominated in (e.g. purchaseUnit or baseUnit). */
+  defaultPriceUnit: string;
+  /** Linked supplier doc ID, or null/undefined when unassigned. */
+  supplierId?: string | null;
+  /** Whether this ingredient is active and selectable in new BOMs/orders. */
+  isActive: boolean;
+  notes?: string;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface InventoryDoc {

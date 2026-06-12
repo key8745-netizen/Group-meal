@@ -20,7 +20,7 @@ Feature 010: Ingredient Master Data Management 食材主檔管理
 
 ## Current Phase
 
-Implementation Authorized (Single-Tenant / Role-Based, existing `/ingredients` collection)
+COMPLETED / READY FOR ARCHIVE
 
 ---
 
@@ -53,12 +53,11 @@ Build a tenant-scoped ingredient master data management feature. V1 is basic CRU
 
 * Feature 001–008: CLOSED
 * Feature 009: CLOSED / ARCHIVED (see `docs/archive/feature_009_final_state.md`)
-* Feature 010 Spec v1.2: PAUSED — assumed multi-tenant (`tenants/{tenantId}/ingredients/{ingredientId}`,
-  `isTenantUser()`), but repo is single-tenant / role-based (existing `firestore.rules` uses
-  `isAuthenticated()` / `isPurchasingStaff()`, existing collection is `/ingredients/{ingredientId}`)
-* Feature 010 Implementation Plan v1.0: VOID — built on the multi-tenant assumption
-* ChatGPT / ibi Gatekeeper Decision: Adopt single-tenant / role-based model, reuse existing
-  `/ingredients/{ingredientId}` collection; Gemini to produce Spec v1.3 Single-Tenant Revision
+* Feature 010 Spec v1.3: PASSED
+* Feature 010 Implementation Plan v1.1: PASSED
+* Feature 010 Implementation commit: `c5edd62`
+* Grok Code Review: PASS
+* Gatekeeper Decision: Feature 010 Implementation PASSED
 
 ---
 
@@ -185,20 +184,24 @@ updatedBy
 
 ## Team State
 
-* Claude: GO - Implement Feature 010 within approved scope only (single-tenant, existing `/ingredients/{ingredientId}`, `isAuthenticated()`/`isPurchasingStaff()`)
+* Claude: HOLD after SSOT update
 * Gemini: HOLD
-* Grok: Prepare Code Review (after Claude implementation)
+* Grok: HOLD / Ready for next review if needed
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
 ---
 
+## Tech Debt
+
+* Future review needed for legacy `seedIngredients` / legacy ingredient writers compatibility with
+  the new `ingredientAllowedFields` Firestore Rules whitelist on `/ingredients/{ingredientId}`.
+
+---
+
 ## Next Expected Input
 
-Claude's full implementation report (branch, commit, changed files, scope confirmations, test
-results), then Grok's full independent Code Review body, then ChatGPT/ibi formal verdict before
-any production rollout. Claude must stop after this single implementation pass — no additional
-features.
+ibi's direction for the next feature, or archive instructions for Feature 010.
 
 ---
 

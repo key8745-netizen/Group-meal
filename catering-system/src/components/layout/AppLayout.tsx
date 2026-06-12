@@ -11,6 +11,7 @@ import {
   UtensilsCrossed,
   BookOpen,
   Package,
+  NotebookText,
 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -23,6 +24,7 @@ const navItems = [
   { to: '/inventory', label: '庫存管理', icon: PackageSearch },
   { to: '/purchase',  label: '採購管理', icon: ShoppingCart },
   { to: '/ingredients-master', label: '食材主檔', icon: Package },
+  { to: '/recipes', label: '配方管理', icon: NotebookText },
   { to: '/analytics', label: '報表分析', icon: BarChart2 },
 ];
 

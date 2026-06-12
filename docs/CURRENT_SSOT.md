@@ -20,7 +20,28 @@ Feature 011: Recipe Ingredient Linking 菜色 / 配方引用食材主檔
 
 ## Current Phase
 
-Implementation Authorized (Greenfield `/recipes`, conditions: rules whitelist must use actual string keys; baseQuantity conversion must not guess — only `unit === ingredient.baseUnit` or `unit === ingredient.purchaseUnit` allowed, else reject save)
+COMPLETED / READY FOR PRODUCTION MERGE
+
+---
+
+## Current Basis
+
+* Feature 010: COMPLETED / DEPLOYED / VERIFIED (production PR #29 merged, 食材主檔 verified visible by ibi)
+* Feature 011 Spec v1.1: PASSED
+* Feature 011 Implementation Plan v1.1: PASSED WITH CONDITIONS
+* Feature 011 Implementation commit: `227c3d7`
+* Grok Code Review: PASS
+* Gatekeeper Decision: Feature 011 Implementation PASSED
+
+---
+
+## Team State
+
+* Claude: HOLD after SSOT update
+* Gemini: HOLD
+* Grok: HOLD / Ready for production merge review if needed
+* ChatGPT: Gatekeeper
+* ibi: Final authority
 
 ---
 

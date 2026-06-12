@@ -20,7 +20,7 @@ Feature 010: Ingredient Master Data Management 食材主檔管理
 
 ## Current Phase
 
-Architecture Mismatch Resolution (Spec v1.2 / Implementation Plan v1.0 PAUSED — repo is single-tenant / role-based, not multi-tenant; Gemini producing Spec v1.3 Single-Tenant Revision)
+Implementation Authorized (Single-Tenant / Role-Based, existing `/ingredients` collection)
 
 ---
 
@@ -185,9 +185,9 @@ updatedBy
 
 ## Team State
 
-* Claude: HOLD (implementation paused, no files changed; prior background agent instructed to make no changes)
-* Gemini: GO - Produce Feature 010 Spec v1.3 Single-Tenant / Role-Based Revision
-* Grok: Standby - Prepare Spec v1.3 Review
+* Claude: GO - Implement Feature 010 within approved scope only (single-tenant, existing `/ingredients/{ingredientId}`, `isAuthenticated()`/`isPurchasingStaff()`)
+* Gemini: HOLD
+* Grok: Prepare Code Review (after Claude implementation)
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -195,9 +195,10 @@ updatedBy
 
 ## Next Expected Input
 
-Gemini's full Feature 010 Spec v1.3 (Single-Tenant Revision) body, then Grok's full independent
-Spec v1.3 Review body, then ChatGPT/ibi formal verdict + new SSOT. After that, Claude must produce
-Implementation Plan v1.1 (v1.0 is void) and Grok must review it before any coding resumes.
+Claude's full implementation report (branch, commit, changed files, scope confirmations, test
+results), then Grok's full independent Code Review body, then ChatGPT/ibi formal verdict before
+any production rollout. Claude must stop after this single implementation pass — no additional
+features.
 
 ---
 

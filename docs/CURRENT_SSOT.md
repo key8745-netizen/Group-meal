@@ -20,7 +20,7 @@ Feature 010: Ingredient Master Data Management 食材主檔管理
 
 ## Current Phase
 
-Implementation Authorized
+Architecture Mismatch Resolution (Spec v1.2 / Implementation Plan v1.0 PAUSED — repo is single-tenant / role-based, not multi-tenant; Gemini producing Spec v1.3 Single-Tenant Revision)
 
 ---
 
@@ -53,11 +53,47 @@ Build a tenant-scoped ingredient master data management feature. V1 is basic CRU
 
 * Feature 001–008: CLOSED
 * Feature 009: CLOSED / ARCHIVED (see `docs/archive/feature_009_final_state.md`)
-* Feature 010 Spec v1.2: PASSED
-* Grok Spec Review v1.2: PASS
-* Feature 010 Implementation Plan v1.0: PASSED
-* Grok Pre-Implementation Review: PASS
-* ChatGPT / ibi Gatekeeper Decision: Claude GO - Feature 010 Implementation only (limited scope)
+* Feature 010 Spec v1.2: PAUSED — assumed multi-tenant (`tenants/{tenantId}/ingredients/{ingredientId}`,
+  `isTenantUser()`), but repo is single-tenant / role-based (existing `firestore.rules` uses
+  `isAuthenticated()` / `isPurchasingStaff()`, existing collection is `/ingredients/{ingredientId}`)
+* Feature 010 Implementation Plan v1.0: VOID — built on the multi-tenant assumption
+* ChatGPT / ibi Gatekeeper Decision: Adopt single-tenant / role-based model, reuse existing
+  `/ingredients/{ingredientId}` collection; Gemini to produce Spec v1.3 Single-Tenant Revision
+
+---
+
+## Required Architecture for Spec v1.3 (Single-Tenant / Role-Based Revision)
+
+* Firestore path: `/ingredients/{ingredientId}` (existing collection — do NOT create
+  `tenants/{tenantId}/ingredients/{ingredientId}` or any `tenantId`/`isTenantUser()` model)
+* Remove `tenantId` field from data model
+* Rules direction (no broad `allow write`, read/create/update/delete fully separate):
+  ```js
+  match /ingredients/{ingredientId} {
+    allow read: if isAuthenticated();
+    allow create: if isPurchasingStaff() && validIngredientCreate();
+    allow update: if isPurchasingStaff() && validIngredientUpdate();
+    allow delete: if false;
+  }
+  ```
+* Data model retains: name, normalizedName, category, baseUnit, purchaseUnit,
+  conversionFactorToBaseUnit, defaultPrice, defaultPriceUnit, supplierId (optional/nullable),
+  isActive, notes, createdAt, updatedAt, createdBy, updatedBy
+* Scope: ingredient list, create, edit, activate/deactivate, service layer, UI route/nav,
+  Firestore Rules validation, tests
+* Still forbidden: multi-tenant migration, tenantId field, tenant-based rules, AI, OCR, inventory
+  deduction, purchase order generation, supplier CRUD, import/export, price history, hard delete,
+  Feature 009 archive modification, src/core / src/database / src/production modification,
+  Netlify Functions
+
+### v1.3 Exit Criteria
+
+1. Spec v1.3 full text submitted
+2. Grok Spec Review PASS
+3. Gatekeeper approval
+4. Claude Implementation Plan v1.1 required (v1.0 is void)
+5. Claude remains HOLD until Implementation Plan v1.1 passes review
+6. No coding until Gatekeeper explicitly re-authorizes implementation
 
 ---
 
@@ -149,9 +185,9 @@ updatedBy
 
 ## Team State
 
-* Claude: GO - Implement Feature 010 within approved scope only (tenant-scoped ingredient master CRUD at `tenants/{tenantId}/ingredients/{ingredientId}`)
-* Gemini: HOLD
-* Grok: Prepare Code Review (after Claude implementation)
+* Claude: HOLD (implementation paused, no files changed; prior background agent instructed to make no changes)
+* Gemini: GO - Produce Feature 010 Spec v1.3 Single-Tenant / Role-Based Revision
+* Grok: Standby - Prepare Spec v1.3 Review
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
@@ -159,9 +195,9 @@ updatedBy
 
 ## Next Expected Input
 
-Claude's full implementation report (branch, commit, changed files, scope confirmations, test
-results), then Grok's full independent Code Review body, then ChatGPT/ibi formal verdict before
-any production rollout.
+Gemini's full Feature 010 Spec v1.3 (Single-Tenant Revision) body, then Grok's full independent
+Spec v1.3 Review body, then ChatGPT/ibi formal verdict + new SSOT. After that, Claude must produce
+Implementation Plan v1.1 (v1.0 is void) and Grok must review it before any coding resumes.
 
 ---
 

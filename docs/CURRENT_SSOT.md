@@ -20,7 +20,7 @@ Feature 011: Recipe Ingredient Linking 菜色 / 配方引用食材主檔
 
 ## Current Phase
 
-Planning / Spec Design only
+Spec v1.1 Required (Spec v1.0 HOLD — unverified repo structure claims)
 
 ---
 
@@ -136,29 +136,57 @@ recipeIngredients: [
 
 ## Team State
 
-* Claude: HOLD
-* Gemini: GO - Produce Feature 011 Spec v1.0
-* Grok: Prepare Spec Review (after Gemini submits)
+* Claude: HOLD (no Implementation Plan, no coding, no file changes, no independent repo-structure design)
+* Gemini: GO - Produce Feature 011 Spec v1.1 Repo-Verified Revision
+* Grok: HOLD until Spec v1.1 full text is submitted
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
 ---
 
-## Forbidden in this phase
+## Spec v1.0 Gatekeeper Review Result
 
-* Claude 不得開工
-* Claude 不得產 Implementation Plan
-* Claude 不得修改任何檔案
-* Claude 不得修改 Feature 010 / firestore.rules / src/
-* Claude 不得開新 route 或改菜單 / 配方 / BOM 結構
+**Spec v1.0: HOLD.** Spec v1.0 claimed the repo already has a `recipes` collection with an
+`ingredients` array and an existing free-text recipe input to replace — but a repo search for
+`recipes / recipeIngredients / MenusPage / menu / 菜單 / 配方 / BOM` did not confirm this structure
+exists. Unverified structure claims cannot be treated as Current Basis.
+
+### Blocking issues for v1.1
+
+1. **Unverified "recipes collection exists" claim** — v1.1 must include a "現有 repo 結構偵測結果"
+   section listing actual files/types/services/pages: does a `recipes` collection/model exist?
+   does menu/dish/BOM/recipe-editor structure exist? what shape is the existing ingredients field
+   (string/object/array/none)? which existing page/service should Feature 011 attach to? If no
+   recipe/editor structure exists, v1.1 should consider downgrading to a Draft Linking Spec rather
+   than claiming a direct implementation target.
+2. **No "replace existing free-text input" language** unless backed by actual repo file evidence.
+3. **Firestore Rules `get()` validation of `ingredientId` is premature** — v1.1 must not require
+   per-item `get()` validation of every `ingredientId` until repo evidence supports it. Provide a
+   tiered approach:
+   - Option A: v1 client/service-layer validation only, no rules `get()` changes
+   - Option B: limited `get()` validation only if proven feasible
+   - Option C: no rules changes at all if `recipes` doesn't exist yet
+   Must analyze: Firestore Rules limits on arrays of objects, `get()` call cost/limits, where
+   active-ingredient validation lives (rules/service/UI), and backward compatibility.
+4. **Backward compatibility underspecified** — v1.1 must define: how old data displays, whether
+   old data remains editable/savable, how new schema is additive, whether `ingredientNameSnapshot`
+   is retained, confirmation of no migration, and confirmation Feature 010's `/ingredients` is
+   untouched.
+
+### Safety boundaries unchanged
+
+採購單生成 / 庫存扣帳 / AI / OCR / tenant model / Feature 009 archive / Feature 010 rules-or-service
+changes (without separate Gatekeeper approval) / `src/core`, `src/database`, `src/production` /
+Netlify Functions / hard migration — all remain forbidden.
 
 ---
 
 ## Next Expected Input
 
-Gemini's full Feature 011 Spec v1.0 body, then Grok's full independent Spec Review body, then
-ChatGPT/ibi formal verdict + new SSOT authorizing implementation planning. Claude will not
-transition out of HOLD until all three appear as substantive bodies in-conversation.
+Gemini's full Feature 011 Spec v1.1 (Repo-Verified Revision) body — including an evidence-based
+repo structure detection section — then Grok's full independent Spec v1.1 Review body, then
+ChatGPT/ibi formal verdict + new SSOT. Claude remains HOLD (no Implementation Plan, no coding, no
+file changes, no independent repo exploration to "fill in" the spec) until that chain completes.
 
 ---
 

@@ -149,6 +149,35 @@ export interface IngredientMaster {
   updatedBy?: string;
 }
 
+// ─── Recipes (Feature 011: 配方引用食材主檔) ──────────────────────────────────
+
+/** A single ingredient line within a Recipe, referencing /ingredients/{ingredientId}. */
+export interface RecipeIngredientItem {
+  ingredientId: string;
+  /** Snapshot of the ingredient's name at the time of save (for display/history). */
+  ingredientNameSnapshot: string;
+  /** Quantity in the unit chosen by the user (baseUnit or purchaseUnit of the ingredient). */
+  quantity: number;
+  unit: string;
+  /** Quantity converted into the ingredient's baseUnit. */
+  baseQuantity: number;
+  baseUnit: IngredientBaseUnit;
+  notes?: string;
+}
+
+/** A recipe stored at /recipes/{recipeId}, referencing ingredient master data. */
+export interface Recipe {
+  id: string;
+  name: string;
+  recipeIngredients: RecipeIngredientItem[];
+  isActive: boolean;
+  notes?: string;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+  createdBy: string;
+  updatedBy: string;
+}
+
 export interface InventoryDoc {
   ingredientId: string;
   ingredientName: string;

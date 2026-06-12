@@ -20,7 +20,7 @@ Feature 010: Ingredient Master Data Management 食材主檔管理
 
 ## Current Phase
 
-Planning / Spec Design - Revision Required (Spec v1.0 HOLD, awaiting v1.1)
+Planning / Spec Design - Revision Required (Spec v1.1 HOLD, awaiting v1.2)
 
 ---
 
@@ -147,80 +147,60 @@ updatedBy
 ## Team State
 
 * Claude: HOLD
-* Gemini: GO - Produce Feature 010 Spec v1.1 (revision of v1.0, addressing Gatekeeper blocking issues below)
-* Grok: Standby - review Spec v1.1 after full text is submitted
+* Gemini: GO - Produce Feature 010 Spec v1.2 (revision of v1.1, addressing Gatekeeper blocking issue below)
+* Grok: Standby - review Spec v1.2 after full text is submitted
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
 ---
 
-## Spec v1.0 Gatekeeper Review Result
+## Spec v1.1 Gatekeeper Review Result
 
-**Spec v1.0: HOLD / Revision Required.** Grok's PASS on v1.0 is noted but does not override the
-Gatekeeper's blocking findings below. Spec v1.0 is NOT approved. No Implementation Planning may
-begin until v1.1 passes through the full evidence chain again.
+**Spec v1.1: HOLD / Revision Required.** Spec v1.1 is NOT approved. No Implementation Planning may
+begin until v1.2 passes through the full evidence chain again.
 
-### Blocking issues for v1.1
+### Blocking issue for v1.2: Firestore Rules write bypass
 
-1. **"Zero Real Write" framing is contradictory** — Feature 010 is CRUD (create/edit/deactivate
-   ingredients), which inherently requires writes. Replace "Zero Real Write / read-only" framing
-   with explicit boundaries:
-   - No production rollout until Gatekeeper approval
-   - No cross-tenant write
-   - No AI-generated ingredient write
-   - No inventory write
-   - No purchase order write
-   - No OCR write
-   - No financial write
-   - Ingredient CRUD write is allowed only inside `tenants/{tenantId}/ingredients/{ingredientId}`
-     after Gatekeeper approves implementation
+v1.1's Firestore Rules included a broad `allow read, write: if request.auth != null &&
+request.auth.token.tenantId == tenantId;` alongside separate `allow create` / `allow update`
+rules. In Firestore Rules, any matching `allow` grants access — so the broad `allow write` bypasses
+the create/update validation entirely (empty `name`, `conversionFactorToBaseUnit <= 0`, wrong-typed
+`isActive`, missing `createdBy`/`updatedBy`, or a changed `tenantId` could all be written).
 
-2. **Firestore Rules too simplified** — `allow read, write: if request.auth.token.tenantId == tenantId;`
-   is insufficient. v1.1 must specify at least:
-   - `request.auth != null`
-   - `request.auth.token.tenantId == tenantId` (path tenantId)
-   - create: `request.resource.data.tenantId == tenantId`
-   - update: `resource.data.tenantId == tenantId`, and `tenantId` field is immutable on update
-   - create requires `createdAt`, `createdBy`
-   - update requires `updatedAt`, `updatedBy`
-   - `name` non-empty; `normalizedName` derived from `name`
-   - `isActive` must be boolean
-   - `conversionFactorToBaseUnit` must be > 0
-   - no cross-tenant read/write
+### v1.2 must explicitly include
 
-3. **`supplierId` must be explicitly optional** — Feature 010 does not implement supplier CRUD.
-   `supplierId` is optional/nullable; missing supplier must not block ingredient creation; supplier
-   validation is deferred to a future feature.
-
-4. **Unit/conversion model needs generalizing** — replace `gramsPerPurchaseUnit` with:
-   ```
-   baseUnit: g | ml | pcs
-   purchaseUnit: 台斤 | 公斤 | 公克 | 公升 | 毫升 | 顆 | 包 | 箱 | 其他
-   conversionFactorToBaseUnit: number
-   ```
-   Examples: 高麗菜 baseUnit=g, purchaseUnit=台斤, conversionFactorToBaseUnit=600;
-   牛奶 baseUnit=ml, purchaseUnit=公升, conversionFactorToBaseUnit=1000;
-   雞蛋 baseUnit=pcs, purchaseUnit=盒, conversionFactorToBaseUnit=10.
-
-5. **UI scope must be explicit** — v1.1 must list in-scope UI (食材列表 / 新增食材表單 / 編輯食材表單 /
-   停用•啟用切換 / 預設隱藏 inactive，可切換顯示) and explicitly exclude: 採購單, 庫存, AI, OCR, 供應商管理,
-   價格歷史, 匯入匯出.
-
-6. **Exit Criteria for v1.1** must include:
-   - Spec v1.1 full text submitted
-   - Grok Spec Review PASS (on v1.1, full body)
-   - Gatekeeper approval
-   - SSOT updated to "Spec Approved / Implementation Planning only"
-   - Claude remains HOLD until implementation plan is separately approved
+1. No `allow read, write` — read / create / update / delete must be separate rules.
+2. `allow delete: if false;` — deactivation is via `isActive=false`, never document deletion.
+3. `create` validation must require:
+   - `tenantId == path tenantId`
+   - `name` non-empty string
+   - `normalizedName` non-empty string
+   - `baseUnit` in `g | ml | pcs`
+   - `conversionFactorToBaseUnit > 0`
+   - `isActive` is boolean
+   - `createdAt`, `createdBy`, `updatedAt`, `updatedBy` present
+4. `update` validation must require:
+   - existing doc `tenantId == path tenantId`
+   - new doc `tenantId == path tenantId`
+   - `tenantId` field immutable (`request.resource.data.tenantId == resource.data.tenantId`)
+   - `updatedAt`, `updatedBy` updated
+   - `conversionFactorToBaseUnit > 0`
+   - `isActive` is boolean
+5. Allowed-keys list must be explicit; forbid unknown fields such as `aiGenerated`,
+   `inventoryQty`, `purchaseOrderId`, `productionWrite`.
+6. `supplierId` remains optional/nullable.
+7. Spec status should read `DRAFT (Full Text - Revision for Rules Bypass)`, not "Revision Required".
+8. Claude remains HOLD; v1.2 submission triggers fresh Grok review.
 
 ---
 
 ## Next Expected Input
 
-Gemini's full Feature 010 Spec v1.1 body (addressing all blocking issues above), then Grok's full
-independent Spec Review body of v1.1, then ChatGPT/ibi formal verdict + new SSOT authorizing
-implementation. Claude will not transition to Implementation until all three appear as substantive
-bodies in-conversation. Spec v1.0 and its Grok PASS do not satisfy this requirement.
+Gemini's full Feature 010 Spec v1.2 body (addressing the Firestore Rules write-bypass blocking
+issue above), then Grok's full independent Spec Review body of v1.2, then ChatGPT/ibi formal
+verdict + new SSOT authorizing implementation. Claude will not transition to Implementation until
+all three appear as substantive bodies in-conversation. Spec v1.0/v1.1 and any prior Grok PASS do
+not satisfy this requirement.
 
 ---
 

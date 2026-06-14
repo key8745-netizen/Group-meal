@@ -143,6 +143,41 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── recipeMenus ───────────────────────────────────────────────────────────
+    // 菜單：引用 /recipes 配方。已登入可讀；寫入需採購人員。
+    // 注意：每個 menuRecipes 項目的詳細驗證（recipe 是否存在/啟用、
+    // servings 是否 > 0 等）由 recipeMenuService.ts 在寫入前負責，
+    // Firestore Rules 不對 list 內每個項目做逐筆型別檢查。
+    function validRecipeMenuCommon(data) {
+      return data.name is string && data.name.size() > 0
+        && data.date is string && data.date.size() > 0
+        && data.mealType is string && data.mealType.size() > 0
+        && data.menuRecipes is list
+        && data.isActive is bool;
+    }
+
+    function validRecipeMenuCreate() {
+      return validRecipeMenuCommon(request.resource.data)
+        && request.resource.data.keys().hasOnly(['name', 'date', 'mealType', 'menuRecipes', 'isActive', 'notes', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && request.resource.data.createdAt is timestamp && request.resource.data.createdBy is string
+        && request.resource.data.updatedAt is timestamp && request.resource.data.updatedBy is string;
+    }
+
+    function validRecipeMenuUpdate() {
+      return validRecipeMenuCommon(request.resource.data)
+        && request.resource.data.keys().hasOnly(['name', 'date', 'mealType', 'menuRecipes', 'isActive', 'notes', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && request.resource.data.updatedAt is timestamp && request.resource.data.updatedBy is string
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdBy == resource.data.createdBy;
+    }
+
+    match /recipeMenus/{menuId} {
+      allow read: if isAuthenticated();
+      allow create: if isPurchasingStaff() && validRecipeMenuCreate();
+      allow update: if isPurchasingStaff() && validRecipeMenuUpdate();
+      allow delete: if false;
+    }
+
     // ── 其他所有路徑：預設拒絕 ────────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

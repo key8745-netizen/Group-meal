@@ -12,9 +12,47 @@ Group-meal 團膳管理系統
 
 ---
 
+## Completed Features
+
+* Feature 010: Ingredient Master Data Management — COMPLETED / DEPLOYED / VERIFIED
+* Feature 011: Recipe Ingredient Linking — COMPLETED / DEPLOYED / VERIFIED
+
+---
+
 ## Current Feature
 
-Feature 011: Recipe Ingredient Linking 菜色 / 配方引用食材主檔
+Feature 012: Menu Recipe Linking 菜單引用配方
+
+---
+
+## Current Phase
+
+Implementation Authorized — Greenfield `/recipeMenus/{menuId}` (renamed from `/menus` to avoid
+collision with the existing legacy `menus` collection used by ProductionPlanner,
+recipeMatchingService, orderService, mealPlanService, aiContextService, etc.), read-only
+references to Feature 011 `/recipes/{recipeId}`.
+
+---
+
+## Current Basis
+
+* Feature 012 Spec v1.0: PASSED
+* Grok Spec Review: PASS
+* Feature 012 Implementation Plan v1.1: PASSED
+* Grok Pre-Implementation Review: PASS
+* Gatekeeper Decision: Claude GO - Feature 012 Implementation only
+* Repo check: `/menus` collection already in use by legacy BOM/menu code — Feature 012 collection
+  renamed to `/recipeMenus`
+
+---
+
+## Team State
+
+* Claude: GO - implement Feature 012 within approved scope only
+* Gemini: HOLD
+* Grok: Prepare Code Review
+* ChatGPT: Gatekeeper
+* ibi: Final authority
 
 ---
 

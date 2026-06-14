@@ -206,6 +206,49 @@ export interface RecipeMenu {
   updatedBy: string;
 }
 
+// ─── Prep Plans (Feature 013: 備料規劃引用菜單配方) ────────────────────────────
+
+/** A single recipe's contribution to a PrepPlanItem's required quantity. */
+export interface PrepPlanRecipeContribution {
+  recipeId: string;
+  /** Snapshot of the recipe's name at the time of save (for display/history). */
+  recipeNameSnapshot: string;
+  /** servings from the source recipe menu's menuRecipes item. */
+  sourceServings: number;
+  /** recipeIngredient.baseQuantity * sourceServings. */
+  contributedBaseQuantity: number;
+}
+
+/** An aggregated ingredient requirement within a PrepPlan. */
+export interface PrepPlanItem {
+  ingredientId: string;
+  /** Snapshot of the ingredient's name (from the source recipe's RecipeIngredientItem). */
+  ingredientNameSnapshot: string;
+  /** Sum of contributedBaseQuantity across recipeContributions. */
+  requiredBaseQuantity: number;
+  baseUnit: IngredientBaseUnit;
+  recipeContributions: PrepPlanRecipeContribution[];
+  notes?: string;
+}
+
+/** A prep plan stored at /prepPlans/{prepPlanId}, derived from a /recipeMenus document. */
+export interface PrepPlan {
+  id: string;
+  name: string;
+  sourceRecipeMenuId: string;
+  /** Snapshot of the source recipe menu's name at the time of creation. */
+  sourceRecipeMenuNameSnapshot: string;
+  /** ISO date string "YYYY-MM-DD" */
+  date: string;
+  prepItems: PrepPlanItem[];
+  isActive: boolean;
+  notes?: string;
+  createdAt?: Timestamp;
+  createdBy: string;
+  updatedAt?: Timestamp;
+  updatedBy: string;
+}
+
 export interface InventoryDoc {
   ingredientId: string;
   ingredientName: string;

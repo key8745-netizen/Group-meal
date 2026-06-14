@@ -178,6 +178,43 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── prepPlans ────────────────────────────────────────────────────────────
+    // 備料快照：由 /recipeMenus 衍生的備料規劃。已登入可讀；寫入需採購人員。
+    // prepItems 由 prepPlanService.ts 在建立時計算並寫入，之後不可變更；
+    // sourceRecipeMenuId 同樣不可變更。
+    function validPrepPlanCommon(data) {
+      return data.name is string && data.name.size() > 0
+        && data.sourceRecipeMenuId is string && data.sourceRecipeMenuId.size() > 0
+        && data.sourceRecipeMenuNameSnapshot is string
+        && data.date is string && data.date.size() > 0
+        && data.prepItems is list
+        && data.isActive is bool;
+    }
+
+    function validPrepPlanCreate() {
+      return validPrepPlanCommon(request.resource.data)
+        && request.resource.data.keys().hasOnly(['name', 'sourceRecipeMenuId', 'sourceRecipeMenuNameSnapshot', 'date', 'prepItems', 'isActive', 'notes', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && request.resource.data.createdAt is timestamp && request.resource.data.createdBy is string
+        && request.resource.data.updatedAt is timestamp && request.resource.data.updatedBy is string;
+    }
+
+    function validPrepPlanUpdate() {
+      return validPrepPlanCommon(request.resource.data)
+        && request.resource.data.keys().hasOnly(['name', 'sourceRecipeMenuId', 'sourceRecipeMenuNameSnapshot', 'date', 'prepItems', 'isActive', 'notes', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && request.resource.data.updatedAt is timestamp && request.resource.data.updatedBy is string
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.sourceRecipeMenuId == resource.data.sourceRecipeMenuId
+        && request.resource.data.prepItems == resource.data.prepItems;
+    }
+
+    match /prepPlans/{prepPlanId} {
+      allow read: if isAuthenticated();
+      allow create: if isPurchasingStaff() && validPrepPlanCreate();
+      allow update: if isPurchasingStaff() && validPrepPlanUpdate();
+      allow delete: if false;
+    }
+
     // ── 其他所有路徑：預設拒絕 ────────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

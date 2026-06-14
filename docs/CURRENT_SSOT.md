@@ -27,10 +27,14 @@ Feature 012: Menu Recipe Linking 菜單引用配方
 
 ## Current Phase
 
-Implementation Authorized — Greenfield `/recipeMenus/{menuId}` (renamed from `/menus` to avoid
-collision with the existing legacy `menus` collection used by ProductionPlanner,
-recipeMatchingService, orderService, mealPlanService, aiContextService, etc.), read-only
-references to Feature 011 `/recipes/{recipeId}`.
+COMPLETED / READY FOR PRODUCTION MERGE
+
+* Actual collection path: `/recipeMenus/{menuId}` (renamed from `/menus` to avoid collision with
+  the existing legacy `menus` collection used by ProductionPlanner, recipeMatchingService,
+  orderService, mealPlanService, aiContextService, etc.)
+* Actual route: `/recipe-menus`
+* Actual nav label: `菜單配方`
+* Read-only references to Feature 011 `/recipes/{recipeId}`
 
 ---
 
@@ -40,7 +44,9 @@ references to Feature 011 `/recipes/{recipeId}`.
 * Grok Spec Review: PASS
 * Feature 012 Implementation Plan v1.1: PASSED
 * Grok Pre-Implementation Review: PASS
-* Gatekeeper Decision: Claude GO - Feature 012 Implementation only
+* Feature 012 Implementation commit: `f53be0d`
+* Grok Code Review: PASS
+* Gatekeeper Decision: Feature 012 Implementation PASSED
 * Repo check: `/menus` collection already in use by legacy BOM/menu code — Feature 012 collection
   renamed to `/recipeMenus`
 
@@ -48,9 +54,9 @@ references to Feature 011 `/recipes/{recipeId}`.
 
 ## Team State
 
-* Claude: GO - implement Feature 012 within approved scope only
+* Claude: HOLD after SSOT update
 * Gemini: HOLD
-* Grok: Prepare Code Review
+* Grok: HOLD / Ready for production merge review
 * ChatGPT: Gatekeeper
 * ibi: Final authority
 

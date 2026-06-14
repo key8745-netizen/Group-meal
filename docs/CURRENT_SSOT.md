@@ -14,38 +14,55 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Feature 010: Ingredient Master Data Management 食材主檔管理
+Feature 011: Recipe Ingredient Linking 菜色 / 配方引用食材主檔
 
 ---
 
 ## Current Phase
 
-Architecture Mismatch Resolution (Spec v1.2 / Implementation Plan v1.0 PAUSED — repo is single-tenant / role-based, not multi-tenant; Gemini producing Spec v1.3 Single-Tenant Revision)
+COMPLETED / DEPLOYED / VERIFIED
+
+---
+
+## Current Basis
+
+* Feature 010: COMPLETED / DEPLOYED / VERIFIED (production PR #29 merged, 食材主檔 verified visible by ibi)
+* Feature 011 Spec v1.1: PASSED
+* Feature 011 Implementation Plan v1.1: PASSED WITH CONDITIONS
+* Feature 011 Implementation commit: `227c3d7`
+* Feature 011 cherry-pick commit: `1f4416a`
+* Feature 011 SSOT commit: `a63fd04`
+* PR #31 merged (feature011-only-proposal → claude/fervent-dirac-HJT01)
+* Merge commit: `2081c496091f0c41e017fa1be00999ce5c865306`
+* Grok Code Review: PASS
+* ibi runtime verification: PASSED (配方管理 visible and usable in production)
+* Gatekeeper Final Decision: Feature 011 COMPLETED / DEPLOYED / VERIFIED
+
+---
+
+## Team State
+
+* Claude: HOLD after SSOT update
+* Gemini: HOLD
+* Grok: HOLD / Ready for next feature review
+* ChatGPT: Gatekeeper
+* ibi: Final authority
 
 ---
 
 ## Background
 
 Feature 009 (Real Model Config Apply Transaction Implementation) is CLOSED / ARCHIVED.
-See `docs/archive/feature_009_final_state.md` and `docs/legacy/feature_009_safe_architecture.md`
-for the archived record. Feature 010 is a brand-new, unrelated product feature — do not return
-to Feature 009 implementation state or governance scaffolding.
-
-### Product Problem
-
-The system already has an "ingredient" concept (`ingredients` collection, used by BOM / recipe
-matching / inventory), but there is no UI entry point for a tenant to create their own ingredient
-master data. Feature 010 builds a tenant-scoped Ingredient Master Data Management feature so a
-tenant can create, edit, and deactivate their own ingredients.
+Feature 010 (Ingredient Master Data Management) is COMPLETED / READY FOR ARCHIVE — see Current
+Basis below for evidence chain. Feature 011 is the next extension: linking 菜色/配方 (menus/dishes/
+recipes) to the `/ingredients/{ingredientId}` master data created by Feature 010.
 
 ---
 
-## Feature 010 Goal
+## Feature 011 Goal
 
-Build a tenant-scoped ingredient master data management feature. V1 is basic CRUD only:
-* No AI involvement
-* No automated purchasing
-* No inventory deduction logic
+建立「菜色 / 配方」與食材主檔的引用關係。Feature 010 已建立 `/ingredients/{ingredientId}` 食材主檔；
+Feature 011 要讓菜色或配方可以選擇食材主檔，並設定用量與單位。
 
 ---
 
@@ -53,151 +70,124 @@ Build a tenant-scoped ingredient master data management feature. V1 is basic CRU
 
 * Feature 001–008: CLOSED
 * Feature 009: CLOSED / ARCHIVED (see `docs/archive/feature_009_final_state.md`)
-* Feature 010 Spec v1.2: PAUSED — assumed multi-tenant (`tenants/{tenantId}/ingredients/{ingredientId}`,
-  `isTenantUser()`), but repo is single-tenant / role-based (existing `firestore.rules` uses
-  `isAuthenticated()` / `isPurchasingStaff()`, existing collection is `/ingredients/{ingredientId}`)
-* Feature 010 Implementation Plan v1.0: VOID — built on the multi-tenant assumption
-* ChatGPT / ibi Gatekeeper Decision: Adopt single-tenant / role-based model, reuse existing
-  `/ingredients/{ingredientId}` collection; Gemini to produce Spec v1.3 Single-Tenant Revision
+* Feature 010: Ingredient Master Data Management — COMPLETED / READY FOR ARCHIVE
+  - Feature 010 Implementation commit: `c5edd62`
+  - Feature 010 SSOT commit: `fd3c769`
+  - Grok Code Review: PASS
+* ChatGPT / ibi Decision: Continue extension into Feature 011 Planning only
 
 ---
 
-## Required Architecture for Spec v1.3 (Single-Tenant / Role-Based Revision)
+## Required Scope (Feature 011 v1.0)
 
-* Firestore path: `/ingredients/{ingredientId}` (existing collection — do NOT create
-  `tenants/{tenantId}/ingredients/{ingredientId}` or any `tenantId`/`isTenantUser()` model)
-* Remove `tenantId` field from data model
-* Rules direction (no broad `allow write`, read/create/update/delete fully separate):
-  ```js
-  match /ingredients/{ingredientId} {
-    allow read: if isAuthenticated();
-    allow create: if isPurchasingStaff() && validIngredientCreate();
-    allow update: if isPurchasingStaff() && validIngredientUpdate();
-    allow delete: if false;
+Feature 011 v1.0 只做：
+1. 菜色 / 配方可以引用食材主檔
+2. 每個配方項目保存 `ingredientId`
+3. 顯示食材名稱可由 ingredient master 讀取
+4. 設定每份用量
+5. 設定用量單位
+6. 使用 Feature 010 的 `conversionFactorToBaseUnit` 做基礎換算規劃
+7. 保留既有菜單 / 配方資料結構，避免破壞現有流程
+8. 若現有 repo 已有 recipe / menu / BOM 結構，需優先沿用
+
+### Suggested Data Shape
+
+請先檢查現有 repo 結構後設計，但概念上配方項目可接近：
+
+```
+recipeIngredients: [
+  {
+    ingredientId: string,
+    ingredientNameSnapshot: string,
+    quantity: number,
+    unit: string,
+    baseQuantity?: number,
+    baseUnit?: "g" | "ml" | "pcs",
+    notes?: string
   }
-  ```
-* Data model retains: name, normalizedName, category, baseUnit, purchaseUnit,
-  conversionFactorToBaseUnit, defaultPrice, defaultPriceUnit, supplierId (optional/nullable),
-  isActive, notes, createdAt, updatedAt, createdBy, updatedBy
-* Scope: ingredient list, create, edit, activate/deactivate, service layer, UI route/nav,
-  Firestore Rules validation, tests
-* Still forbidden: multi-tenant migration, tenantId field, tenant-based rules, AI, OCR, inventory
-  deduction, purchase order generation, supplier CRUD, import/export, price history, hard delete,
-  Feature 009 archive modification, src/core / src/database / src/production modification,
-  Netlify Functions
-
-### v1.3 Exit Criteria
-
-1. Spec v1.3 full text submitted
-2. Grok Spec Review PASS
-3. Gatekeeper approval
-4. Claude Implementation Plan v1.1 required (v1.0 is void)
-5. Claude remains HOLD until Implementation Plan v1.1 passes review
-6. No coding until Gatekeeper explicitly re-authorizes implementation
-
----
-
-## Current Branch
-
-`claude/busy-heisenberg-HcwYg`
-
----
-
-## Required Spec Scope (for Gemini)
-
-Feature 010 Spec v1.0 must include at least:
-1. 功能目標 (feature goal)
-2. 使用者入口位置 (UI entry point)
-3. 食材資料模型 (data model)
-4. Firestore collection path
-5. tenant 隔離規則 (tenant isolation rules)
-6. 新增食材流程 (create flow)
-7. 編輯食材流程 (edit flow)
-8. 停用食材流程 (deactivate flow)
-9. 欄位驗證 (field validation)
-10. 單位與換算規則 (unit conversion rules)
-11. 台斤 / 公克換算規則 (jin/gram conversion rules)
-12. 權限規則 (permission rules)
-13. audit 欄位 (audit fields)
-14. UI 頁面範圍 (UI page scope)
-15. 禁止事項 (forbidden items)
-16. 測試需求 (test requirements)
-17. exit criteria
-18. Grok red team checklist
-
-### Recommended Firestore Path
-```
-tenants/{tenantId}/ingredients/{ingredientId}
+]
 ```
 
-### Suggested Fields
-```
-tenantId
-name
-normalizedName
-category
-baseUnit
-purchaseUnit
-gramsPerPurchaseUnit
-defaultPrice
-defaultPriceUnit
-supplierId
-isActive
-notes
-createdAt
-updatedAt
-createdBy
-updatedBy
-```
+* `ingredientId` 是主要引用
+* `ingredientNameSnapshot` 是顯示備援，不可取代 ingredientId
+* `quantity` 必須 > 0
+* `unit` 必須明確
+* 不做庫存扣帳
+* 不產生採購單
 
 ---
 
 ## Required Safety Boundaries
 
-* Do not use a global `ingredients` collection — must be tenant-scoped
-* Do not allow cross-tenant read/write
-* Do not let AI auto-create ingredients
-* Do not implement automated purchase order generation
-* Do not implement inventory deduction logic
-* Do not implement OCR ingredient recognition
-* Do not modify the Feature 009 archived state (`docs/archive/`, `docs/legacy/`)
-* Claude remains HOLD until Spec is reviewed and approved
+嚴格禁止：
+* 不得做採購單生成
+* 不得做庫存扣帳
+* 不得做財務寫入
+* 不得做 AI 自動配方
+* 不得做 OCR
+* 不得刪除食材主檔
+* 不得改 Feature 009 archive
+* 不得改 `src/core/**`
+* 不得改 `src/database/**`
+* 不得改 `src/production/**`
+* 不得改 Netlify Functions
+* 不得導入 tenant model
+* 不得修改 Feature 010 已通過的 rules，除非 Spec 明確說明且 Grok / Gatekeeper 批准
 
 ---
 
-## Allowed in this phase
+## Required Spec Sections (for Gemini)
 
-* Gemini produces Feature 010 Spec v1.0
-* Grok prepares Spec Review
-* requirements discussion
-* docs / SSOT update
-* Claude remains HOLD
-
----
-
-## Forbidden in this phase
-
-* Do not let Claude implement Feature 010 yet
-* Do not modify Feature 001–009 core flow or archived state
-* Do not modify `docs/archive/` or `docs/legacy/`
+請輸出完整 Feature 011 Spec v1.0，至少包含：
+1. 功能目標
+2. 使用者入口
+3. 現有 repo 結構偵測結果
+4. 要接哪個現有頁面 / service / model
+5. 資料模型
+6. `ingredientId` reference 規則
+7. `ingredientNameSnapshot` 規則
+8. 用量與單位規則
+9. base unit 換算規則
+10. create / edit 流程
+11. UI 範圍
+12. 權限規則
+13. Firestore rules 是否需要修改
+14. 禁止事項
+15. backward compatibility
+16. 測試需求
+17. exit criteria
+18. Grok red team checklist
 
 ---
 
 ## Team State
 
-* Claude: HOLD (implementation paused, no files changed; prior background agent instructed to make no changes)
-* Gemini: GO - Produce Feature 010 Spec v1.3 Single-Tenant / Role-Based Revision
-* Grok: Standby - Prepare Spec v1.3 Review
+* Claude: GO - Implement Feature 011 within approved scope only (Greenfield `/recipes/{recipeId}`, read-only references to Feature 010 `/ingredients`)
+* Gemini: HOLD
+* Grok: Prepare Code Review (after Claude implementation)
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
 ---
 
+## Hard Implementation Conditions
+
+1. **Firestore Rules whitelist must use actual string keys** —
+   `hasOnly(['name', 'recipeIngredients', 'isActive', 'notes', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])`,
+   not placeholder bare identifiers.
+2. **`baseQuantity` conversion must not guess**:
+   - if recipe `unit === ingredient.baseUnit`: `baseQuantity = quantity`, `baseUnit = ingredient.baseUnit`
+   - if recipe `unit === ingredient.purchaseUnit`: `baseQuantity = quantity * ingredient.conversionFactorToBaseUnit`, `baseUnit = ingredient.baseUnit`
+   - otherwise: reject save with a validation error (no guessing)
+
+---
+
 ## Next Expected Input
 
-Gemini's full Feature 010 Spec v1.3 (Single-Tenant Revision) body, then Grok's full independent
-Spec v1.3 Review body, then ChatGPT/ibi formal verdict + new SSOT. After that, Claude must produce
-Implementation Plan v1.1 (v1.0 is void) and Grok must review it before any coding resumes.
+Claude's full implementation report (branch, commit, changed files, scope confirmations incl. the
+two hard conditions, test results), then Grok's full independent Code Review body, then
+ChatGPT/ibi formal verdict. Claude must stop after this single implementation pass — no additional
+features.
 
 ---
 

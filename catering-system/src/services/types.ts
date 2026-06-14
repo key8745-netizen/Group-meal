@@ -178,6 +178,34 @@ export interface Recipe {
   updatedBy: string;
 }
 
+// ─── Recipe Menus (Feature 012: 菜單引用配方) ─────────────────────────────────
+
+/** A single recipe line within a RecipeMenu, referencing /recipes/{recipeId}. */
+export interface RecipeMenuItem {
+  recipeId: string;
+  /** Snapshot of the recipe's name at the time of save (for display/history). */
+  recipeNameSnapshot: string;
+  /** Number of servings for this recipe in the menu. Must be > 0. */
+  servings: number;
+  notes?: string;
+}
+
+/** A recipe menu stored at /recipeMenus/{menuId}, referencing /recipes. */
+export interface RecipeMenu {
+  id: string;
+  name: string;
+  /** ISO date string "YYYY-MM-DD" */
+  date: string;
+  mealType: string;
+  menuRecipes: RecipeMenuItem[];
+  isActive: boolean;
+  notes?: string;
+  createdAt?: Timestamp;
+  createdBy: string;
+  updatedAt?: Timestamp;
+  updatedBy: string;
+}
+
 export interface InventoryDoc {
   ingredientId: string;
   ingredientName: string;

@@ -12,6 +12,7 @@ import {
   BookOpen,
   Package,
   NotebookText,
+  CalendarRange,
 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -25,6 +26,7 @@ const navItems = [
   { to: '/purchase',  label: '採購管理', icon: ShoppingCart },
   { to: '/ingredients-master', label: '食材主檔', icon: Package },
   { to: '/recipes', label: '配方管理', icon: NotebookText },
+  { to: '/recipe-menus', label: '菜單配方', icon: CalendarRange },
   { to: '/analytics', label: '報表分析', icon: BarChart2 },
 ];
 

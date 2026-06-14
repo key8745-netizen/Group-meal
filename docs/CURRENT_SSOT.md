@@ -28,10 +28,25 @@ Group-meal 團膳管理系統
   - Cherry-pick commit: `ba90ad3`
   - SSOT docs-only commit: `8291590`
   - Production PR #33 merged, merge commit `39a54c8be62ea8d552dc261f60e140f3c3ed724e`
-  - Actual collection path: `/recipeMenus/{menuId}`
+  - Actual collection path: `/recipeMenus/{menuId}` (renamed from `/menus` to avoid collision
+    with the existing legacy `menus` collection used by ProductionPlanner,
+    recipeMatchingService, orderService, mealPlanService, aiContextService, etc.)
   - Actual route: `/recipe-menus`
   - Actual nav label: `菜單配方`
   - 菜單配方 verified visible and usable by ibi (runtime verification PASSED)
+* Feature 013: Prep Planning from Recipe Menus 備料規劃引用菜單配方 — COMPLETED / DEPLOYED / VERIFIED
+  - Spec v1.0: PASSED
+  - Implementation Plan v1.1: PASSED
+  - Implementation commit: `e983259`
+  - Cherry-pick commit: `00df560`
+  - SSOT docs-only commit: `aa43ae5`
+  - Production PR #35 merged, merge commit `b36922fa47024254df182bdaddb48f602ba77e3c`
+  - Actual collection path: `/prepPlans/{prepPlanId}`
+  - Actual route: `/prep-plans`
+  - Actual nav label: `備料快照`
+  - Calculation: `recipeIngredient.baseQuantity * menuRecipe.servings`
+  - Aggregation: `ingredientId + baseUnit`
+  - 備料快照 verified visible and usable by ibi (runtime verification PASSED)
 
 資料鏈已完成：食材主檔 → 配方管理 → 菜單配方 → 備料快照
 
@@ -39,13 +54,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Feature 013: Prep Planning from Recipe Menus 備料規劃引用菜單配方
+None — Feature 013 closed out. Awaiting Feature 014 Spec Planning.
 
 ---
 
 ## Current Phase
 
-Feature 013: COMPLETED / READY FOR PRODUCTION MERGE
+HOLD — Ready for Feature 014 Spec Planning
 
 ---
 
@@ -54,17 +69,9 @@ Feature 013: COMPLETED / READY FOR PRODUCTION MERGE
 * Feature 010: COMPLETED / DEPLOYED / VERIFIED
 * Feature 011: COMPLETED / DEPLOYED / VERIFIED
 * Feature 012: COMPLETED / DEPLOYED / VERIFIED
-* Feature 013 Spec v1.0: PASSED
-* Feature 013 Implementation Plan v1.1: PASSED
-* Feature 013 Implementation commit: `e983259`
-* Grok Code Review: PASS
-* Gatekeeper Decision: Feature 013 Implementation PASSED
-* Actual collection path: `/prepPlans/{prepPlanId}`
-* Actual route: `/prep-plans`
-* Actual nav label: `備料快照`
-* Calculation: `recipeIngredient.baseQuantity * menuRecipe.servings`
-* Aggregation: `ingredientId + baseUnit`
-* Snapshot only: no inventory write, no procurement, no purchase suggestion, no AI/OCR/cost automation
+* Feature 013: COMPLETED / DEPLOYED / VERIFIED
+* ibi runtime verification: PASSED for all four features
+* Gatekeeper final decision: Feature 013 COMPLETED / DEPLOYED / VERIFIED
 
 ---
 
@@ -72,7 +79,7 @@ Feature 013: COMPLETED / READY FOR PRODUCTION MERGE
 
 * Claude: HOLD after SSOT update
 * Gemini: HOLD
-* Grok: HOLD / Ready for production merge review
+* Grok: HOLD / Ready for next feature review
 * ChatGPT: Gatekeeper
 * ibi: Final authority
 
@@ -85,8 +92,8 @@ Feature 014: NOT STARTED
 Feature 009 (Real Model Config Apply Transaction Implementation) is CLOSED / ARCHIVED — see
 `docs/archive/feature_009_final_state.md`.
 
-Features 010, 011, 012 are CLOSED / COMPLETED / DEPLOYED / VERIFIED.
-Feature 013 is COMPLETED / READY FOR PRODUCTION MERGE (not yet deployed to production).
+Features 010, 011, 012, and 013 (above) are CLOSED / COMPLETED / DEPLOYED / VERIFIED, forming the
+data chain 食材主檔 → 配方管理 → 菜單配方 → 備料快照.
 
 ---
 

@@ -28,14 +28,12 @@ Group-meal 團膳管理系統
   - Cherry-pick commit: `ba90ad3`
   - SSOT docs-only commit: `8291590`
   - Production PR #33 merged, merge commit `39a54c8be62ea8d552dc261f60e140f3c3ed724e`
-  - Actual collection path: `/recipeMenus/{menuId}` (renamed from `/menus` to avoid collision
-    with the existing legacy `menus` collection used by ProductionPlanner,
-    recipeMatchingService, orderService, mealPlanService, aiContextService, etc.)
+  - Actual collection path: `/recipeMenus/{menuId}`
   - Actual route: `/recipe-menus`
   - Actual nav label: `菜單配方`
   - 菜單配方 verified visible and usable by ibi (runtime verification PASSED)
 
-資料鏈已完成：食材主檔 → 配方管理 → 菜單配方
+資料鏈已完成：食材主檔 → 配方管理 → 菜單配方 → 備料快照
 
 ---
 
@@ -47,39 +45,38 @@ Feature 013: Prep Planning from Recipe Menus 備料規劃引用菜單配方
 
 ## Current Phase
 
-Implementation Authorized — Greenfield `/prepPlans/{prepPlanId}`, read-only references to
-Feature 012 `/recipeMenus/{menuId}` and Feature 011 `/recipes/{recipeId}`. No naming collision
-found (repo grep for prepPlan/PrepPlan/prep_plan returned no results).
+Feature 013: COMPLETED / READY FOR PRODUCTION MERGE
 
 ---
 
 ## Current Basis
 
+* Feature 010: COMPLETED / DEPLOYED / VERIFIED
+* Feature 011: COMPLETED / DEPLOYED / VERIFIED
+* Feature 012: COMPLETED / DEPLOYED / VERIFIED
 * Feature 013 Spec v1.0: PASSED
-* Grok Spec Review: PASS
 * Feature 013 Implementation Plan v1.1: PASSED
-* Grok Pre-Implementation Review: PASS
-* Gatekeeper Decision: Claude GO - Feature 013 Implementation only
+* Feature 013 Implementation commit: `e983259`
+* Grok Code Review: PASS
+* Gatekeeper Decision: Feature 013 Implementation PASSED
+* Actual collection path: `/prepPlans/{prepPlanId}`
+* Actual route: `/prep-plans`
+* Actual nav label: `備料快照`
+* Calculation: `recipeIngredient.baseQuantity * menuRecipe.servings`
+* Aggregation: `ingredientId + baseUnit`
+* Snapshot only: no inventory write, no procurement, no purchase suggestion, no AI/OCR/cost automation
 
 ---
 
 ## Team State
 
-* Claude: GO - implement Feature 013 within approved scope only
+* Claude: HOLD after SSOT update
 * Gemini: HOLD
-* Grok: Prepare Code Review
+* Grok: HOLD / Ready for production merge review
 * ChatGPT: Gatekeeper
 * ibi: Final authority
 
 Feature 014: NOT STARTED
-
-* Claude: HOLD after SSOT update
-* Gemini: HOLD
-* Grok: HOLD / Ready for next feature review
-* ChatGPT: Gatekeeper
-* ibi: Final authority
-
-Feature 013: NOT STARTED
 
 ---
 
@@ -88,8 +85,8 @@ Feature 013: NOT STARTED
 Feature 009 (Real Model Config Apply Transaction Implementation) is CLOSED / ARCHIVED — see
 `docs/archive/feature_009_final_state.md`.
 
-Features 010, 011, and 012 (above) are CLOSED / COMPLETED / DEPLOYED / VERIFIED, forming the
-data chain 食材主檔 → 配方管理 → 菜單配方.
+Features 010, 011, 012 are CLOSED / COMPLETED / DEPLOYED / VERIFIED.
+Feature 013 is COMPLETED / READY FOR PRODUCTION MERGE (not yet deployed to production).
 
 ---
 

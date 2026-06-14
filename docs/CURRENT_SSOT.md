@@ -41,17 +41,37 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-None — Feature 012 closed out. Awaiting Feature 013 Spec Planning.
+Feature 013: Prep Planning from Recipe Menus 備料規劃引用菜單配方
 
 ---
 
 ## Current Phase
 
-HOLD — Ready for Feature 013 Spec Planning
+Implementation Authorized — Greenfield `/prepPlans/{prepPlanId}`, read-only references to
+Feature 012 `/recipeMenus/{menuId}` and Feature 011 `/recipes/{recipeId}`. No naming collision
+found (repo grep for prepPlan/PrepPlan/prep_plan returned no results).
+
+---
+
+## Current Basis
+
+* Feature 013 Spec v1.0: PASSED
+* Grok Spec Review: PASS
+* Feature 013 Implementation Plan v1.1: PASSED
+* Grok Pre-Implementation Review: PASS
+* Gatekeeper Decision: Claude GO - Feature 013 Implementation only
 
 ---
 
 ## Team State
+
+* Claude: GO - implement Feature 013 within approved scope only
+* Gemini: HOLD
+* Grok: Prepare Code Review
+* ChatGPT: Gatekeeper
+* ibi: Final authority
+
+Feature 014: NOT STARTED
 
 * Claude: HOLD after SSOT update
 * Gemini: HOLD

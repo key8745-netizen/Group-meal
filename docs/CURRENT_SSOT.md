@@ -20,7 +20,7 @@ Feature 011: Recipe Ingredient Linking 菜色 / 配方引用食材主檔
 
 ## Current Phase
 
-COMPLETED / READY FOR PRODUCTION MERGE
+COMPLETED / DEPLOYED / VERIFIED
 
 ---
 
@@ -30,8 +30,13 @@ COMPLETED / READY FOR PRODUCTION MERGE
 * Feature 011 Spec v1.1: PASSED
 * Feature 011 Implementation Plan v1.1: PASSED WITH CONDITIONS
 * Feature 011 Implementation commit: `227c3d7`
+* Feature 011 cherry-pick commit: `1f4416a`
+* Feature 011 SSOT commit: `a63fd04`
+* PR #31 merged (feature011-only-proposal → claude/fervent-dirac-HJT01)
+* Merge commit: `2081c496091f0c41e017fa1be00999ce5c865306`
 * Grok Code Review: PASS
-* Gatekeeper Decision: Feature 011 Implementation PASSED
+* ibi runtime verification: PASSED (配方管理 visible and usable in production)
+* Gatekeeper Final Decision: Feature 011 COMPLETED / DEPLOYED / VERIFIED
 
 ---
 
@@ -39,7 +44,7 @@ COMPLETED / READY FOR PRODUCTION MERGE
 
 * Claude: HOLD after SSOT update
 * Gemini: HOLD
-* Grok: HOLD / Ready for production merge review if needed
+* Grok: HOLD / Ready for next feature review
 * ChatGPT: Gatekeeper
 * ibi: Final authority
 

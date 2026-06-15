@@ -81,17 +81,34 @@ Group-meal 團膳管理系統
   - No procurement / inventory / purchase order / AI / OCR / tenant / Netlify Functions changes
   - Navigation grouping verified visible and usable by ibi (runtime verification PASSED)
 
+* Feature 016: Purchase Demand Draft Export / Print View 採購需求草稿匯出 / 列印檢視 — COMPLETED / DEPLOYED / VERIFIED
+  - Spec v1.1: PASSED
+  - Implementation Plan v1.0: CONDITIONAL PASS
+  - Implementation commit: `3366bfcc62c7857de2ae739c496e921c8be98351`
+  - Production PR #40 merged, merge commit `d452ede37e0b2d4c04d6ccf863cc6916e183a268`
+  - Actual changed files: `catering-system/src/pages/PurchaseDemandDraftPage.tsx`,
+    `catering-system/src/components/purchaseDemandDrafts/PurchaseDemandDraftList.tsx`,
+    `catering-system/src/components/purchaseDemandDrafts/PurchaseDemandDraftPrintView.tsx`,
+    `catering-system/src/utils/purchaseDemandDraftExport.ts`
+  - Added per-draft CSV export (frontend Blob download) and per-draft print view
+    (`print:hidden` / `print:block`), reusing existing loaded `purchaseDemandDrafts` data
+  - No `App.tsx`, Firestore rules, service, or data model changes
+  - Governance note: Production advanced via PR #40 before feature-only proposal gate;
+    post-merge verification completed; runtime verification passed; final status accepted
+    by Gatekeeper
+  - 採購需求草稿匯出 / 列印 verified visible and usable by ibi (runtime verification PASSED)
+
 ---
 
 ## Current Feature
 
-None — Feature 015 closed out. Awaiting Feature 016 Spec Planning.
+None — Feature 016 closed out. Awaiting Feature 017 Spec Planning.
 
 ---
 
 ## Current Phase
 
-HOLD — Ready for Feature 016 Spec Planning
+HOLD — Ready for Feature 017 Spec Planning
 
 ---
 
@@ -103,6 +120,7 @@ HOLD — Ready for Feature 016 Spec Planning
 * Feature 013: COMPLETED / DEPLOYED / VERIFIED
 * Feature 014: COMPLETED / DEPLOYED / VERIFIED
 * Feature 015: COMPLETED / DEPLOYED / VERIFIED
+* Feature 016: COMPLETED / DEPLOYED / VERIFIED
 
 ---
 
@@ -114,7 +132,7 @@ HOLD — Ready for Feature 016 Spec Planning
 * ChatGPT: Gatekeeper
 * ibi: Final authority
 
-Feature 016: NOT STARTED
+Feature 017: NOT STARTED
 
 ---
 
@@ -123,8 +141,8 @@ Feature 016: NOT STARTED
 Feature 009 (Real Model Config Apply Transaction Implementation) is CLOSED / ARCHIVED — see
 `docs/archive/feature_009_final_state.md`.
 
-Features 010, 011, 012, 013, 014, and 015 are CLOSED / COMPLETED / DEPLOYED / VERIFIED, forming the
-data chain 食材主檔 → 配方管理 → 菜單配方 → 備料快照 → 採購需求草稿.
+Features 010, 011, 012, 013, 014, 015, and 016 are CLOSED / COMPLETED / DEPLOYED / VERIFIED, forming
+the data chain 食材主檔 → 配方管理 → 菜單配方 → 備料快照 → 採購需求草稿 (含匯出 / 列印).
 
 ---
 

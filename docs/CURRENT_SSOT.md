@@ -128,6 +128,17 @@ data chain 食材主檔 → 配方管理 → 菜單配方 → 備料快照 → �
 
 ---
 
+## Tech Debt Review
+
+* Tech Debt: legacy `seedIngredients` compatibility with `ingredientAllowedFields`
+  - Final status: CLOSED AS STALE / NOT FOUND
+  - Reason: repo audit found no `seedIngredients` file/function and no `ingredientAllowedFields`
+    function in current codebase
+  - Impact: no active production data risk; no impact to Feature 010–015
+  - Implementation: not required
+
+---
+
 ## SSOT Update Rule
 
 After each phase is reviewed and approved, ChatGPT will generate the next version of this file.

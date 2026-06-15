@@ -98,17 +98,38 @@ Group-meal 團膳管理系統
     by Gatekeeper
   - 採購需求草稿匯出 / 列印 verified visible and usable by ibi (runtime verification PASSED)
 
+* Feature 017: Purchase Demand Draft Workflow Status 採購需求草稿人工流程狀態 — COMPLETED / DEPLOYED / VERIFIED
+  - Spec v1.2: PASSED
+  - Implementation Plan v1.0: PASSED
+  - Implementation commit: `755002c089a60a2a40d807d4dce1199a9209b10f`
+  - Proposal commit: `b3bf2de04829bf1860afd3ec345778f9455e9825`
+  - Production PR #41 merged, merge commit `9c3fbd1e9fe1d1749f65f9cabbbf20b5c015d234`
+  - Adds independent `workflowStatus: 'draft' | 'exported' | 'sent' | 'completed' | 'cancelled'`
+    to `purchaseDemandDrafts` (optional field, existing drafts default to `'draft'`)
+  - Existing archive semantics unchanged: `status: 'draft' | 'archived'`, `isActive: boolean`,
+    `status <=> isActive` archive invariant preserved
+  - `updateDraftWorkflowStatus()` only updates `workflowStatus`/`updatedAt`/`updatedBy`; does not
+    touch `status`, `isActive`, `items`, or source/traceability fields
+  - Firestore rules: `workflowStatus` added to whitelist with restricted allowed values only;
+    `status`/`isActive`/`items`/source-field protections unchanged
+  - No PO creation, no procurement automation, no inventory write/deduction, no supplier
+    automation, no cost calculation, no AI/OCR, no tenant model, no Netlify Functions
+  - Governance note: Production advanced via PR #41 before Gatekeeper merge decision;
+    post-merge verification completed; runtime verification passed; final status accepted
+    by Gatekeeper
+  - 採購流程狀態 verified visible and usable by ibi (runtime verification PASSED)
+
 ---
 
 ## Current Feature
 
-None — Feature 016 closed out. Awaiting Feature 017 Spec Planning.
+None — Feature 017 closed out. Awaiting Feature 018 Spec Planning.
 
 ---
 
 ## Current Phase
 
-HOLD — Ready for Feature 017 Spec Planning
+HOLD — Ready for Feature 018 Spec Planning
 
 ---
 
@@ -121,6 +142,7 @@ HOLD — Ready for Feature 017 Spec Planning
 * Feature 014: COMPLETED / DEPLOYED / VERIFIED
 * Feature 015: COMPLETED / DEPLOYED / VERIFIED
 * Feature 016: COMPLETED / DEPLOYED / VERIFIED
+* Feature 017: COMPLETED / DEPLOYED / VERIFIED
 
 ---
 
@@ -132,7 +154,7 @@ HOLD — Ready for Feature 017 Spec Planning
 * ChatGPT: Gatekeeper
 * ibi: Final authority
 
-Feature 017: NOT STARTED
+Feature 018: NOT STARTED
 
 ---
 
@@ -141,8 +163,8 @@ Feature 017: NOT STARTED
 Feature 009 (Real Model Config Apply Transaction Implementation) is CLOSED / ARCHIVED — see
 `docs/archive/feature_009_final_state.md`.
 
-Features 010, 011, 012, 013, 014, 015, and 016 are CLOSED / COMPLETED / DEPLOYED / VERIFIED, forming
-the data chain 食材主檔 → 配方管理 → 菜單配方 → 備料快照 → 採購需求草稿 (含匯出 / 列印).
+Features 010, 011, 012, 013, 014, 015, 016, and 017 are CLOSED / COMPLETED / DEPLOYED / VERIFIED,
+forming the data chain 食材主檔 → 配方管理 → 菜單配方 → 備料快照 → 採購需求草稿 (含匯出 / 列印 / 人工流程狀態).
 
 ---
 

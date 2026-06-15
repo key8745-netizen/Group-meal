@@ -47,20 +47,37 @@ Group-meal 團膳管理系統
   - Calculation: `recipeIngredient.baseQuantity * menuRecipe.servings`
   - Aggregation: `ingredientId + baseUnit`
   - 備料快照 verified visible and usable by ibi (runtime verification PASSED)
+* Feature 014: Purchase Demand Draft from Prep Plans 備料快照產生採購需求草稿 — COMPLETED / DEPLOYED / VERIFIED
+  - Spec v1.0: PASSED
+  - Implementation Plan v1.1: PASSED
+  - Implementation commit: `06459b3`
+  - SSOT docs-only commit: `a335922`
+  - Cherry-pick commit: `71cdd0a`
+  - Production PR #36 merged, merge commit `6d18d906b3f9b2fa3d9977c3861cb04c9602678f`
+  - Actual collection path: `/purchaseDemandDrafts/{draftId}`
+  - Actual route: `/purchase-demand-drafts`
+  - Actual nav label: `採購需求草稿`
+  - Source dependency: `/prepPlans/{prepPlanId}` read-only
+  - Calculation: `demandQuantity = prepItem.requiredBaseQuantity`, `baseUnit = prepItem.baseUnit`
+  - `prepPlanTraceability` included in each item
+  - `status` / `isActive` synchronized by service; UI has no independent `isActive` toggle
+  - Immutable item fields reconstructed from existing document on update (service reconstruction +
+    UI payload restriction); Firestore rules protect document-level audit/source fields only
+  - 採購需求草稿 verified visible and usable by ibi (runtime verification PASSED)
 
-資料鏈已完成：食材主檔 → 配方管理 → 菜單配方 → 備料快照
+資料鏈已完成：食材主檔 → 配方管理 → 菜單配方 → 備料快照 → 採購需求草稿
 
 ---
 
 ## Current Feature
 
-Feature 014: Purchase Demand Draft from Prep Plans 備料快照產生採購需求草稿
+None — Feature 014 closed out. Awaiting Feature 015 Spec Planning.
 
 ---
 
 ## Current Phase
 
-Feature 014: COMPLETED / READY FOR PRODUCTION MERGE
+HOLD — Ready for Feature 015 Spec Planning
 
 ---
 
@@ -70,11 +87,9 @@ Feature 014: COMPLETED / READY FOR PRODUCTION MERGE
 * Feature 011: COMPLETED / DEPLOYED / VERIFIED
 * Feature 012: COMPLETED / DEPLOYED / VERIFIED
 * Feature 013: COMPLETED / DEPLOYED / VERIFIED
-* Feature 014 Spec v1.0: PASSED
-* Feature 014 Implementation Plan v1.1: PASSED
-* Feature 014 Implementation commit: `06459b3`
-* Grok Code Review: PASS
-* Gatekeeper Decision: Feature 014 Implementation PASSED
+* Feature 014: COMPLETED / DEPLOYED / VERIFIED
+* ibi runtime verification: PASSED for all five features
+* Gatekeeper final decision: Feature 014 COMPLETED / DEPLOYED / VERIFIED
 * Actual collection path: `/purchaseDemandDrafts/{draftId}`
 * Actual route: `/purchase-demand-drafts`
 * Actual nav label: `採購需求草稿`
@@ -102,7 +117,7 @@ Feature 014: COMPLETED / READY FOR PRODUCTION MERGE
 
 * Claude: HOLD after SSOT update
 * Gemini: HOLD
-* Grok: HOLD / Ready for production merge review
+* Grok: HOLD / Ready for Feature 015 Spec Review
 * ChatGPT: Gatekeeper
 * ibi: Final authority
 
@@ -115,8 +130,8 @@ Feature 015: NOT STARTED
 Feature 009 (Real Model Config Apply Transaction Implementation) is CLOSED / ARCHIVED — see
 `docs/archive/feature_009_final_state.md`.
 
-Features 010, 011, 012, and 013 are CLOSED / COMPLETED / DEPLOYED / VERIFIED.
-Feature 014 is COMPLETED / READY FOR PRODUCTION MERGE (not yet deployed to production).
+Features 010, 011, 012, 013, and 014 are CLOSED / COMPLETED / DEPLOYED / VERIFIED, forming the
+data chain 食材主檔 → 配方管理 → 菜單配方 → 備料快照 → 採購需求草稿.
 
 ---
 

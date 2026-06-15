@@ -9,12 +9,13 @@
 import { useEffect, useState } from 'react';
 import { Plus, ClipboardList, Eye, EyeOff } from 'lucide-react';
 import { db, auth } from '@/lib/firebase';
-import type { PurchaseDemandDraft } from '@/services/types';
+import type { PurchaseDemandDraft, PurchaseDemandDraftWorkflowStatus } from '@/services/types';
 import {
   listPurchaseDemandDrafts,
   createDraftFromPrepPlan,
   updateDraft,
   archiveDraft,
+  updateDraftWorkflowStatus,
 } from '@/services/purchaseDemandDraftService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -117,6 +118,16 @@ export default function PurchaseDemandDraftPage() {
     }, 0);
   }
 
+  async function handleWorkflowStatusChange(draft: PurchaseDemandDraft, workflowStatus: PurchaseDemandDraftWorkflowStatus) {
+    const uid = auth.currentUser?.uid ?? '';
+    try {
+      await updateDraftWorkflowStatus(db, draft.id, workflowStatus, uid);
+      await reload();
+    } catch {
+      toast({ variant: 'destructive', title: '更新採購流程狀態失敗' });
+    }
+  }
+
   const filtered = drafts
     .filter((d) => showInactive || d.isActive !== false)
     .filter((d) => !search.trim() || d.draftName.includes(search));
@@ -188,6 +199,7 @@ export default function PurchaseDemandDraftPage() {
             onToggleArchived={handleToggleArchived}
             onExportCsv={handleExportCsv}
             onPrint={handlePrint}
+            onWorkflowStatusChange={handleWorkflowStatusChange}
           />
         </>
       )}

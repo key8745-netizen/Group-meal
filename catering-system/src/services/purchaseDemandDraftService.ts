@@ -29,6 +29,7 @@ import type {
   PrepPlan,
   PurchaseDemandDraft,
   PurchaseDemandDraftItem,
+  PurchaseDemandDraftWorkflowStatus,
 } from './types';
 
 const COLLECTION = 'purchaseDemandDrafts';
@@ -110,6 +111,7 @@ export async function createDraftFromPrepPlan(
     status: 'draft',
     items,
     isActive: true,
+    workflowStatus: 'draft',
     notes: input.notes ?? '',
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -145,6 +147,7 @@ export async function updateDraft(
     status: existing.status,
     items,
     isActive: existing.isActive,
+    workflowStatus: existing.workflowStatus ?? 'draft',
     notes: input.notes ?? '',
     updatedAt: serverTimestamp(),
     updatedBy: uid,
@@ -157,9 +160,36 @@ export async function archiveDraft(
   archived: boolean,
   uid: string,
 ): Promise<void> {
+  const existing = await getPurchaseDemandDraft(db, id);
   await updateDoc(doc(db, COLLECTION, id), {
     status: archived ? 'archived' : 'draft',
     isActive: !archived,
+    workflowStatus: existing.workflowStatus ?? 'draft',
+    updatedAt: serverTimestamp(),
+    updatedBy: uid,
+  });
+}
+
+/**
+ * Update only the human-managed procurement workflow marker.
+ * Does not modify status/isActive or any other draft fields.
+ */
+export async function updateDraftWorkflowStatus(
+  db: Firestore,
+  id: string,
+  workflowStatus: PurchaseDemandDraftWorkflowStatus,
+  uid: string,
+): Promise<void> {
+  const existing = await getPurchaseDemandDraft(db, id);
+  await updateDoc(doc(db, COLLECTION, id), {
+    draftName: existing.draftName,
+    sourcePrepPlanId: existing.sourcePrepPlanId,
+    sourcePrepPlanNameSnapshot: existing.sourcePrepPlanNameSnapshot,
+    status: existing.status,
+    items: existing.items,
+    isActive: existing.isActive,
+    workflowStatus,
+    notes: existing.notes ?? '',
     updatedAt: serverTimestamp(),
     updatedBy: uid,
   });

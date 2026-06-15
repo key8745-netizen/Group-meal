@@ -219,7 +219,7 @@ service cloud.firestore {
     function validPurchaseDemandDraftCommon() {
       return request.resource.data.keys().hasOnly([
         'draftName', 'sourcePrepPlanId', 'sourcePrepPlanNameSnapshot',
-        'status', 'items', 'isActive', 'notes',
+        'status', 'items', 'isActive', 'workflowStatus', 'notes',
         'createdAt', 'createdBy', 'updatedAt', 'updatedBy'
       ])
       && request.resource.data.draftName is string
@@ -227,7 +227,9 @@ service cloud.firestore {
       && request.resource.data.sourcePrepPlanNameSnapshot is string
       && request.resource.data.status in ['draft', 'archived']
       && request.resource.data.items is list
-      && request.resource.data.isActive is bool;
+      && request.resource.data.isActive is bool
+      && (!('workflowStatus' in request.resource.data.keys())
+          || request.resource.data.workflowStatus in ['draft', 'exported', 'sent', 'completed', 'cancelled']);
     }
 
     function validPurchaseDemandDraftCreate() {

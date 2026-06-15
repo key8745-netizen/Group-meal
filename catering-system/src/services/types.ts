@@ -249,6 +249,40 @@ export interface PrepPlan {
   updatedBy: string;
 }
 
+// ─── Purchase Demand Drafts (Feature 014: 採購需求草稿) ────────────────────────
+
+export interface PrepPlanTraceability {
+  prepPlanId: string;
+  prepPlanNameSnapshot: string;
+}
+
+export interface PurchaseDemandDraftItem {
+  ingredientId: string;
+  ingredientNameSnapshot: string;
+  demandQuantity: number;
+  baseUnit: IngredientBaseUnit;
+  sourceRequiredBaseQuantity: number;
+  prepPlanTraceability: PrepPlanTraceability;
+  notes?: string;
+}
+
+export type PurchaseDemandDraftStatus = 'draft' | 'archived';
+
+export interface PurchaseDemandDraft {
+  id: string;
+  draftName: string;
+  sourcePrepPlanId: string;
+  sourcePrepPlanNameSnapshot: string;
+  status: PurchaseDemandDraftStatus;
+  items: PurchaseDemandDraftItem[];
+  isActive: boolean;
+  notes?: string;
+  createdAt?: Timestamp;
+  createdBy: string;
+  updatedAt?: Timestamp;
+  updatedBy: string;
+}
+
 export interface InventoryDoc {
   ingredientId: string;
   ingredientName: string;

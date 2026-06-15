@@ -29,6 +29,7 @@ const navItems = [
   { to: '/recipes', label: '配方管理', icon: NotebookText },
   { to: '/recipe-menus', label: '菜單配方', icon: CalendarRange },
   { to: '/prep-plans', label: '備料快照', icon: ClipboardCheck },
+  { to: '/purchase-demand-drafts', label: '採購需求草稿', icon: ClipboardList },
   { to: '/analytics', label: '報表分析', icon: BarChart2 },
 ];
 

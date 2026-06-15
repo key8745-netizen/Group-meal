@@ -215,6 +215,42 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── purchaseDemandDrafts ─────────────────────────────────────────────────
+    function validPurchaseDemandDraftCommon() {
+      return request.resource.data.keys().hasOnly([
+        'draftName', 'sourcePrepPlanId', 'sourcePrepPlanNameSnapshot',
+        'status', 'items', 'isActive', 'notes',
+        'createdAt', 'createdBy', 'updatedAt', 'updatedBy'
+      ])
+      && request.resource.data.draftName is string
+      && request.resource.data.sourcePrepPlanId is string
+      && request.resource.data.sourcePrepPlanNameSnapshot is string
+      && request.resource.data.status in ['draft', 'archived']
+      && request.resource.data.items is list
+      && request.resource.data.isActive is bool;
+    }
+
+    function validPurchaseDemandDraftCreate() {
+      return validPurchaseDemandDraftCommon()
+        && request.resource.data.createdBy == request.auth.uid;
+    }
+
+    function validPurchaseDemandDraftUpdate() {
+      return validPurchaseDemandDraftCommon()
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.sourcePrepPlanId == resource.data.sourcePrepPlanId
+        && request.resource.data.sourcePrepPlanNameSnapshot == resource.data.sourcePrepPlanNameSnapshot
+        && request.resource.data.updatedBy == request.auth.uid;
+    }
+
+    match /purchaseDemandDrafts/{draftId} {
+      allow read: if isAuthenticated();
+      allow create: if isPurchasingStaff() && validPurchaseDemandDraftCreate();
+      allow update: if isPurchasingStaff() && validPurchaseDemandDraftUpdate();
+      allow delete: if false;
+    }
+
     // ── 其他所有路徑：預設拒絕 ────────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

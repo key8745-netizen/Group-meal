@@ -67,17 +67,31 @@ Group-meal 團膳管理系統
 
 資料鏈已完成：食材主檔 → 配方管理 → 菜單配方 → 備料快照 → 採購需求草稿
 
+* Feature 015: Navigation Information Architecture Cleanup 左側選單資訊架構整理 — COMPLETED / DEPLOYED / VERIFIED
+  - Spec v1.1: PASSED
+  - Implementation Plan v1.0: PASSED
+  - Implementation commit: `19ceef4`
+  - Cherry-pick commit: `b9ea36a`
+  - SSOT commit: `7b58109`
+  - Production PR #38 merged, merge commit `17ddefb27c3829855bc62d1a9c641bde50326f54`
+  - Actual changed file: `catering-system/src/components/layout/AppLayout.tsx` (only)
+  - Sidebar nav grouped into 7 sections: 總覽 / 日常作業 / 基礎資料 / 菜單與配方 / 作業規劃 / 營運管理 / 分析
+  - All 12 routes preserved (including `/ingredients-master`); `/share/:orderId` untouched
+  - `App.tsx`, `firestore.rules`, services, pages, and business logic unchanged
+  - No procurement / inventory / purchase order / AI / OCR / tenant / Netlify Functions changes
+  - Navigation grouping verified visible and usable by ibi (runtime verification PASSED)
+
 ---
 
 ## Current Feature
 
-Feature 015: Navigation Information Architecture Cleanup 左側選單資訊架構整理
+None — Feature 015 closed out. Awaiting Feature 016 Spec Planning.
 
 ---
 
 ## Current Phase
 
-Feature 015: COMPLETED / READY FOR PRODUCTION MERGE
+HOLD — Ready for Feature 016 Spec Planning
 
 ---
 
@@ -88,38 +102,7 @@ Feature 015: COMPLETED / READY FOR PRODUCTION MERGE
 * Feature 012: COMPLETED / DEPLOYED / VERIFIED
 * Feature 013: COMPLETED / DEPLOYED / VERIFIED
 * Feature 014: COMPLETED / DEPLOYED / VERIFIED
-* Feature 015 Spec v1.1: PASSED
-* Feature 015 Implementation Plan v1.0: PASSED
-* Feature 015 Implementation commit: `19ceef4ac68cf770c2c4b6918bbe0e5ba0ec8020`
-* Grok Code Review: PASS
-* Gatekeeper Decision: Feature 015 Implementation PASSED
-* Actual changed file: `catering-system/src/components/layout/AppLayout.tsx`
-* Route definitions unchanged, Firestore rules unchanged, services unchanged, pages unchanged,
-  business logic unchanged
-* All 12 sidebar routes preserved
-* `/share/:orderId` public route untouched
-* Navigation grouped as: 總覽 / 日常作業 / 基礎資料 / 菜單與配方 / 作業規劃 / 營運管理 / 分析
-* `pageTitle` uses flattened nav items; active route highlight preserved
-* Actual collection path: `/purchaseDemandDrafts/{draftId}`
-* Actual route: `/purchase-demand-drafts`
-* Actual nav label: `採購需求草稿`
-* Source dependency: `/prepPlans/{prepPlanId}` read-only
-* Calculation: `demandQuantity = prepItem.requiredBaseQuantity`
-* Unit: `baseUnit = prepItem.baseUnit`
-* `prepPlanTraceability` (`prepPlanId`, `prepPlanNameSnapshot`) included in each item
-* `status` / `isActive` synchronized by service (`'draft'`<->`true`, `'archived'`<->`false`)
-* UI has no independent `isActive` toggle — only 封存/取消封存
-* Immutable item fields (ingredientId, ingredientNameSnapshot, baseUnit, sourceRequiredBaseQuantity,
-  prepPlanTraceability, status, isActive, createdAt/createdBy) are reconstructed from the existing
-  document on update — client may only edit draftName, notes, items[].demandQuantity, items[].notes
-* Firestore rules protect document-level audit/source fields (createdAt, createdBy, sourcePrepPlanId,
-  sourcePrepPlanNameSnapshot) via exact whitelist + `allow delete: if false`; no broad `allow write`
-* IMPORTANT BOUNDARY: Item-level immutability is enforced by service reconstruction and UI payload
-  restriction. Firestore rules protect document-level audit/source fields, but do not deeply validate
-  each items[] immutable subfield. This is an accepted, documented boundary — not a gap to be silently
-  assumed closed by rules alone.
-* Snapshot only: no inventory write, no formal purchase order, no procurement automation, no purchase
-  suggestion, no supplier selection, no AI/OCR/cost automation
+* Feature 015: COMPLETED / DEPLOYED / VERIFIED
 
 ---
 
@@ -127,7 +110,7 @@ Feature 015: COMPLETED / READY FOR PRODUCTION MERGE
 
 * Claude: HOLD after SSOT update
 * Gemini: HOLD
-* Grok: HOLD / Ready for production merge proposal review
+* Grok: HOLD / Ready for next
 * ChatGPT: Gatekeeper
 * ibi: Final authority
 
@@ -140,7 +123,7 @@ Feature 016: NOT STARTED
 Feature 009 (Real Model Config Apply Transaction Implementation) is CLOSED / ARCHIVED — see
 `docs/archive/feature_009_final_state.md`.
 
-Features 010, 011, 012, 013, and 014 are CLOSED / COMPLETED / DEPLOYED / VERIFIED, forming the
+Features 010, 011, 012, 013, 014, and 015 are CLOSED / COMPLETED / DEPLOYED / VERIFIED, forming the
 data chain 食材主檔 → 配方管理 → 菜單配方 → 備料快照 → 採購需求草稿.
 
 ---

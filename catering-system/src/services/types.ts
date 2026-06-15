@@ -268,6 +268,14 @@ export interface PurchaseDemandDraftItem {
 
 export type PurchaseDemandDraftStatus = 'draft' | 'archived';
 
+/** Human-managed procurement workflow marker — independent of `status`/`isActive`. */
+export type PurchaseDemandDraftWorkflowStatus =
+  | 'draft'
+  | 'exported'
+  | 'sent'
+  | 'completed'
+  | 'cancelled';
+
 export interface PurchaseDemandDraft {
   id: string;
   draftName: string;
@@ -276,6 +284,7 @@ export interface PurchaseDemandDraft {
   status: PurchaseDemandDraftStatus;
   items: PurchaseDemandDraftItem[];
   isActive: boolean;
+  workflowStatus?: PurchaseDemandDraftWorkflowStatus;
   notes?: string;
   createdAt?: Timestamp;
   createdBy: string;

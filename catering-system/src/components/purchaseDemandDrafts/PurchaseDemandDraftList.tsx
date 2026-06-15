@@ -20,10 +20,14 @@ export function PurchaseDemandDraftList({
   drafts,
   onEdit,
   onToggleArchived,
+  onExportCsv,
+  onPrint,
 }: {
   drafts: PurchaseDemandDraft[];
   onEdit: (draft: PurchaseDemandDraft) => void;
   onToggleArchived: (draft: PurchaseDemandDraft) => void;
+  onExportCsv?: (draft: PurchaseDemandDraft) => void;
+  onPrint?: (draft: PurchaseDemandDraft) => void;
 }) {
   if (drafts.length === 0) {
     return (
@@ -68,16 +72,42 @@ export function PurchaseDemandDraftList({
                 </TableCell>
                 <TableCell>{updatedAt ? updatedAt.toLocaleString('zh-TW') : '—'}</TableCell>
                 <TableCell className="text-right">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleArchived(draft);
-                    }}
-                  >
-                    {isArchived ? '取消封存' : '封存'}
-                  </Button>
+                  <div className="flex justify-end gap-2">
+                    {onExportCsv && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onExportCsv(draft);
+                        }}
+                      >
+                        匯出 CSV
+                      </Button>
+                    )}
+                    {onPrint && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onPrint(draft);
+                        }}
+                      >
+                        列印
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleArchived(draft);
+                      }}
+                    >
+                      {isArchived ? '取消封存' : '封存'}
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             );

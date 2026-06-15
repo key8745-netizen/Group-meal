@@ -22,10 +22,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
 import { PurchaseDemandDraftList } from '@/components/purchaseDemandDrafts/PurchaseDemandDraftList';
+import { PurchaseDemandDraftPrintView } from '@/components/purchaseDemandDrafts/PurchaseDemandDraftPrintView';
 import {
   PurchaseDemandDraftForm,
   type PurchaseDemandDraftFormValues,
 } from '@/components/purchaseDemandDrafts/PurchaseDemandDraftForm';
+import { draftToCsv, downloadCsv, sanitizeFilename } from '@/utils/purchaseDemandDraftExport';
 
 type EditingState =
   | { mode: 'create' }
@@ -47,6 +49,7 @@ export default function PurchaseDemandDraftPage() {
   const [editing, setEditing] = useState<EditingState>(null);
   const [search, setSearch] = useState('');
   const [showInactive, setShowInactive] = useState(false);
+  const [printDraft, setPrintDraft] = useState<PurchaseDemandDraft | null>(null);
 
   async function reload() {
     setLoading(true);
@@ -102,12 +105,25 @@ export default function PurchaseDemandDraftPage() {
     }
   }
 
+  function handleExportCsv(draft: PurchaseDemandDraft) {
+    downloadCsv(`${sanitizeFilename(draft.draftName)}.csv`, draftToCsv(draft));
+  }
+
+  function handlePrint(draft: PurchaseDemandDraft) {
+    setPrintDraft(draft);
+    setTimeout(() => {
+      window.print();
+      setPrintDraft(null);
+    }, 0);
+  }
+
   const filtered = drafts
     .filter((d) => showInactive || d.isActive !== false)
     .filter((d) => !search.trim() || d.draftName.includes(search));
 
   return (
-    <div className="flex flex-col gap-4 p-6">
+    <>
+    <div className="flex flex-col gap-4 p-6 print:hidden">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <ClipboardList size={20} className="text-muted-foreground" />
@@ -170,11 +186,20 @@ export default function PurchaseDemandDraftPage() {
             drafts={filtered}
             onEdit={(draft) => setEditing({ mode: 'edit', draft })}
             onToggleArchived={handleToggleArchived}
+            onExportCsv={handleExportCsv}
+            onPrint={handlePrint}
           />
         </>
       )}
 
       <Toaster />
     </div>
+
+    {printDraft && (
+      <div className="hidden print:block">
+        <PurchaseDemandDraftPrintView draft={printDraft} />
+      </div>
+    )}
+    </>
   );
 }

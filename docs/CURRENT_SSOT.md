@@ -71,13 +71,13 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-None — Feature 014 closed out. Awaiting Feature 015 Spec Planning.
+Feature 015: Navigation Information Architecture Cleanup 左側選單資訊架構整理
 
 ---
 
 ## Current Phase
 
-HOLD — Ready for Feature 015 Spec Planning
+Feature 015: COMPLETED / READY FOR PRODUCTION MERGE
 
 ---
 
@@ -88,8 +88,18 @@ HOLD — Ready for Feature 015 Spec Planning
 * Feature 012: COMPLETED / DEPLOYED / VERIFIED
 * Feature 013: COMPLETED / DEPLOYED / VERIFIED
 * Feature 014: COMPLETED / DEPLOYED / VERIFIED
-* ibi runtime verification: PASSED for all five features
-* Gatekeeper final decision: Feature 014 COMPLETED / DEPLOYED / VERIFIED
+* Feature 015 Spec v1.1: PASSED
+* Feature 015 Implementation Plan v1.0: PASSED
+* Feature 015 Implementation commit: `19ceef4ac68cf770c2c4b6918bbe0e5ba0ec8020`
+* Grok Code Review: PASS
+* Gatekeeper Decision: Feature 015 Implementation PASSED
+* Actual changed file: `catering-system/src/components/layout/AppLayout.tsx`
+* Route definitions unchanged, Firestore rules unchanged, services unchanged, pages unchanged,
+  business logic unchanged
+* All 12 sidebar routes preserved
+* `/share/:orderId` public route untouched
+* Navigation grouped as: 總覽 / 日常作業 / 基礎資料 / 菜單與配方 / 作業規劃 / 營運管理 / 分析
+* `pageTitle` uses flattened nav items; active route highlight preserved
 * Actual collection path: `/purchaseDemandDrafts/{draftId}`
 * Actual route: `/purchase-demand-drafts`
 * Actual nav label: `採購需求草稿`
@@ -117,11 +127,11 @@ HOLD — Ready for Feature 015 Spec Planning
 
 * Claude: HOLD after SSOT update
 * Gemini: HOLD
-* Grok: HOLD / Ready for Feature 015 Spec Review
+* Grok: HOLD / Ready for production merge proposal review
 * ChatGPT: Gatekeeper
 * ibi: Final authority
 
-Feature 015: NOT STARTED
+Feature 016: NOT STARTED
 
 ---
 

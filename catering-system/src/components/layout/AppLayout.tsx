@@ -18,20 +18,64 @@ import {
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
-const navItems = [
-  { to: '/',          label: '儀表板',   icon: LayoutDashboard,  end: true },
-  { to: '/orders',    label: '訂單管理', icon: ClipboardList },
-  { to: '/menus',     label: '菜單管理', icon: BookOpen },
-  { to: '/plan',      label: '備料規劃', icon: UtensilsCrossed },
-  { to: '/inventory', label: '庫存管理', icon: PackageSearch },
-  { to: '/purchase',  label: '採購管理', icon: ShoppingCart },
-  { to: '/ingredients-master', label: '食材主檔', icon: Package },
-  { to: '/recipes', label: '配方管理', icon: NotebookText },
-  { to: '/recipe-menus', label: '菜單配方', icon: CalendarRange },
-  { to: '/prep-plans', label: '備料快照', icon: ClipboardCheck },
-  { to: '/purchase-demand-drafts', label: '採購需求草稿', icon: ClipboardList },
-  { to: '/analytics', label: '報表分析', icon: BarChart2 },
+type NavItem = {
+  to: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  end?: boolean;
+};
+
+const navGroups: { section: string; items: NavItem[] }[] = [
+  {
+    section: '總覽',
+    items: [
+      { to: '/', label: '儀表板', icon: LayoutDashboard, end: true },
+    ],
+  },
+  {
+    section: '日常作業',
+    items: [
+      { to: '/orders', label: '訂單管理', icon: ClipboardList },
+      { to: '/menus', label: '菜單管理', icon: BookOpen },
+      { to: '/plan', label: '備料規劃', icon: UtensilsCrossed },
+    ],
+  },
+  {
+    section: '基礎資料',
+    items: [
+      { to: '/ingredients-master', label: '食材主檔', icon: Package },
+    ],
+  },
+  {
+    section: '菜單與配方',
+    items: [
+      { to: '/recipes', label: '配方管理', icon: NotebookText },
+      { to: '/recipe-menus', label: '菜單配方', icon: CalendarRange },
+    ],
+  },
+  {
+    section: '作業規劃',
+    items: [
+      { to: '/prep-plans', label: '備料快照', icon: ClipboardCheck },
+      { to: '/purchase-demand-drafts', label: '採購需求草稿', icon: ClipboardList },
+    ],
+  },
+  {
+    section: '營運管理',
+    items: [
+      { to: '/inventory', label: '庫存管理', icon: PackageSearch },
+      { to: '/purchase', label: '採購管理', icon: ShoppingCart },
+    ],
+  },
+  {
+    section: '分析',
+    items: [
+      { to: '/analytics', label: '報表分析', icon: BarChart2 },
+    ],
+  },
 ];
+
+const navItems = navGroups.flatMap((g) => g.items);
 
 export default function AppLayout() {
   const { pathname } = useLocation();
@@ -57,23 +101,30 @@ export default function AppLayout() {
 
         {/* Nav links */}
         <nav className="flex-1 space-y-0.5 p-2 pt-3">
-          {navItems.map(({ to, label, icon: Icon, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={({ isActive }) =>
-                [
-                  'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                ].join(' ')
-              }
-            >
-              <Icon size={16} />
-              {label}
-            </NavLink>
+          {navGroups.map(({ section, items }) => (
+            <div key={section}>
+              <div className="px-3 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground/60">
+                {section}
+              </div>
+              {items.map(({ to, label, icon: Icon, end }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={end}
+                  className={({ isActive }) =>
+                    [
+                      'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                      isActive
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                    ].join(' ')
+                  }
+                >
+                  <Icon size={16} />
+                  {label}
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
 

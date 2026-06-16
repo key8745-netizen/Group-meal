@@ -299,6 +299,36 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── capacityFeasibilityChecks ────────────────────────────────────────────
+    // 產能可行性評估記錄：建立後不可修改/刪除（immutable）。
+    // 已登入可讀；建立需採購人員。
+    function validCapacityFeasibilityCheckCreate() {
+      let data = request.resource.data;
+      return data.keys().hasOnly([
+        'sourceProductionWorkflowPlanId', 'sourceProductionWorkflowPlanNameSnapshot',
+        'targetServiceDateTime', 'capacityWindowMinutes', 'bufferMinutes',
+        'availableStaff', 'availableEquipment', 'result',
+        'createdAt', 'createdBy'
+      ])
+      && data.sourceProductionWorkflowPlanId is string
+      && data.sourceProductionWorkflowPlanId.size() > 0
+      && data.sourceProductionWorkflowPlanNameSnapshot is string
+      && data.targetServiceDateTime is timestamp
+      && data.capacityWindowMinutes is number && data.capacityWindowMinutes > 0
+      && data.bufferMinutes is number && data.bufferMinutes >= 0
+      && data.availableStaff is list
+      && data.availableEquipment is list
+      && data.result is map
+      && data.createdBy == request.auth.uid;
+    }
+
+    match /capacityFeasibilityChecks/{checkId} {
+      allow read: if isAuthenticated();
+      allow create: if isPurchasingStaff() && validCapacityFeasibilityCheckCreate();
+      allow update: if false;
+      allow delete: if false;
+    }
+
     // ── 其他所有路徑：預設拒絕 ────────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

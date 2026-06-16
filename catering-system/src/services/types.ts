@@ -500,3 +500,56 @@ export interface CapacityFeasibilityCheck {
   createdAt?: Timestamp;
   createdBy: string;
 }
+
+// ── Feature 020: Menu Mix Recommendation ─────────────────────────────────────
+
+export type MenuMixRecommendationStatus = 'feasible' | 'risky' | 'notRecommended';
+export type MenuMixRiskLevel = 'low' | 'medium' | 'high';
+
+export interface MenuMixConstraints {
+  maxFriedRatio?: number;
+  maxBakedRatio?: number;
+  maxSameProcessRatio?: number;
+  maxSameEquipmentRatio?: number;
+  excludedRecipeIds?: string[];
+  preferredRecipeIds?: string[];
+  // accepted in input but unenforceable in v1 (recipe model has no such fields)
+  requiredCategories?: string[];
+  vegetarianRequired?: boolean;
+  allergenAvoidance?: string[];
+}
+
+export interface MenuMixRecommendationItem {
+  recipeId: string;
+  recipeNameSnapshot: string;
+  suggestedServingCount: number;
+  suggestedRatio: number;
+  primaryProcessType: ProcessType;
+  primaryEquipmentType: EquipmentType;
+  totalRecipeTaskMinutes: number;
+  estimatedLoadContribution: number;
+  reasoningNotes: string[];
+}
+
+export interface MenuMixRecommendation {
+  id: string;
+  targetServingCount: number;
+  targetServiceDateTime: Timestamp;
+  capacityWindowMinutes: number;
+  bufferMinutes: number;
+  candidateRecipeIds: string[];
+  constraints: MenuMixConstraints;
+  availableStaff: AvailableStaffInput[];
+  availableEquipment: AvailableEquipmentInput[];
+  recommendedMixItems: MenuMixRecommendationItem[];
+  recommendationStatus: MenuMixRecommendationStatus;
+  riskLevel: MenuMixRiskLevel;
+  estimatedProcessLoadSummary: Record<string, number>;
+  estimatedEquipmentLoadRatios: Record<string, number>;
+  estimatedStaffLoadRatios: Record<string, number>;
+  bottleneckWarnings: string[];
+  manualReviewNotes: string[];
+  createdAt?: Timestamp;
+  createdBy: string;
+  // NO updatedAt / NO updatedBy — immutable record
+}

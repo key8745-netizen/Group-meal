@@ -60,6 +60,7 @@ const navGroups: { section: string; items: NavItem[] }[] = [
       { to: '/purchase-demand-drafts', label: '採購需求草稿', icon: ClipboardList },
       { to: '/production-workflows', label: '製程規劃', icon: ClipboardCheck },
       { to: '/capacity-feasibility', label: '產能評估', icon: BarChart2 },
+      { to: '/menu-mix-recommendations', label: '菜單組合建議', icon: ChefHat },
     ],
   },
   {

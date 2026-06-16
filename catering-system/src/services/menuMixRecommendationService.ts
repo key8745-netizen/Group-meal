@@ -87,53 +87,11 @@ function resolveRecipeWorkflowMetadata(
   return { recipeId, primaryProcessType, primaryEquipmentType, totalRecipeTaskMinutes, staffMinutesByRole };
 }
 
-function isFriedProcess(p: ProcessType): boolean {
-  return p === 'preCook' || p === 'cook';
-}
-
-function isBakedProcess(p: ProcessType): boolean {
-  return p === 'cook';
-}
-
-// Check ratio constraints for adding 1 serving to a recipe
-function violatesConstraints(
-  meta: RecipeWorkflowMetadata,
-  servingCounts: Record<string, number>,
-  totalAllocated: number,
-  targetServingCount: number,
-  constraints: MenuMixConstraints,
-): boolean {
-  const nextTotal = totalAllocated + 1;
-
-  // maxFriedRatio
-  if (
-    constraints.maxFriedRatio !== undefined &&
-    isFriedProcess(meta.primaryProcessType)
-  ) {
-    const currentFried = Object.entries(servingCounts)
-      .filter(([, _]) => true) // will check by metadata below
-      .reduce((sum, _) => sum, 0);
-    // We track via processType below; use simpler inline approach:
-    // already computed after allocation, so check with next count
-    const nextFriedServings =
-      (servingCounts[meta.recipeId] ?? 0) + 1;
-    const totalFried = nextFriedServings; // caller ensures only one recipe at a time
-    if (totalFried / targetServingCount > constraints.maxFriedRatio) return true;
-    void currentFried;
-  }
-
-  // maxBakedRatio
-  if (
-    constraints.maxBakedRatio !== undefined &&
-    isBakedProcess(meta.primaryProcessType)
-  ) {
-    const nextBakedServings = (servingCounts[meta.recipeId] ?? 0) + 1;
-    if (nextBakedServings / targetServingCount > constraints.maxBakedRatio) return true;
-  }
-
-  void nextTotal;
-  return false;
-}
+// isFriedProcess / isBakedProcess removed:
+// ProcessType (wash|peel|cut|marinate|blanch|preCook|cool|portion|cook|hold|clean)
+// cannot reliably identify fried/baked cooking methods. CookingMethod is the correct
+// discriminator but is not aggregated onto RecipeWorkflowMetadata in v1.
+// maxFriedRatio / maxBakedRatio are therefore treated as unenforceable in v1.
 
 export type MenuMixRecommendationResult = Omit<MenuMixRecommendation, 'id' | 'createdAt' | 'createdBy'>;
 
@@ -164,6 +122,12 @@ export function calculateMenuMixRecommendation(
   const excludedSet = new Set(constraints.excludedRecipeIds ?? []);
 
   // Unenforced constraint warnings
+  if (constraints.maxFriedRatio !== undefined || constraints.maxBakedRatio !== undefined) {
+    manualReviewNotes.push(
+      'Fried/baked ratio constraints cannot be verified from current workflow metadata (ProcessType does not reliably identify cooking method) and are not enforced in v1',
+    );
+  }
+
   if (
     (constraints.requiredCategories && constraints.requiredCategories.length > 0) ||
     constraints.vegetarianRequired ||
@@ -236,17 +200,8 @@ export function calculateMenuMixRecommendation(
     const nextProcessTotal = (processTotalServings[meta.primaryProcessType] ?? 0) + 1;
     const nextEquipTotal = (equipmentTotalServings[meta.primaryEquipmentType] ?? 0) + 1;
 
-    if (
-      constraints.maxFriedRatio !== undefined &&
-      isFriedProcess(meta.primaryProcessType) &&
-      nextCount / targetServingCount > constraints.maxFriedRatio
-    ) return true;
-
-    if (
-      constraints.maxBakedRatio !== undefined &&
-      isBakedProcess(meta.primaryProcessType) &&
-      nextCount / targetServingCount > constraints.maxBakedRatio
-    ) return true;
+    // maxFriedRatio / maxBakedRatio: not enforced in v1 (see manualReviewNotes above)
+    void nextCount;
 
     if (
       constraints.maxSameProcessRatio !== undefined &&
@@ -259,7 +214,6 @@ export function calculateMenuMixRecommendation(
       nextEquipTotal / targetServingCount > constraints.maxSameEquipmentRatio
     ) return true;
 
-    void violatesConstraints; // suppress unused warning
     return false;
   }
 

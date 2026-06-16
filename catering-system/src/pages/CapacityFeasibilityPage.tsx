@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { BarChart2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { db, auth } from '@/lib/firebase';
 import type { CapacityFeasibilityCheck, CapacityResult } from '@/services/types';
 import {
@@ -7,6 +8,7 @@ import {
   listCapacityFeasibilityChecks,
   type CapacityFeasibilityInput,
 } from '@/services/capacityFeasibilityService';
+import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
 import { CapacityFeasibilityForm } from '@/components/capacityFeasibility/CapacityFeasibilityForm';
@@ -14,6 +16,7 @@ import { CapacityFeasibilityResult } from '@/components/capacityFeasibility/Capa
 import { CapacityFeasibilityHistory } from '@/components/capacityFeasibility/CapacityFeasibilityHistory';
 
 export default function CapacityFeasibilityPage() {
+  const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [latestResult, setLatestResult] = useState<CapacityResult | null>(null);
   const [latestPlanName, setLatestPlanName] = useState('');
@@ -70,12 +73,17 @@ export default function CapacityFeasibilityPage() {
     <div className="p-6 max-w-4xl mx-auto space-y-8">
       <Toaster />
 
-      <div className="flex items-center gap-3">
-        <BarChart2 size={22} className="text-primary" />
-        <div>
-          <h1 className="text-xl font-semibold">產能評估</h1>
-          <p className="text-sm text-muted-foreground">人工參考用啟發式接單能力評估</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <BarChart2 size={22} className="text-primary" />
+          <div>
+            <h1 className="text-xl font-semibold">產能評估</h1>
+            <p className="text-sm text-muted-foreground">人工參考用啟發式接單能力評估</p>
+          </div>
         </div>
+        <Button variant="outline" size="sm" onClick={() => navigate('/menu-mix-recommendations')}>
+          查看菜單組合建議
+        </Button>
       </div>
 
       {/* Form */}

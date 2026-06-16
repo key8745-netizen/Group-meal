@@ -228,6 +228,38 @@ export function ProductionWorkflowTaskList({
                 onChange={(e) => setNewTask((p) => ({ ...p, sequence: Number(e.target.value) }))}
               />
             </div>
+            <div className="flex flex-col gap-1 col-span-2">
+              <label className="text-xs font-medium">相依任務（需先完成）</label>
+              <div className="flex flex-wrap gap-1 rounded-md border bg-background p-2 min-h-[32px]">
+                {pendingTasks.filter((t) => t.taskStatus === 'active').length === 0 ? (
+                  <span className="text-xs text-muted-foreground">尚無可選擇的任務</span>
+                ) : (
+                  pendingTasks
+                    .filter((t) => t.taskStatus === 'active')
+                    .sort((a, b) => a.sequence - b.sequence)
+                    .map((t) => {
+                      const checked = newTask.dependsOnTaskIds.includes(t.id);
+                      return (
+                        <label key={t.id} className="flex items-center gap-1 text-xs cursor-pointer rounded px-1.5 py-0.5 border bg-muted/30 hover:bg-muted/60">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              setNewTask((p) => ({
+                                ...p,
+                                dependsOnTaskIds: e.target.checked
+                                  ? [...p.dependsOnTaskIds, t.id]
+                                  : p.dependsOnTaskIds.filter((id) => id !== t.id),
+                              }));
+                            }}
+                          />
+                          {t.sequence}. {t.taskName}
+                        </label>
+                      );
+                    })
+                )}
+              </div>
+            </div>
             <div className="flex items-center gap-2 pt-4">
               <input
                 id="canRunInParallel"
@@ -277,6 +309,7 @@ export function ProductionWorkflowTaskList({
                 <th className="px-3 py-2 text-left text-xs">人員角色</th>
                 <th className="px-3 py-2 text-right text-xs">人數</th>
                 <th className="px-3 py-2 text-left text-xs">並行</th>
+                <th className="px-3 py-2 text-left text-xs">相依任務</th>
                 <th className="px-3 py-2 text-left text-xs">狀態</th>
                 <th className="px-3 py-2 text-right text-xs">操作</th>
               </tr>
@@ -294,6 +327,20 @@ export function ProductionWorkflowTaskList({
                   <td className="px-3 py-2 text-xs">{task.staffRole || '—'}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-xs">{task.staffCount}</td>
                   <td className="px-3 py-2 text-xs">{task.canRunInParallel ? '是' : '否'}</td>
+                  <td className="px-3 py-2 text-xs">
+                    {task.dependsOnTaskIds.length === 0 ? '—' : (
+                      <span title={task.dependsOnTaskIds
+                        .map((id) => {
+                          const dep = pendingTasks.find((t) => t.id === id);
+                          return dep ? `${dep.sequence}. ${dep.taskName}` : id;
+                        })
+                        .join(', ')}
+                        className="cursor-help underline decoration-dotted"
+                      >
+                        {task.dependsOnTaskIds.length} 個
+                      </span>
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-xs">
                     <Badge variant={task.taskStatus === 'archived' ? 'outline' : 'default'} className="text-xs">
                       {task.taskStatus === 'archived' ? '已封存' : '進行中'}

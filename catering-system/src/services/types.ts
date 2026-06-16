@@ -451,3 +451,52 @@ export interface ProductionWorkflowPlan {
   updatedAt?: Timestamp;
   updatedBy: string;
 }
+
+// ── Feature 019: Production Capacity Feasibility Check ────────────────────────
+
+export type FeasibilityStatus = 'feasible' | 'risky' | 'notRecommended';
+export type CapacityRiskLevel = 'low' | 'medium' | 'high';
+
+export interface AvailableStaffInput {
+  role: string;
+  count: number;
+}
+
+export interface AvailableEquipmentInput {
+  type: EquipmentType;
+  count: number;
+}
+
+export interface CapacityResult {
+  feasibilityStatus: FeasibilityStatus;
+  riskLevel: CapacityRiskLevel;
+  activeTaskCount: number;
+  capacityWindowMinutes: number;
+  estimatedTotalTaskMinutes: number;
+  estimatedCriticalEquipmentMinutes: Record<string, number>;
+  equipmentLoadRatios: Record<string, number>;
+  staffLoadRatios: Record<string, number>;
+  bottleneckEquipmentTypes: EquipmentType[];
+  bottleneckStaffRoles: string[];
+  lastMinuteTaskCount: number;
+  parallelizableTaskCount: number;
+  parallelizationRatio: number;
+  dependencyEdgeCount: number;
+  maxDependencyCountPerTask: number;
+  sequenceRiskNotes: string[];
+  manualReviewNotes: string[];
+}
+
+export interface CapacityFeasibilityCheck {
+  id: string;
+  sourceProductionWorkflowPlanId: string;
+  sourceProductionWorkflowPlanNameSnapshot: string;
+  targetServiceDateTime: Timestamp;
+  capacityWindowMinutes: number;
+  bufferMinutes: number;
+  availableStaff: AvailableStaffInput[];
+  availableEquipment: AvailableEquipmentInput[];
+  result: CapacityResult;
+  createdAt?: Timestamp;
+  createdBy: string;
+}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ClipboardCheck, Plus, Eye, EyeOff } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ClipboardCheck, Plus, Eye, EyeOff, BarChart2 } from 'lucide-react';
 import { db, auth } from '@/lib/firebase';
 import type { ProductionWorkflowPlan, ProductionWorkflowTask } from '@/services/types';
 import {
@@ -35,6 +36,7 @@ function toFormValues(plan: ProductionWorkflowPlan): ProductionWorkflowFormValue
 }
 
 export default function ProductionWorkflowPage() {
+  const navigate = useNavigate();
   const [plans, setPlans] = useState<ProductionWorkflowPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<EditingState>(null);
@@ -140,9 +142,15 @@ export default function ProductionWorkflowPage() {
             </p>
           </div>
         </div>
-        <Button onClick={() => { setEditing({ mode: 'create' }); }} className="gap-1.5">
-          <Plus size={14} /> 從備料規劃建立製程規劃
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => navigate('/capacity-feasibility')} className="gap-1.5">
+            <BarChart2 size={16} />
+            查看產能評估
+          </Button>
+          <Button onClick={() => { setEditing({ mode: 'create' }); }} className="gap-1.5">
+            <Plus size={14} /> 從備料規劃建立製程規劃
+          </Button>
+        </div>
       </div>
 
       {editing?.mode === 'create' && (

@@ -17,23 +17,24 @@ Group-meal 團膳管理系統
 * Feature 010: Ingredient Master Data Management 食材主檔管理 — COMPLETED / DEPLOYED / VERIFIED
   - Implementation commit: `c5edd62`
   - Production PR #29 merged; 食材主檔 verified visible by ibi
+
 * Feature 011: Recipe Ingredient Linking 菜色 / 配方引用食材主檔 — COMPLETED / DEPLOYED / VERIFIED
   - Implementation commit: `227c3d7`
   - Cherry-pick commit: `1f4416a`
   - SSOT commit: `a63fd04`
   - Production PR #31 merged, merge commit `2081c496091f0c41e017fa1be00999ce5c865306`
   - 配方管理 verified visible and usable by ibi
+
 * Feature 012: Menu Recipe Linking 菜單引用配方 — COMPLETED / DEPLOYED / VERIFIED
   - Implementation commit: `f53be0d`
   - Cherry-pick commit: `ba90ad3`
   - SSOT docs-only commit: `8291590`
   - Production PR #33 merged, merge commit `39a54c8be62ea8d552dc261f60e140f3c3ed724e`
-  - Actual collection path: `/recipeMenus/{menuId}` (renamed from `/menus` to avoid collision
-    with the existing legacy `menus` collection used by ProductionPlanner,
-    recipeMatchingService, orderService, mealPlanService, aiContextService, etc.)
+  - Actual collection path: `/recipeMenus/{menuId}`
   - Actual route: `/recipe-menus`
   - Actual nav label: `菜單配方`
-  - 菜單配方 verified visible and usable by ibi (runtime verification PASSED)
+  - 菜單配方 verified visible and usable by ibi
+
 * Feature 013: Prep Planning from Recipe Menus 備料規劃引用菜單配方 — COMPLETED / DEPLOYED / VERIFIED
   - Spec v1.0: PASSED
   - Implementation Plan v1.1: PASSED
@@ -44,9 +45,8 @@ Group-meal 團膳管理系統
   - Actual collection path: `/prepPlans/{prepPlanId}`
   - Actual route: `/prep-plans`
   - Actual nav label: `備料快照`
-  - Calculation: `recipeIngredient.baseQuantity * menuRecipe.servings`
-  - Aggregation: `ingredientId + baseUnit`
-  - 備料快照 verified visible and usable by ibi (runtime verification PASSED)
+  - 備料快照 verified visible and usable by ibi
+
 * Feature 014: Purchase Demand Draft from Prep Plans 備料快照產生採購需求草稿 — COMPLETED / DEPLOYED / VERIFIED
   - Spec v1.0: PASSED
   - Implementation Plan v1.1: PASSED
@@ -58,14 +58,8 @@ Group-meal 團膳管理系統
   - Actual route: `/purchase-demand-drafts`
   - Actual nav label: `採購需求草稿`
   - Source dependency: `/prepPlans/{prepPlanId}` read-only
-  - Calculation: `demandQuantity = prepItem.requiredBaseQuantity`, `baseUnit = prepItem.baseUnit`
-  - `prepPlanTraceability` included in each item
-  - `status` / `isActive` synchronized by service; UI has no independent `isActive` toggle
-  - Immutable item fields reconstructed from existing document on update (service reconstruction +
-    UI payload restriction); Firestore rules protect document-level audit/source fields only
-  - 採購需求草稿 verified visible and usable by ibi (runtime verification PASSED)
-
-資料鏈已完成：食材主檔 → 配方管理 → 菜單配方 → 備料快照 → 採購需求草稿
+  - No PO creation, no procurement automation, no inventory write/deduction
+  - 採購需求草稿 verified visible and usable by ibi
 
 * Feature 015: Navigation Information Architecture Cleanup 左側選單資訊架構整理 — COMPLETED / DEPLOYED / VERIFIED
   - Spec v1.1: PASSED
@@ -74,29 +68,18 @@ Group-meal 團膳管理系統
   - Cherry-pick commit: `b9ea36a`
   - SSOT commit: `7b58109`
   - Production PR #38 merged, merge commit `17ddefb27c3829855bc62d1a9c641bde50326f54`
-  - Actual changed file: `catering-system/src/components/layout/AppLayout.tsx` (only)
-  - Sidebar nav grouped into 7 sections: 總覽 / 日常作業 / 基礎資料 / 菜單與配方 / 作業規劃 / 營運管理 / 分析
-  - All 12 routes preserved (including `/ingredients-master`); `/share/:orderId` untouched
-  - `App.tsx`, `firestore.rules`, services, pages, and business logic unchanged
-  - No procurement / inventory / purchase order / AI / OCR / tenant / Netlify Functions changes
-  - Navigation grouping verified visible and usable by ibi (runtime verification PASSED)
+  - Sidebar nav grouped into 7 sections
+  - All existing routes preserved
+  - Navigation grouping verified visible and usable by ibi
 
 * Feature 016: Purchase Demand Draft Export / Print View 採購需求草稿匯出 / 列印檢視 — COMPLETED / DEPLOYED / VERIFIED
   - Spec v1.1: PASSED
   - Implementation Plan v1.0: CONDITIONAL PASS
   - Implementation commit: `3366bfcc62c7857de2ae739c496e921c8be98351`
   - Production PR #40 merged, merge commit `d452ede37e0b2d4c04d6ccf863cc6916e183a268`
-  - Actual changed files: `catering-system/src/pages/PurchaseDemandDraftPage.tsx`,
-    `catering-system/src/components/purchaseDemandDrafts/PurchaseDemandDraftList.tsx`,
-    `catering-system/src/components/purchaseDemandDrafts/PurchaseDemandDraftPrintView.tsx`,
-    `catering-system/src/utils/purchaseDemandDraftExport.ts`
-  - Added per-draft CSV export (frontend Blob download) and per-draft print view
-    (`print:hidden` / `print:block`), reusing existing loaded `purchaseDemandDrafts` data
-  - No `App.tsx`, Firestore rules, service, or data model changes
-  - Governance note: Production advanced via PR #40 before feature-only proposal gate;
-    post-merge verification completed; runtime verification passed; final status accepted
-    by Gatekeeper
-  - 採購需求草稿匯出 / 列印 verified visible and usable by ibi (runtime verification PASSED)
+  - Added per-draft CSV export and print view for purchase demand drafts only
+  - No Firestore rules, service, data model, PO, procurement automation, or inventory changes
+  - Runtime verification PASSED
 
 * Feature 017: Purchase Demand Draft Workflow Status 採購需求草稿人工流程狀態 — COMPLETED / DEPLOYED / VERIFIED
   - Spec v1.2: PASSED
@@ -104,20 +87,10 @@ Group-meal 團膳管理系統
   - Implementation commit: `755002c089a60a2a40d807d4dce1199a9209b10f`
   - Proposal commit: `b3bf2de04829bf1860afd3ec345778f9455e9825`
   - Production PR #41 merged, merge commit `9c3fbd1e9fe1d1749f65f9cabbbf20b5c015d234`
-  - Adds independent `workflowStatus: 'draft' | 'exported' | 'sent' | 'completed' | 'cancelled'`
-    to `purchaseDemandDrafts` (optional field, existing drafts default to `'draft'`)
-  - Existing archive semantics unchanged: `status: 'draft' | 'archived'`, `isActive: boolean`,
-    `status <=> isActive` archive invariant preserved
-  - `updateDraftWorkflowStatus()` only updates `workflowStatus`/`updatedAt`/`updatedBy`; does not
-    touch `status`, `isActive`, `items`, or source/traceability fields
-  - Firestore rules: `workflowStatus` added to whitelist with restricted allowed values only;
-    `status`/`isActive`/`items`/source-field protections unchanged
-  - No PO creation, no procurement automation, no inventory write/deduction, no supplier
-    automation, no cost calculation, no AI/OCR, no tenant model, no Netlify Functions
-  - Governance note: Production advanced via PR #41 before Gatekeeper merge decision;
-    post-merge verification completed; runtime verification passed; final status accepted
-    by Gatekeeper
-  - 採購流程狀態 verified visible and usable by ibi (runtime verification PASSED)
+  - Adds independent `workflowStatus` to `purchaseDemandDrafts`
+  - Existing archive semantics unchanged
+  - No PO creation, no procurement automation, no inventory write/deduction
+  - Runtime verification PASSED
 
 * Feature 018: Kitchen Production Workflow Planning 廚房製程與產能資料地基 — COMPLETED / DEPLOYED / VERIFIED
   - Spec v1.4: PASSED
@@ -127,34 +100,55 @@ Group-meal 團膳管理系統
   - Production PR #42 merged, merge commit `1b12dcb2db5496ce05a7f815164ecaa5b9a792d0`
   - Actual collection path: `/productionWorkflowPlans/{planId}`
   - Actual route: `/production-workflows`
-  - Actual nav label: `製程規劃` (under `作業規劃` section)
-  - Source dependency: `/prepPlans/{prepPlanId}` read-only at plan creation time
-  - `productionWorkflowPlans` are planning documents only; not formal production orders;
-    do not replace `prepPlans`
-  - Saved tasks cannot be hard deleted; `taskStatus: 'archived'` is the only delete semantic;
-    `updateProductionWorkflowPlan` throws if any existing task ID is missing from update payload
-  - `dependsOnTaskIds` UI added in patch commit `40f1d98`: checkbox group of active tasks,
-    dependency count + hover tooltip in task table
+  - Actual nav label: `製程規劃`
+  - Saved tasks cannot be hard deleted; `taskStatus: 'archived'` is the only delete semantic
   - No AI, no auto scheduling, no timeline conflict detection, no gantt chart
-  - No inventory, procurement, supplier, cost, PO, Feature 019, or Feature 020 implementation
-  - Governance note: PR #42 advanced production via full dev-branch merge
-    (`claude/busy-heisenberg-HcwYg` → `claude/fervent-dirac-HJT01`) rather than authorized
-    feature-only proposal. Post-merge review accepted this as a governance anomaly because
-    net new behavior was Feature 018 only; prior Feature 016/017 changes were already deployed
-    via PR #40 and PR #41 respectively.
-  - 製程規劃 verified visible and usable by ibi (runtime verification PASSED)
+  - No inventory, procurement, supplier, cost, PO
+  - 製程規劃 verified visible and usable by ibi
+
+* Feature 019: Production Capacity Feasibility Check 產能可行性評估 — COMPLETED / DEPLOYED / VERIFIED
+  - Spec v1.4: PASSED
+  - Implementation Plan v1.0: PASSED
+  - Implementation commit: `03df7bda88a76d715c77cd56b0a9b4e8b5194958`
+  - Proposal commit: `f00c9ad928b0df739d621c78c86c732af1cab070`
+  - Production PR #43 merged, merge commit `ee824be06519ba620fb2ebcc5094a0772780894b`
+  - Final SSOT commit after verification: `090460ac70bf386e0beeac828a66f536996e05ee`
+  - Actual route: `/capacity-feasibility`
+  - Actual nav label: `產能評估`
+  - Actual collection path: `/capacityFeasibilityChecks/{checkId}`
+  - Create/read-only immutable assessment records
+  - Uses `productionWorkflowPlans` active tasks only
+  - No inventory, procurement, supplier, cost, PO, AI, auto scheduling, gantt, or precise timeline conflict detection
+  - Runtime verification PASSED by ibi
+
+* Feature 020: Menu Mix Recommendation 菜單組合建議 / 菜色比例建議 — COMPLETED / DEPLOYED / VERIFIED
+  - Spec v1.6: PASSED
+  - Implementation Plan v1.0: PASSED
+  - Implementation commit: `41c0bfb`
+  - Patch commit: `934fc26`
+  - Proposal branch: `feature020-only-proposal`
+  - Production PR #45 merged, merge commit `630c827ee74c5d85b5625a08509265671a60cc52`
+  - Actual route: `/menu-mix-recommendations`
+  - Actual collection path: `/menuMixRecommendations/{recommendationId}`
+  - Adds deterministic heuristic menu mix recommendation for manual reference only
+  - Uses `ProductionWorkflowTask.recipeId` relation when available; missing metadata excludes recipes with `manualReviewNotes`
+  - `maxFriedRatio` / `maxBakedRatio` are unenforceable warnings in v1 because current workflow metadata cannot reliably identify fried/baked semantics
+  - Records are create/read-only; no update/delete behavior
+  - No automatic order acceptance, no automatic menu creation, no recipeMenu write, no order write, no prepPlan write, no productionWorkflowPlan write
+  - No inventory write/deduction, procurement automation, supplier automation, cost optimization, PO, AI recommendation, AI auto scheduling, gantt chart, precise timeline conflict detection, PDF/export/print, Netlify Functions, hard delete, or Feature 021
+  - Runtime verification PASSED by ibi (`OK了`)
 
 ---
 
 ## Current Feature
 
-None — Feature 018 closed out. Awaiting Feature 019 Spec Planning.
+None — Feature 020 closed out. Awaiting Feature 021 Spec Planning.
 
 ---
 
 ## Current Phase
 
-HOLD — Ready for Feature 019 Spec Planning
+HOLD — Ready for Feature 021 Spec Planning
 
 ---
 
@@ -169,18 +163,20 @@ HOLD — Ready for Feature 019 Spec Planning
 * Feature 016: COMPLETED / DEPLOYED / VERIFIED
 * Feature 017: COMPLETED / DEPLOYED / VERIFIED
 * Feature 018: COMPLETED / DEPLOYED / VERIFIED
+* Feature 019: COMPLETED / DEPLOYED / VERIFIED
+* Feature 020: COMPLETED / DEPLOYED / VERIFIED
 
 ---
 
 ## Team State
 
-* Claude: HOLD after SSOT update
+* Claude: HOLD after Feature 020 merge and runtime verification
 * Gemini: HOLD
 * Grok: HOLD
-* ChatGPT: Gatekeeper
+* ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
-Feature 019: NOT STARTED
+Feature 021: NOT STARTED / NOT AUTHORIZED
 
 ---
 
@@ -189,9 +185,8 @@ Feature 019: NOT STARTED
 Feature 009 (Real Model Config Apply Transaction Implementation) is CLOSED / ARCHIVED — see
 `docs/archive/feature_009_final_state.md`.
 
-Features 010, 011, 012, 013, 014, 015, 016, 017, and 018 are CLOSED / COMPLETED / DEPLOYED / VERIFIED,
-forming the data chain 食材主檔 → 配方管理 → 菜單配方 → 備料快照 → 採購需求草稿 (含匯出 / 列印 / 人工流程狀態)
-→ 製程規劃.
+Features 010–020 are CLOSED / COMPLETED / DEPLOYED / VERIFIED, forming the current operating chain:
+食材主檔 → 配方管理 → 菜單配方 → 備料快照 → 採購需求草稿（含匯出 / 列印 / 人工流程狀態）→ 製程規劃 → 產能評估 → 菜單組合建議.
 
 ---
 
@@ -199,9 +194,8 @@ forming the data chain 食材主檔 → 配方管理 → 菜單配方 → 備料
 
 * Tech Debt: legacy `seedIngredients` compatibility with `ingredientAllowedFields`
   - Final status: CLOSED AS STALE / NOT FOUND
-  - Reason: repo audit found no `seedIngredients` file/function and no `ingredientAllowedFields`
-    function in current codebase
-  - Impact: no active production data risk; no impact to Feature 010–015
+  - Reason: repo audit found no `seedIngredients` file/function and no `ingredientAllowedFields` function in current codebase
+  - Impact: no active production data risk
   - Implementation: not required
 
 ---

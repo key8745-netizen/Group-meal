@@ -119,17 +119,71 @@ Group-meal 團膳管理系統
     by Gatekeeper
   - 採購流程狀態 verified visible and usable by ibi (runtime verification PASSED)
 
+* Feature 018: Kitchen Production Workflow Planning 廚房製程與產能資料地基 — COMPLETED / DEPLOYED / VERIFIED
+  - Spec v1.4: PASSED
+  - Implementation Plan v1.0: PASSED
+  - Implementation commit: `3edad4b0cacf2f0353d349c33e88abff0de3faee`
+  - Patch commit: `40f1d981db5cd1beaf5fa028a7249fa710f81534`
+  - Production PR #42 merged, merge commit `1b12dcb2db5496ce05a7f815164ecaa5b9a792d0`
+  - Actual collection path: `/productionWorkflowPlans/{planId}`
+  - Actual route: `/production-workflows`
+  - Actual nav label: `製程規劃` (under `作業規劃` section)
+  - Source dependency: `/prepPlans/{prepPlanId}` read-only at plan creation time
+  - `productionWorkflowPlans` are planning documents only; not formal production orders;
+    do not replace `prepPlans`
+  - Saved tasks cannot be hard deleted; `taskStatus: 'archived'` is the only delete semantic;
+    `updateProductionWorkflowPlan` throws if any existing task ID is missing from update payload
+  - `dependsOnTaskIds` UI added in patch commit `40f1d98`: checkbox group of active tasks,
+    dependency count + hover tooltip in task table
+  - No AI, no auto scheduling, no timeline conflict detection, no gantt chart
+  - No inventory, procurement, supplier, cost, PO, Feature 019, or Feature 020 implementation
+  - Governance note: PR #42 advanced production via full dev-branch merge
+    (`claude/busy-heisenberg-HcwYg` → `claude/fervent-dirac-HJT01`) rather than authorized
+    feature-only proposal. Post-merge review accepted this as a governance anomaly because
+    net new behavior was Feature 018 only; prior Feature 016/017 changes were already deployed
+    via PR #40 and PR #41 respectively.
+  - 製程規劃 verified visible and usable by ibi (runtime verification PASSED)
+
+* Feature 019: Production Capacity Feasibility Check 產能可行性評估 — COMPLETED / DEPLOYED / VERIFIED
+  - Spec v1.4: PASS
+  - Implementation Plan v1.0: PASS
+  - Implementation commit: `03df7bda88a76d715c77cd56b0a9b4e8b5194958`
+  - Proposal commit: `f00c9ad928b0df739d621c78c86c732af1cab070`
+  - Production PR #43 merged, merge commit `ee824be06519ba620fb2ebcc5094a0772780894b`
+  - Actual collection path: `/capacityFeasibilityChecks/{checkId}` (create/read-only, immutable)
+  - Actual route: `/capacity-feasibility`
+  - Actual nav label: `產能評估` (under `作業規劃` section)
+  - Source dependency: `/productionWorkflowPlans/{planId}` read-only
+  - Calculation: heuristic equipment/staff LoadRatio using
+    `effectiveWindowMinutes = capacityWindowMinutes - bufferMinutes`;
+    `equipmentLoadRatio[type] = equipmentLoadMinutes[type] / (availableCount[type] * effectiveWindowMinutes)`;
+    `staffLoadRatio[role] = staffLoadMinutes[role] / (availableCount[role] * effectiveWindowMinutes)`
+  - Only `taskStatus === 'active'` tasks included; `activeTaskCount === 0` throws Error
+  - Missing resource (count=0) → Infinity ratio → `notRecommended`
+  - Any ratio > 1.0 → `notRecommended`; > 0.8 → `risky`; else `feasible`
+  - `calculateCapacityFeasibility` is pure function (zero Firestore writes)
+  - `allow update: if false; allow delete: if false` — no update/delete of checks after creation
+  - Firestore rules: `read = isAuthenticated()`, `create = isPurchasingStaff()`,
+    `createdBy == request.auth.uid`
+  - Artificial-reference-only decision aid; does not auto-accept orders; does not produce
+    precise schedules
+  - No AI, no auto scheduling, no gantt chart, no precise timeline conflict detection,
+    no Feature 020, no production order, no inventory write, no procurement automation,
+    no supplier automation, no cost calculation, no PO, no Netlify Functions, no hard delete,
+    no update/delete of capacityFeasibilityChecks after creation
+  - 產能評估 verified visible and usable by ibi (runtime verification PASSED)
+
 ---
 
 ## Current Feature
 
-None — Feature 017 closed out. Awaiting Feature 018 Spec Planning.
+None — Feature 019 closed out. Awaiting Feature 020 Spec Planning.
 
 ---
 
 ## Current Phase
 
-HOLD — Ready for Feature 018 Spec Planning
+HOLD — Ready for Feature 020 Spec Planning
 
 ---
 
@@ -143,6 +197,8 @@ HOLD — Ready for Feature 018 Spec Planning
 * Feature 015: COMPLETED / DEPLOYED / VERIFIED
 * Feature 016: COMPLETED / DEPLOYED / VERIFIED
 * Feature 017: COMPLETED / DEPLOYED / VERIFIED
+* Feature 018: COMPLETED / DEPLOYED / VERIFIED
+* Feature 019: COMPLETED / DEPLOYED / VERIFIED
 
 ---
 
@@ -150,11 +206,11 @@ HOLD — Ready for Feature 018 Spec Planning
 
 * Claude: HOLD after SSOT update
 * Gemini: HOLD
-* Grok: HOLD / Ready for next
+* Grok: HOLD
 * ChatGPT: Gatekeeper
 * ibi: Final authority
 
-Feature 018: NOT STARTED
+Feature 020: NOT STARTED
 
 ---
 
@@ -163,8 +219,9 @@ Feature 018: NOT STARTED
 Feature 009 (Real Model Config Apply Transaction Implementation) is CLOSED / ARCHIVED — see
 `docs/archive/feature_009_final_state.md`.
 
-Features 010, 011, 012, 013, 014, 015, 016, and 017 are CLOSED / COMPLETED / DEPLOYED / VERIFIED,
-forming the data chain 食材主檔 → 配方管理 → 菜單配方 → 備料快照 → 採購需求草稿 (含匯出 / 列印 / 人工流程狀態).
+Features 010, 011, 012, 013, 014, 015, 016, 017, 018, and 019 are CLOSED / COMPLETED / DEPLOYED / VERIFIED,
+forming the data chain 食材主檔 → 配方管理 → 菜單配方 → 備料快照 → 採購需求草稿 (含匯出 / 列印 / 人工流程狀態)
+→ 製程規劃 → 產能評估.
 
 ---
 

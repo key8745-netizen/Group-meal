@@ -58,6 +58,7 @@ const navGroups: { section: string; items: NavItem[] }[] = [
     items: [
       { to: '/prep-plans', label: '備料快照', icon: ClipboardCheck },
       { to: '/purchase-demand-drafts', label: '採購需求草稿', icon: ClipboardList },
+      { to: '/production-workflows', label: '製程規劃', icon: ClipboardCheck },
     ],
   },
   {

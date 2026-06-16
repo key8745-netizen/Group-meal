@@ -253,6 +253,52 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── productionWorkflowPlans ──────────────────────────────────────────────
+    // 製程規劃表：由 /prepPlans 衍生的廚房作業規劃。已登入可讀；寫入需採購人員。
+    // sourcePrepPlanId / sourcePrepPlanNameSnapshot / createdAt / createdBy 不可變更。
+    // tasks 陣列不可硬刪除任務；由 service reconstruction + UI 行為執行。
+    function validProductionWorkflowPlanCommon() {
+      let data = request.resource.data;
+      return data.keys().hasOnly([
+        'sourcePrepPlanId', 'sourcePrepPlanNameSnapshot',
+        'planName', 'serviceDate', 'status', 'isActive',
+        'tasks', 'notes',
+        'createdAt', 'createdBy', 'updatedAt', 'updatedBy'
+      ])
+      && data.planName is string && data.planName.size() > 0
+      && data.sourcePrepPlanId is string && data.sourcePrepPlanId.size() > 0
+      && data.sourcePrepPlanNameSnapshot is string
+      && data.status in ['draft', 'archived']
+      && data.isActive is bool
+      && data.tasks is list
+      && data.updatedAt is timestamp
+      && data.updatedBy is string;
+    }
+
+    function validProductionWorkflowPlanCreate() {
+      let data = request.resource.data;
+      return validProductionWorkflowPlanCommon()
+        && data.createdAt is timestamp
+        && data.createdBy is string
+        && data.createdBy == request.auth.uid;
+    }
+
+    function validProductionWorkflowPlanUpdate() {
+      return validProductionWorkflowPlanCommon()
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.sourcePrepPlanId == resource.data.sourcePrepPlanId
+        && request.resource.data.sourcePrepPlanNameSnapshot == resource.data.sourcePrepPlanNameSnapshot
+        && request.resource.data.updatedBy == request.auth.uid;
+    }
+
+    match /productionWorkflowPlans/{planId} {
+      allow read: if isAuthenticated();
+      allow create: if isPurchasingStaff() && validProductionWorkflowPlanCreate();
+      allow update: if isPurchasingStaff() && validProductionWorkflowPlanUpdate();
+      allow delete: if false;
+    }
+
     // ── 其他所有路徑：預設拒絕 ────────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

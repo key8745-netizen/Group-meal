@@ -14,6 +14,7 @@ import RecipePage from '@/pages/RecipePage';
 import RecipeMenuPage from '@/pages/RecipeMenuPage';
 import PrepPlanPage from '@/pages/PrepPlanPage';
 import PurchaseDemandDraftPage from '@/pages/PurchaseDemandDraftPage';
+import ProductionWorkflowPage from '@/pages/ProductionWorkflowPage';
 import Analytics from '@/pages/Analytics';
 import Login from '@/pages/Login';
 import ShareOrderPage from '@/pages/share/ShareOrderPage';
@@ -58,6 +59,7 @@ export default function App() {
           <Route path="recipe-menus" element={<RecipeMenuPage />} />
           <Route path="prep-plans" element={<PrepPlanPage />} />
           <Route path="purchase-demand-drafts" element={<PurchaseDemandDraftPage />} />
+          <Route path="production-workflows" element={<ProductionWorkflowPage />} />
           <Route path="analytics" element={<Analytics />} />
         </Route>
       </Routes>

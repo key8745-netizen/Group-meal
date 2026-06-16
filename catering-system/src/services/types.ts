@@ -390,3 +390,64 @@ export interface Purchase extends Omit<PurchaseDraft, 'status'> {
   orderedAt?: Timestamp;
   receivedAt?: Timestamp;
 }
+
+// ── Feature 018: Kitchen Production Workflow Planning ─────────────────────────
+
+export type ProcessType =
+  | 'wash' | 'peel' | 'cut' | 'marinate' | 'blanch' | 'preCook'
+  | 'cool' | 'portion' | 'cook' | 'hold' | 'clean';
+
+export type CutType =
+  | 'none' | 'julienne' | 'slice' | 'dice' | 'chunk' | 'rollCut'
+  | 'mince' | 'section' | 'diagonal' | 'shred';
+
+export type CookingMethod =
+  | 'none' | 'panFry' | 'boil' | 'stirFry' | 'deepFry' | 'braise'
+  | 'roast' | 'steam' | 'blanch' | 'mix' | 'holdWarm' | 'chill';
+
+export type EquipmentType =
+  | 'sink' | 'cuttingStation' | 'prepTable' | 'wok' | 'stoveBurner'
+  | 'stockPot' | 'deepFryer' | 'oven' | 'steamer' | 'holdingCabinet'
+  | 'coolingArea' | 'packingTable' | 'refrigerator' | 'none';
+
+export type ProductionWorkflowTaskStatus = 'active' | 'archived';
+
+export type ProductionWorkflowPlanStatus = 'draft' | 'archived';
+
+export interface ProductionWorkflowTask {
+  id: string;
+  taskStatus: ProductionWorkflowTaskStatus;
+  ingredientId?: string;
+  ingredientNameSnapshot?: string;
+  recipeId?: string;
+  recipeNameSnapshot?: string;
+  sourcePrepPlanItemId?: string;
+  taskName: string;
+  processType: ProcessType;
+  cutType?: CutType;
+  cookingMethod?: CookingMethod;
+  equipmentType: EquipmentType;
+  estimatedMinutes: number;
+  staffRole?: string;
+  staffCount: number;
+  sequence: number;
+  dependsOnTaskIds: string[];
+  canRunInParallel: boolean;
+  notes?: string;
+}
+
+export interface ProductionWorkflowPlan {
+  id: string;
+  sourcePrepPlanId: string;
+  sourcePrepPlanNameSnapshot: string;
+  planName: string;
+  serviceDate?: string;
+  status: ProductionWorkflowPlanStatus;
+  isActive: boolean;
+  tasks: ProductionWorkflowTask[];
+  notes?: string;
+  createdAt?: Timestamp;
+  createdBy: string;
+  updatedAt?: Timestamp;
+  updatedBy: string;
+}

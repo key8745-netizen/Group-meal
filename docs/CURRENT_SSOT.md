@@ -144,17 +144,46 @@ Group-meal 團膳管理系統
     via PR #40 and PR #41 respectively.
   - 製程規劃 verified visible and usable by ibi (runtime verification PASSED)
 
+* Feature 019: Production Capacity Feasibility Check 產能可行性評估 — COMPLETED / DEPLOYED / VERIFIED
+  - Spec v1.4: PASS
+  - Implementation Plan v1.0: PASS
+  - Implementation commit: `03df7bda88a76d715c77cd56b0a9b4e8b5194958`
+  - Proposal commit: `f00c9ad928b0df739d621c78c86c732af1cab070`
+  - Production PR #43 merged, merge commit `ee824be06519ba620fb2ebcc5094a0772780894b`
+  - Actual collection path: `/capacityFeasibilityChecks/{checkId}` (create/read-only, immutable)
+  - Actual route: `/capacity-feasibility`
+  - Actual nav label: `產能評估` (under `作業規劃` section)
+  - Source dependency: `/productionWorkflowPlans/{planId}` read-only
+  - Calculation: heuristic equipment/staff LoadRatio using
+    `effectiveWindowMinutes = capacityWindowMinutes - bufferMinutes`;
+    `equipmentLoadRatio[type] = equipmentLoadMinutes[type] / (availableCount[type] * effectiveWindowMinutes)`;
+    `staffLoadRatio[role] = staffLoadMinutes[role] / (availableCount[role] * effectiveWindowMinutes)`
+  - Only `taskStatus === 'active'` tasks included; `activeTaskCount === 0` throws Error
+  - Missing resource (count=0) → Infinity ratio → `notRecommended`
+  - Any ratio > 1.0 → `notRecommended`; > 0.8 → `risky`; else `feasible`
+  - `calculateCapacityFeasibility` is pure function (zero Firestore writes)
+  - `allow update: if false; allow delete: if false` — no update/delete of checks after creation
+  - Firestore rules: `read = isAuthenticated()`, `create = isPurchasingStaff()`,
+    `createdBy == request.auth.uid`
+  - Artificial-reference-only decision aid; does not auto-accept orders; does not produce
+    precise schedules
+  - No AI, no auto scheduling, no gantt chart, no precise timeline conflict detection,
+    no Feature 020, no production order, no inventory write, no procurement automation,
+    no supplier automation, no cost calculation, no PO, no Netlify Functions, no hard delete,
+    no update/delete of capacityFeasibilityChecks after creation
+  - 產能評估 verified visible and usable by ibi (runtime verification PASSED)
+
 ---
 
 ## Current Feature
 
-None — Feature 018 closed out. Awaiting Feature 019 Spec Planning.
+None — Feature 019 closed out. Awaiting Feature 020 Spec Planning.
 
 ---
 
 ## Current Phase
 
-HOLD — Ready for Feature 019 Spec Planning
+HOLD — Ready for Feature 020 Spec Planning
 
 ---
 
@@ -169,6 +198,7 @@ HOLD — Ready for Feature 019 Spec Planning
 * Feature 016: COMPLETED / DEPLOYED / VERIFIED
 * Feature 017: COMPLETED / DEPLOYED / VERIFIED
 * Feature 018: COMPLETED / DEPLOYED / VERIFIED
+* Feature 019: COMPLETED / DEPLOYED / VERIFIED
 
 ---
 
@@ -180,7 +210,7 @@ HOLD — Ready for Feature 019 Spec Planning
 * ChatGPT: Gatekeeper
 * ibi: Final authority
 
-Feature 019: NOT STARTED
+Feature 020: NOT STARTED
 
 ---
 
@@ -189,9 +219,9 @@ Feature 019: NOT STARTED
 Feature 009 (Real Model Config Apply Transaction Implementation) is CLOSED / ARCHIVED — see
 `docs/archive/feature_009_final_state.md`.
 
-Features 010, 011, 012, 013, 014, 015, 016, 017, and 018 are CLOSED / COMPLETED / DEPLOYED / VERIFIED,
+Features 010, 011, 012, 013, 014, 015, 016, 017, 018, and 019 are CLOSED / COMPLETED / DEPLOYED / VERIFIED,
 forming the data chain 食材主檔 → 配方管理 → 菜單配方 → 備料快照 → 採購需求草稿 (含匯出 / 列印 / 人工流程狀態)
-→ 製程規劃.
+→ 製程規劃 → 產能評估.
 
 ---
 

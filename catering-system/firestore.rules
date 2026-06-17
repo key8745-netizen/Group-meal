@@ -156,25 +156,42 @@ service cloud.firestore {
         && data.isActive is bool;
     }
 
+    // Feature 022: optional conversion-tracking fields, present only when a
+    // recipeMenu was created via manual approval of a menuDraft.
+    function validRecipeMenuConversionFields(data) {
+      return !('sourceMenuDraftId' in data) || (
+        data.sourceMenuDraftId is string && data.sourceMenuDraftId.size() > 0
+        && data.sourceMenuDraftSnapshot is map
+        && data.manualApprovalAcknowledgement == true
+      );
+    }
+
     function validRecipeMenuCreate() {
       return validRecipeMenuCommon(request.resource.data)
-        && request.resource.data.keys().hasOnly(['name', 'date', 'mealType', 'menuRecipes', 'isActive', 'notes', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && request.resource.data.keys().hasOnly(['name', 'date', 'mealType', 'menuRecipes', 'isActive', 'notes', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy', 'sourceMenuDraftId', 'sourceMenuDraftSnapshot', 'manualApprovalAcknowledgement'])
         && request.resource.data.createdAt is timestamp && request.resource.data.createdBy is string
-        && request.resource.data.updatedAt is timestamp && request.resource.data.updatedBy is string;
+        && request.resource.data.updatedAt is timestamp && request.resource.data.updatedBy is string
+        && validRecipeMenuConversionFields(request.resource.data);
     }
 
     function validRecipeMenuUpdate() {
       return validRecipeMenuCommon(request.resource.data)
-        && request.resource.data.keys().hasOnly(['name', 'date', 'mealType', 'menuRecipes', 'isActive', 'notes', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && request.resource.data.keys().hasOnly(['name', 'date', 'mealType', 'menuRecipes', 'isActive', 'notes', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy', 'sourceMenuDraftId', 'sourceMenuDraftSnapshot', 'manualApprovalAcknowledgement'])
         && request.resource.data.updatedAt is timestamp && request.resource.data.updatedBy is string
         && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.createdBy == resource.data.createdBy;
+        && request.resource.data.createdBy == resource.data.createdBy
+        && validRecipeMenuConversionFields(request.resource.data);
     }
 
     match /recipeMenus/{menuId} {
       allow read: if isAuthenticated();
       allow create: if isPurchasingStaff() && validRecipeMenuCreate();
-      allow update: if isPurchasingStaff() && validRecipeMenuUpdate();
+      // Feature 022: once a recipeMenu has been created via draft conversion
+      // (sourceMenuDraftId set), it becomes immutable — no further update is
+      // permitted. This blocks duplicate/race conversion attempts: a second
+      // setDoc to recipeMenus/{draftId} is classified as an update (since the
+      // doc already exists) and is rejected here.
+      allow update: if isPurchasingStaff() && validRecipeMenuUpdate() && !('sourceMenuDraftId' in resource.data);
       allow delete: if false;
     }
 

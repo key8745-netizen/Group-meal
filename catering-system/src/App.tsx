@@ -18,6 +18,7 @@ import ProductionWorkflowPage from '@/pages/ProductionWorkflowPage';
 import CapacityFeasibilityPage from '@/pages/CapacityFeasibilityPage';
 import MenuMixRecommendationPage from '@/pages/MenuMixRecommendationPage';
 import MenuDraftsPage from '@/pages/MenuDraftsPage';
+import MenuImportPage from '@/pages/MenuImportPage';
 import Analytics from '@/pages/Analytics';
 import Login from '@/pages/Login';
 import ShareOrderPage from '@/pages/share/ShareOrderPage';
@@ -66,6 +67,7 @@ export default function App() {
           <Route path="capacity-feasibility" element={<CapacityFeasibilityPage />} />
           <Route path="menu-mix-recommendations" element={<MenuMixRecommendationPage />} />
           <Route path="menu-drafts" element={<MenuDraftsPage />} />
+          <Route path="menu-import" element={<MenuImportPage />} />
           <Route path="analytics" element={<Analytics />} />
         </Route>
       </Routes>

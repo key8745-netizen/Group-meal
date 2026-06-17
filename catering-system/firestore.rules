@@ -418,6 +418,135 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── Feature 023: 通用月菜單匯入暫存 ────────────────────────────────────────
+
+    function importBatchAllowedFields() {
+      return ['sourceFileName', 'organizationName', 'yearMonth', 'mealProgram',
+        'servingBaseline', 'columnMappingTemplateId', 'columnMapping', 'importStatus',
+        'rowCount', 'itemCount', 'reviewedItemCount', 'createdAt', 'createdBy',
+        'updatedAt', 'updatedBy', 'finalizedAt', 'finalizedBy', 'archivedAt', 'archivedBy', 'notes'];
+    }
+
+    function validImportBatchCommon(data) {
+      return data.sourceFileName is string && data.organizationName is string
+        && data.yearMonth is string && data.mealProgram is string
+        && data.servingBaseline is number && data.servingBaseline > 0
+        && data.columnMapping is map
+        && data.importStatus in ['draft', 'mappingApplied', 'parsed', 'reviewing', 'finalized', 'archived'];
+    }
+
+    function validImportBatchCreate() {
+      return validImportBatchCommon(request.resource.data)
+        && request.resource.data.keys().hasOnly(importBatchAllowedFields())
+        && request.resource.data.importStatus == 'draft'
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.rowCount == 0
+        && request.resource.data.itemCount == 0
+        && request.resource.data.reviewedItemCount == 0;
+    }
+
+    // Explicit transition whitelist — 'finalized'/'archived' are never reachable
+    // through this function; only validImportBatchFinalize/Archive can set them.
+    function validImportBatchUpdate() {
+      return validImportBatchCommon(request.resource.data)
+        && request.resource.data.keys().hasOnly(importBatchAllowedFields())
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.updatedBy == request.auth.uid
+        && (
+          (resource.data.importStatus == 'draft' && request.resource.data.importStatus in ['draft', 'mappingApplied'])
+          || (resource.data.importStatus == 'mappingApplied' && request.resource.data.importStatus in ['mappingApplied', 'parsed'])
+          || (resource.data.importStatus == 'parsed' && request.resource.data.importStatus in ['parsed', 'reviewing'])
+          || (resource.data.importStatus == 'reviewing' && request.resource.data.importStatus == 'reviewing')
+        );
+    }
+
+    function validImportBatchFinalize() {
+      return resource.data.importStatus == 'reviewing'
+        && request.resource.data.importStatus == 'finalized'
+        && request.resource.data.finalizedAt is timestamp
+        && request.resource.data.finalizedBy == request.auth.uid
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['importStatus', 'finalizedAt', 'finalizedBy', 'updatedAt', 'updatedBy']);
+    }
+
+    function validImportBatchArchive() {
+      return resource.data.importStatus == 'finalized'
+        && request.resource.data.importStatus == 'archived'
+        && request.resource.data.archivedAt is timestamp
+        && request.resource.data.archivedBy == request.auth.uid
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['importStatus', 'archivedAt', 'archivedBy', 'updatedAt', 'updatedBy']);
+    }
+
+    match /menuImportBatches/{batchId} {
+      allow read: if isAuthenticated();
+      allow create: if isPurchasingStaff() && validImportBatchCreate();
+      allow update: if isPurchasingStaff()
+        && (validImportBatchUpdate() || validImportBatchFinalize() || validImportBatchArchive());
+      allow delete: if false;
+
+      match /rows/{rowId} {
+        allow read: if isAuthenticated();
+        allow create: if isPurchasingStaff()
+          && get(/databases/$(database)/documents/menuImportBatches/$(batchId)).data.importStatus in ['draft', 'mappingApplied']
+          && request.resource.data.keys().hasOnly(['batchId', 'rowIndex', 'rawRowSnapshot', 'parsedDate', 'parsedMealType', 'createdAt', 'createdBy'])
+          && request.resource.data.batchId == batchId
+          && request.resource.data.rawRowSnapshot is map
+          && request.resource.data.createdAt is timestamp
+          && request.resource.data.createdBy == request.auth.uid;
+        allow update: if false;
+        allow delete: if false;
+      }
+
+      match /items/{itemId} {
+        allow read: if isAuthenticated();
+        allow create: if isPurchasingStaff()
+          && get(/databases/$(database)/documents/menuImportBatches/$(batchId)).data.importStatus in ['draft', 'mappingApplied']
+          && request.resource.data.keys().hasOnly(['batchId', 'rowId', 'rowIndex', 'columnKey', 'rawDishName',
+               'normalizedDishName', 'date', 'mealType', 'slot', 'reviewStatus', 'matchStatus', 'notes',
+               'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+          && request.resource.data.batchId == batchId
+          && request.resource.data.rawDishName is string
+          && request.resource.data.matchStatus == 'unmatched'
+          && request.resource.data.createdAt is timestamp
+          && request.resource.data.createdBy == request.auth.uid;
+        allow update: if isPurchasingStaff()
+          && get(/databases/$(database)/documents/menuImportBatches/$(batchId)).data.importStatus in ['parsed', 'reviewing']
+          && request.resource.data.keys().hasOnly(['batchId', 'rowId', 'rowIndex', 'columnKey', 'rawDishName',
+               'normalizedDishName', 'date', 'mealType', 'slot', 'reviewStatus', 'matchStatus', 'notes',
+               'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+          && request.resource.data.rawDishName == resource.data.rawDishName
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.createdBy == resource.data.createdBy
+          && request.resource.data.matchStatus == 'unmatched'
+          && request.resource.data.updatedAt is timestamp
+          && request.resource.data.updatedBy == request.auth.uid;
+        allow delete: if false;
+      }
+    }
+
+    match /menuImportColumnMappingTemplates/{templateId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isPurchasingStaff()
+        && request.resource.data.keys().hasOnly(['templateName', 'organizationName', 'mealProgram',
+             'sourceFormat', 'columnMappings', 'defaultMealType', 'defaultServingBaseline', 'isActive',
+             'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && request.resource.data.sourceFormat == 'csv'
+        && request.resource.data.columnMappings is map
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.updatedBy == request.auth.uid;
+      allow delete: if false;
+    }
+
     // ── 其他所有路徑：預設拒絕 ────────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

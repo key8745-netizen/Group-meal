@@ -607,3 +607,95 @@ export interface MenuDraft {
   createdBy: string;
   // NO updatedAt / NO updatedBy — v1 is create/read-only
 }
+
+// ── Feature 023: Universal Monthly Menu Import Staging ──────────────────────
+
+export type ImportStatus =
+  | 'draft'
+  | 'mappingApplied'
+  | 'parsed'
+  | 'reviewing'
+  | 'finalized'
+  | 'archived';
+
+export type ReviewStatus = 'pending' | 'confirmed' | 'rejected';
+
+/** Always 'unmatched' in Feature 023 — dish matching is Feature 024's scope. */
+export type MatchStatus = 'unmatched';
+
+export type DishSlot = 'staple' | 'mainDish' | 'sideDish' | 'soup' | 'snack' | 'fruit' | 'other';
+
+export interface MenuImportBatch {
+  id: string;
+  sourceFileName: string;
+  organizationName: string;
+  /** 'YYYY-MM' */
+  yearMonth: string;
+  mealProgram: string;
+  servingBaseline: number;
+  columnMappingTemplateId?: string;
+  columnMapping: Record<string, string>;
+  importStatus: ImportStatus;
+  rowCount: number;
+  itemCount: number;
+  reviewedItemCount: number;
+  createdAt: Timestamp;
+  createdBy: string;
+  updatedAt: Timestamp;
+  updatedBy: string;
+  finalizedAt?: Timestamp;
+  finalizedBy?: string;
+  archivedAt?: Timestamp;
+  archivedBy?: string;
+  notes?: string;
+}
+
+export interface MenuImportRow {
+  id: string;
+  batchId: string;
+  rowIndex: number;
+  /** Write-once — no update path exists for this document. */
+  rawRowSnapshot: Record<string, string>;
+  /** 'YYYY-MM-DD' */
+  parsedDate?: string;
+  parsedMealType?: string;
+  createdAt: Timestamp;
+  createdBy: string;
+}
+
+export interface MenuImportItem {
+  id: string;
+  batchId: string;
+  rowId: string;
+  rowIndex: number;
+  columnKey: string;
+  /** Immutable after create. */
+  rawDishName: string;
+  normalizedDishName: string;
+  date: string;
+  mealType: string;
+  slot: DishSlot;
+  reviewStatus: ReviewStatus;
+  matchStatus: MatchStatus;
+  notes?: string;
+  createdAt: Timestamp;
+  createdBy: string;
+  updatedAt: Timestamp;
+  updatedBy: string;
+}
+
+export interface MenuImportColumnMappingTemplate {
+  id: string;
+  templateName: string;
+  organizationName: string;
+  mealProgram: string;
+  sourceFormat: 'csv';
+  columnMappings: Record<string, string>;
+  defaultMealType?: string;
+  defaultServingBaseline?: number;
+  isActive: boolean;
+  createdAt: Timestamp;
+  createdBy: string;
+  updatedAt: Timestamp;
+  updatedBy: string;
+}

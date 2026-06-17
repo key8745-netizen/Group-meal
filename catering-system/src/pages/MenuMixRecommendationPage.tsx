@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ChefHat } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { db, auth } from '@/lib/firebase';
 import { getDocs, collection, query, where } from 'firebase/firestore';
 import type { MenuMixRecommendation, ProductionWorkflowPlan } from '@/services/types';
@@ -11,15 +12,19 @@ import {
 } from '@/services/menuMixRecommendationService';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
+import { Button } from '@/components/ui/button';
 import { MenuMixRecommendationForm } from '@/components/menuMixRecommendation/MenuMixRecommendationForm';
 import { MenuMixRecommendationResult as ResultCard } from '@/components/menuMixRecommendation/MenuMixRecommendationResult';
 import { MenuMixRecommendationHistory } from '@/components/menuMixRecommendation/MenuMixRecommendationHistory';
+import { MenuDraftCreateDialog } from '@/components/menuDraft/MenuDraftCreateDialog';
 
 export default function MenuMixRecommendationPage() {
+  const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [latestResult, setLatestResult] = useState<MenuMixRecommendationResult | null>(null);
   const [history, setHistory] = useState<MenuMixRecommendation[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [draftSource, setDraftSource] = useState<MenuMixRecommendation | null>(null);
 
   async function loadHistory() {
     try {
@@ -69,12 +74,17 @@ export default function MenuMixRecommendationPage() {
     <div className="p-6 max-w-4xl mx-auto space-y-8">
       <Toaster />
 
-      <div className="flex items-center gap-3">
-        <ChefHat size={22} className="text-primary" />
-        <div>
-          <h1 className="text-xl font-semibold">菜單組合建議</h1>
-          <p className="text-sm text-muted-foreground">人工參考用啟發式菜單組合配比建議</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <ChefHat size={22} className="text-primary" />
+          <div>
+            <h1 className="text-xl font-semibold">菜單組合建議</h1>
+            <p className="text-sm text-muted-foreground">人工參考用啟發式菜單組合配比建議</p>
+          </div>
         </div>
+        <Button variant="outline" size="sm" onClick={() => navigate('/menu-drafts')}>
+          查看草稿菜單
+        </Button>
       </div>
 
       {/* Form */}
@@ -97,8 +107,20 @@ export default function MenuMixRecommendationPage() {
       {historyLoaded && (
         <section>
           <h2 className="mb-3 text-base font-semibold">歷史建議記錄</h2>
-          <MenuMixRecommendationHistory records={history} />
+          <MenuMixRecommendationHistory records={history} onCreateDraft={setDraftSource} />
         </section>
+      )}
+
+      {draftSource && (
+        <MenuDraftCreateDialog
+          recommendation={draftSource}
+          onCancel={() => setDraftSource(null)}
+          onCreated={() => {
+            setDraftSource(null);
+            toast({ title: '已建立草稿菜單', description: '草稿菜單僅供人工參考' });
+            navigate('/menu-drafts');
+          }}
+        />
       )}
     </div>
   );

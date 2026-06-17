@@ -204,6 +204,27 @@ export interface RecipeMenu {
   createdBy: string;
   updatedAt?: Timestamp;
   updatedBy: string;
+  // ── Feature 022: present only when this menu was created via manual
+  // approval/conversion of a menuDraft. Absent on normal Feature 012 menus.
+  sourceMenuDraftId?: string;
+  sourceMenuDraftSnapshot?: RecipeMenuSourceDraftSnapshot;
+  manualApprovalAcknowledgement?: boolean;
+}
+
+// ── Feature 022: Draft Menu Approval to RecipeMenu ───────────────────────────
+
+export interface RecipeMenuSourceDraftSnapshot {
+  menuName: string;
+  sourceRecommendationId: string;
+  sourceRecommendationStatusSnapshot: MenuMixRecommendationStatus;
+  items: Array<{
+    recipeId: string;
+    recipeNameSnapshot: string;
+    servingCount: number;
+    suggestedRatioSnapshot: number;
+    primaryProcessTypeSnapshot?: ProcessType;
+    primaryEquipmentTypeSnapshot?: EquipmentType;
+  }>;
 }
 
 // ─── Prep Plans (Feature 013: 備料規劃引用菜單配方) ────────────────────────────

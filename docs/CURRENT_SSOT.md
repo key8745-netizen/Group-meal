@@ -155,17 +155,35 @@ Group-meal 團膳管理系統
   - No recipeMenu write, order write, prepPlan write, productionWorkflowPlan write, purchaseDemandDraft write, inventory write/deduction, procurement automation, supplier automation, cost optimization, PO, AI recommendation, AI auto scheduling, gantt chart, precise timeline conflict detection, PDF/export/print, Netlify Functions, hard delete, or Feature 022
   - Runtime verification PASSED by ibi (`OK了`)
 
+* Feature 022: Draft Menu Approval to RecipeMenu 草稿菜單審核與轉正式菜單 — COMPLETED / DEPLOYED / VERIFIED
+  - Spec v1.1: PASSED
+  - Implementation Plan v1.1: PASSED
+  - Implementation commit: `3aa5a86`
+  - Proposal branch: `feature022-only-proposal`
+  - Production PR #47 merged, merge commit `49968feb6cc76e5aaa7fbe9db0671f563233b8e1`
+  - Actual route: `/menu-drafts`
+  - Source collection path: `/menuDrafts/{draftId}`
+  - Target collection path: `/recipeMenus/{draftId}` deterministic document ID
+  - Adds manual-only approval flow from draft menu to official recipe menu
+  - `createMenuFromApprovedDraft` re-reads the source draft by `draftId` before writing the recipe menu; UI state is not trusted as write source
+  - Maps `DraftMenuItem.servingCount` to `RecipeMenuItem.servings`
+  - Reuses active recipe validation before creating the recipe menu
+  - `menuDrafts` remain immutable; no menuDraft update/delete is introduced
+  - Firestore rules whitelist conversion fields and lock updates for recipeMenus created from `sourceMenuDraftId`
+  - No order write, prepPlan write, productionWorkflowPlan write, purchaseDemandDraft write, inventory write/deduction, procurement automation, supplier automation, cost optimization, PO, AI recommendation, AI auto scheduling, gantt chart, precise timeline conflict detection, PDF/export/print, Netlify Functions, hard delete, or Feature 023
+  - Runtime verification PASSED by ibi (`OK了`)
+
 ---
 
 ## Current Feature
 
-None — Feature 021 closed out. Awaiting Feature 022 Spec Planning authorization.
+None — Feature 022 closed out. Awaiting Feature 023 Spec Planning authorization.
 
 ---
 
 ## Current Phase
 
-HOLD — Ready for Feature 022 Spec Planning when authorized by ibi and Gatekeeper.
+HOLD — Ready for Feature 023 Spec Planning when authorized by ibi and Gatekeeper.
 
 ---
 
@@ -183,18 +201,19 @@ HOLD — Ready for Feature 022 Spec Planning when authorized by ibi and Gatekeep
 * Feature 019: COMPLETED / DEPLOYED / VERIFIED
 * Feature 020: COMPLETED / DEPLOYED / VERIFIED
 * Feature 021: COMPLETED / DEPLOYED / VERIFIED
+* Feature 022: COMPLETED / DEPLOYED / VERIFIED
 
 ---
 
 ## Team State
 
-* Claude: HOLD after Feature 021 merge and runtime verification
+* Claude: HOLD after Feature 022 merge and runtime verification
 * Gemini: HOLD
 * Grok: HOLD
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
-Feature 022: NOT STARTED / NOT AUTHORIZED
+Feature 023: NOT STARTED / NOT AUTHORIZED
 
 ---
 
@@ -203,8 +222,8 @@ Feature 022: NOT STARTED / NOT AUTHORIZED
 Feature 009 (Real Model Config Apply Transaction Implementation) is CLOSED / ARCHIVED — see
 `docs/archive/feature_009_final_state.md`.
 
-Features 010–021 are CLOSED / COMPLETED / DEPLOYED / VERIFIED, forming the current operating chain:
-食材主檔 → 配方管理 → 菜單配方 → 備料快照 → 採購需求草稿（含匯出 / 列印 / 人工流程狀態）→ 製程規劃 → 產能評估 → 菜單組合建議 → 草稿菜單.
+Features 010–022 are CLOSED / COMPLETED / DEPLOYED / VERIFIED, forming the current operating chain:
+食材主檔 → 配方管理 → 菜單配方 → 備料快照 → 採購需求草稿（含匯出 / 列印 / 人工流程狀態）→ 製程規劃 → 產能評估 → 菜單組合建議 → 草稿菜單 → 正式菜單.
 
 ---
 

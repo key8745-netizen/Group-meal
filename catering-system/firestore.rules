@@ -371,6 +371,35 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── menuDrafts ───────────────────────────────────────────────────────────
+    // 人工參考用草稿菜單：由 menuMixRecommendations 建立，建立後不可修改/刪除（immutable）。
+    // 已登入可讀；建立需採購人員。非正式菜單，不會觸發任何下游自動化流程。
+    function validMenuDraftCreate() {
+      let data = request.resource.data;
+      return data.keys().hasOnly([
+        'sourceRecommendationId', 'sourceRecommendationCreatedAtSnapshot',
+        'sourceRecommendationStatusSnapshot', 'menuName', 'items',
+        'status', 'notes', 'manualReviewNotesSnapshot',
+        'createdAt', 'createdBy'
+      ])
+      && data.sourceRecommendationId is string && data.sourceRecommendationId.size() > 0
+      && (!('sourceRecommendationCreatedAtSnapshot' in data) || data.sourceRecommendationCreatedAtSnapshot is timestamp)
+      && data.sourceRecommendationStatusSnapshot in ['feasible', 'risky', 'notRecommended']
+      && data.menuName is string && data.menuName.size() > 0
+      && data.items is list && data.items.size() > 0
+      && data.status == 'draft'
+      && (!('notes' in data) || data.notes is string)
+      && data.manualReviewNotesSnapshot is list
+      && data.createdBy == request.auth.uid;
+    }
+
+    match /menuDrafts/{draftId} {
+      allow read: if isAuthenticated();
+      allow create: if isPurchasingStaff() && validMenuDraftCreate();
+      allow update: if false;
+      allow delete: if false;
+    }
+
     // ── 其他所有路徑：預設拒絕 ────────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

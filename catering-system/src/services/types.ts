@@ -553,3 +553,36 @@ export interface MenuMixRecommendation {
   createdBy: string;
   // NO updatedAt / NO updatedBy — immutable record
 }
+
+// ── Feature 021: Menu Mix Recommendation Approval & Draft Menu Creation ──────
+
+export type MenuDraftStatus =
+  | 'draft'
+  | 'reviewing'
+  | 'approved_reference'
+  | 'archived';
+
+export interface DraftMenuItem {
+  recipeId: string;
+  recipeNameSnapshot: string;
+  servingCount: number;
+  suggestedRatioSnapshot: number;
+  primaryProcessTypeSnapshot?: ProcessType;
+  primaryEquipmentTypeSnapshot?: EquipmentType;
+  sourceRecommendationItemIndex: number;
+}
+
+export interface MenuDraft {
+  id: string;
+  sourceRecommendationId: string;
+  sourceRecommendationCreatedAtSnapshot?: Timestamp;
+  sourceRecommendationStatusSnapshot: MenuMixRecommendationStatus;
+  menuName: string;
+  items: DraftMenuItem[];
+  status: MenuDraftStatus;
+  notes?: string;
+  manualReviewNotesSnapshot: string[];
+  createdAt: Timestamp;
+  createdBy: string;
+  // NO updatedAt / NO updatedBy — v1 is create/read-only
+}

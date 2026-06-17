@@ -390,6 +390,7 @@ service cloud.firestore {
       && data.status == 'draft'
       && (!('notes' in data) || data.notes is string)
       && data.manualReviewNotesSnapshot is list
+      && data.createdAt is timestamp
       && data.createdBy == request.auth.uid;
     }
 

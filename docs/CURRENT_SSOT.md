@@ -173,17 +173,34 @@ Group-meal 團膳管理系統
   - No order write, prepPlan write, productionWorkflowPlan write, purchaseDemandDraft write, inventory write/deduction, procurement automation, supplier automation, cost optimization, PO, AI recommendation, AI auto scheduling, gantt chart, precise timeline conflict detection, PDF/export/print, Netlify Functions, hard delete, or Feature 023
   - Runtime verification PASSED by ibi (`OK了`)
 
+* Feature 023: Universal Monthly Menu Import Staging 通用月菜單匯入暫存與欄位對應 — COMPLETED / DEPLOYED / VERIFIED
+  - Spec v1.2: CONDITIONAL PASS
+  - Implementation Plan v1.1: PASSED
+  - Implementation commit: `4e2eeb812028b0f62281ba02c1207eb365e2e7e9`
+  - Proposal branch: `feature023-only-proposal`
+  - Production PR #49 merged, merge commit `d13ee86514cc14ef2c0532954dfacd869935820a`
+  - Actual route: `/menu-import`
+  - Actual nav label: `月菜單匯入`
+  - Actual collection paths: `/menuImportBatches/{batchId}`, `/menuImportBatches/{batchId}/rows/{rowId}`, `/menuImportBatches/{batchId}/items/{itemId}`, `/menuImportColumnMappingTemplates/{templateId}`
+  - Adds CSV-first monthly menu import staging layer only; XLS/XLSX parser is out of scope and no new dependency was introduced
+  - Stores raw CSV row snapshots and parsed menu items in staging collections for manual review
+  - Rows are write-once; `rawRowSnapshot` is immutable; `rawDishName` is immutable
+  - `MatchStatus` is `unmatched` only; no confidence scoring, no `recipeId`, no dish matching, no AI
+  - Finalized and archived batches lock rows/items and allow only defined status/audit transitions
+  - No recipes, ingredients, recipeIngredients, recipeMenus, prepPlans, purchaseDemandDrafts, productionWorkflowPlans, orders, inventory, procurement, supplier, cost, PO, market price, export/print/PDF, Netlify Functions, or Feature 024/025 writes
+  - Runtime verification PASSED by ibi (`OK了`)
+
 ---
 
 ## Current Feature
 
-None — Feature 022 closed out. Awaiting Feature 023 Spec Planning authorization.
+None — Feature 023 closed out. Awaiting Feature 024 Spec Planning authorization.
 
 ---
 
 ## Current Phase
 
-HOLD — Ready for Feature 023 Spec Planning when authorized by ibi and Gatekeeper.
+HOLD — Ready for Feature 024 Spec Planning when authorized by ibi and Gatekeeper.
 
 ---
 
@@ -202,18 +219,19 @@ HOLD — Ready for Feature 023 Spec Planning when authorized by ibi and Gatekeep
 * Feature 020: COMPLETED / DEPLOYED / VERIFIED
 * Feature 021: COMPLETED / DEPLOYED / VERIFIED
 * Feature 022: COMPLETED / DEPLOYED / VERIFIED
+* Feature 023: COMPLETED / DEPLOYED / VERIFIED
 
 ---
 
 ## Team State
 
-* Claude: HOLD after Feature 022 merge and runtime verification
+* Claude: HOLD after Feature 023 merge and runtime verification
 * Gemini: HOLD
 * Grok: HOLD
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
-Feature 023: NOT STARTED / NOT AUTHORIZED
+Feature 024: NOT STARTED / NOT AUTHORIZED
 
 ---
 
@@ -222,8 +240,10 @@ Feature 023: NOT STARTED / NOT AUTHORIZED
 Feature 009 (Real Model Config Apply Transaction Implementation) is CLOSED / ARCHIVED — see
 `docs/archive/feature_009_final_state.md`.
 
-Features 010–022 are CLOSED / COMPLETED / DEPLOYED / VERIFIED, forming the current operating chain:
-食材主檔 → 配方管理 → 菜單配方 → 備料快照 → 採購需求草稿（含匯出 / 列印 / 人工流程狀態）→ 製程規劃 → 產能評估 → 菜單組合建議 → 草稿菜單 → 正式菜單.
+Features 010–023 are CLOSED / COMPLETED / DEPLOYED / VERIFIED, forming the current operating chain:
+食材主檔 → 配方管理 → 菜單配方 → 備料快照 → 採購需求草稿（含匯出 / 列印 / 人工流程狀態）→ 製程規劃 → 產能評估 → 菜單組合建議 → 草稿菜單 → 正式菜單 → 月菜單匯入暫存.
+
+Feature 024 is expected to address dish-name matching and proposed recipe inference. Feature 024 is not authorized until ibi and Gatekeeper explicitly start Spec Planning.
 
 ---
 

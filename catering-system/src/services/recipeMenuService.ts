@@ -16,10 +16,11 @@ import {
   getDocs,
   addDoc,
   updateDoc,
+  setDoc,
   serverTimestamp,
   type Firestore,
 } from 'firebase/firestore';
-import type { Recipe, RecipeMenu, RecipeMenuItem } from './types';
+import type { MenuDraft, Recipe, RecipeMenu, RecipeMenuItem } from './types';
 
 const COLLECTION = 'recipeMenus';
 
@@ -61,7 +62,7 @@ export async function getMenu(db: Firestore, id: string): Promise<RecipeMenu | n
  * it exists, is active, and that servings > 0. Throws a descriptive Error on
  * any failure — the whole save is rejected.
  */
-async function resolveMenuRecipes(
+export async function resolveMenuRecipes(
   db: Firestore,
   items: RecipeMenuItemInput[],
 ): Promise<RecipeMenuItem[]> {
@@ -135,6 +136,78 @@ export async function updateMenu(
     updatedAt: serverTimestamp(),
     updatedBy: uid,
   });
+}
+
+export interface MenuFromApprovedDraftInput {
+  date: string;
+  mealType: string;
+}
+
+/**
+ * Feature 022: manual approval/conversion of a menuDraft into an official
+ * recipeMenu. Always re-reads the source /menuDrafts/{draftId} document from
+ * Firestore — never trusts a client-supplied MenuDraft object.
+ *
+ * Writes to the deterministic id recipeMenus/{draftId}. Duplicate conversion
+ * is prevented at the Firestore Rules layer: once a recipeMenus doc carries
+ * sourceMenuDraftId, further updates to it are rejected, so a second
+ * conversion attempt (which would be classified as an update) fails server-side.
+ */
+export async function createMenuFromApprovedDraft(
+  db: Firestore,
+  draftId: string,
+  input: MenuFromApprovedDraftInput,
+  uid: string,
+): Promise<RecipeMenu> {
+  const draftSnap = await getDoc(doc(db, 'menuDrafts', draftId));
+  if (!draftSnap.exists()) {
+    throw new Error(`menuDraft ${draftId} not found`);
+  }
+  const draft = { id: draftSnap.id, ...(draftSnap.data() as Omit<MenuDraft, 'id'>) };
+
+  if (draft.items.length === 0) {
+    throw new Error('Cannot create a menu from a draft with no items');
+  }
+  if (!input.date || !input.mealType) {
+    throw new Error('date and mealType are required');
+  }
+
+  const menuRecipes = await resolveMenuRecipes(
+    db,
+    draft.items.map((item) => ({ recipeId: item.recipeId, servings: item.servingCount })),
+  );
+
+  const docData: Omit<RecipeMenu, 'id'> = {
+    name: draft.menuName,
+    date: input.date,
+    mealType: input.mealType,
+    menuRecipes,
+    isActive: true,
+    notes: draft.notes ?? '',
+    createdAt: serverTimestamp() as unknown as RecipeMenu['createdAt'],
+    updatedAt: serverTimestamp() as unknown as RecipeMenu['updatedAt'],
+    createdBy: uid,
+    updatedBy: uid,
+    sourceMenuDraftId: draft.id,
+    sourceMenuDraftSnapshot: {
+      menuName: draft.menuName,
+      sourceRecommendationId: draft.sourceRecommendationId,
+      sourceRecommendationStatusSnapshot: draft.sourceRecommendationStatusSnapshot,
+      items: draft.items.map((item) => ({
+        recipeId: item.recipeId,
+        recipeNameSnapshot: item.recipeNameSnapshot,
+        servingCount: item.servingCount,
+        suggestedRatioSnapshot: item.suggestedRatioSnapshot,
+        ...(item.primaryProcessTypeSnapshot ? { primaryProcessTypeSnapshot: item.primaryProcessTypeSnapshot } : {}),
+        ...(item.primaryEquipmentTypeSnapshot ? { primaryEquipmentTypeSnapshot: item.primaryEquipmentTypeSnapshot } : {}),
+      })),
+    },
+    manualApprovalAcknowledgement: true,
+  };
+
+  const ref = doc(db, COLLECTION, draftId);
+  await setDoc(ref, docData, { merge: false });
+  return { id: draftId, ...docData };
 }
 
 export async function setMenuActive(

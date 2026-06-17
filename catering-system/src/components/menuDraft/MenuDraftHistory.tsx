@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { MenuDraft } from '@/services/types';
 import { MenuDraftPreview } from './MenuDraftPreview';
+import { Button } from '@/components/ui/button';
 
 const STATUS_LABELS: Record<string, string> = {
   draft: '草稿',
@@ -11,9 +12,10 @@ const STATUS_LABELS: Record<string, string> = {
 
 interface Props {
   drafts: MenuDraft[];
+  onApprove?: (draft: MenuDraft) => void;
 }
 
-export function MenuDraftHistory({ drafts }: Props) {
+export function MenuDraftHistory({ drafts, onApprove }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   if (drafts.length === 0) {
@@ -47,8 +49,15 @@ export function MenuDraftHistory({ drafts }: Props) {
             </button>
 
             {expanded && (
-              <div className="px-4 pb-4 border-t pt-4">
+              <div className="px-4 pb-4 border-t pt-4 space-y-3">
                 <MenuDraftPreview draft={draft} />
+                {onApprove && (
+                  <div className="flex justify-end">
+                    <Button type="button" size="sm" onClick={() => onApprove(draft)}>
+                      核准並建立正式菜單
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </div>

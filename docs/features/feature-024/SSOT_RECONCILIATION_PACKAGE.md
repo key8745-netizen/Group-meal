@@ -379,6 +379,63 @@ Verification must cover:
 * Cross-org recipeId / candidateId mismatch denied.
 * Batch failure does not pollute raw import fields.
 
+## 7A. Reality Alignment Addendum
+
+Status: REALITY ALIGNMENT HOLD
+Reason: during pre-implementation exploration of the actual repo, the assumptions in Sections 6–7 above were found to conflict with the current codebase. This addendum corrects those assumptions. Sections 6–7 remain in this document for historical traceability, but where they conflict with this addendum, **this addendum governs**.
+
+### 7A.1 Repo reality (confirmed by direct inspection)
+
+* Single Firebase project: `umas-booking-manager`.
+* Single named database: `group-meal`.
+* No tenant/organization auth claim exists anywhere in the codebase (`request.auth.token.orgId` does not exist; no `orgId` / `organizationId` / `tenantId` Firestore path segments).
+* `MenuImportBatch.organizationName` (Feature 023) is a plain metadata string field, not a security boundary.
+* `firestore.rules` authorizes writes via `isPurchasingStaff()` / role checks on `request.auth.token`, not organization scope.
+
+### 7A.2 Corrected security boundary
+
+Feature 024 must NOT:
+
+* introduce `request.auth.token.orgId` or any other org/tenant claim that does not exist in the current auth model.
+* implement Firestore rules that pretend to be organization-scoped when no such scope exists.
+* treat `organizationName` as anything more than display/metadata.
+
+Feature 024 MUST still:
+
+* keep `recipes`, `ingredients`, `recipeIngredients` formal-collection writes denied to Feature 024 logic (staging-only candidate/alias flow does not write these collections).
+* avoid any global/catch-all Firestore read rule.
+* gate matching-field writes through the existing role-based rules already used by Feature 023 (`isPurchasingStaff()` or equivalent), not a fictitious org claim.
+* if true multi-tenant isolation is ever required, that is out of scope for Feature 024 and must be a separate, explicitly authorized feature.
+
+### 7A.3 Feature 023 schema compatibility (corrected field names)
+
+Section 6.2 above used illustrative field names that do not match the deployed Feature 023 schema (`catering-system/src/services/types.ts`). The actual, binding field names are:
+
+| Illustrative name in Section 6 (do not use) | Actual repo field (use this) |
+| --- | --- |
+| `matchingStatus` | `matchStatus` (existing enum field on `MenuImportItem`, currently always `'unmatched'`) |
+| `rawMenuName` | `rawDishName` (existing, immutable) |
+| `rawQuantity` | does not exist in `MenuImportItem`; Feature 024 must not require it |
+
+Confirmed existing immutable raw fields on `MenuImportItem` (must not be rewritten by Feature 024): `rawDishName`, `date`, `mealType`, `batchId`, `rowId`, `rowIndex`.
+
+Feature 024 may ADD the following new optional fields to `MenuImportItem` (additive only, does not break Feature 023 validation of existing fields):
+
+* `matchedRecipeId?: string` — reference to `/recipes/{recipeId}` (Feature 011 collection — confirmed as the correct formal-recipe target, not `/menus`)
+* `candidateId?: string` — reference to a staging `ProposedRecipeCandidate`
+* `matchConfidence?: number` (0–1)
+* `matchSource?: 'alias' | 'exact' | 'fuzzy' | 'manual' | 'none'`
+* `matchingError?: string`
+* `updatedAt` already exists via `updatedAt`/`updatedBy` on the item.
+
+### 7A.4 Lifecycle naming correction
+
+The lifecycle table in Section 6.3 must be re-read with `matchStatus` substituted for `matchingStatus` everywhere. The existing Feature 023 baseline value `matchStatus: 'unmatched'` remains valid and is the entry state for the lifecycle. New values (`mapped`, `pending_review`, `rejected`, `unresolved`) are additive to the existing `MatchStatus` type and must not change the meaning or validation of the pre-existing `'unmatched'` value, nor the existing `firestore.rules` checks at the item create/update paths (which currently assert `matchStatus == 'unmatched'` and will need a reviewed, additive rule change — not a rename — when implementation resumes).
+
+### 7A.5 Effect on Section 6.5 (RecipeAlias) and "organization scope" wording elsewhere
+
+Wherever Sections 6–7 say "organization scoped" / "same-org" / "different org", read this as: **scoped by the existing single-project role/auth model**, not by any org/tenant claim. There is currently one implicit "organization" (the whole deployment). Duplicate-alias conflict handling (Section 6.5) still applies, just without an `orgId` dimension — i.e. collapse "same org" cases to apply globally and treat "different org" cases as not applicable in the current architecture.
+
 ## 8. Current Authorization After Reconciliation Package
 
 After this document is added and `docs/CURRENT_SSOT.md` is updated, implementation is still not automatically authorized.
@@ -394,20 +451,23 @@ Only after review passes may Gatekeeper re-authorize limited coding.
 ## 9. Current Status To Write Into CURRENT_SSOT
 
 ```text
-Feature 024: SSOT RECONCILIATION IN PROGRESS
+Feature 024: REALITY ALIGNMENT HOLD
 
 Spec status:
-External governance trail indicates Spec v1.6 Final Micro Patch was accepted, but original full text was not found in repo. This consolidated package captures the accepted boundary for repo reconciliation.
+External governance trail indicates Spec v1.6 Final Micro Patch was accepted, but original full text was not found in repo. Section 6 of this package captures the accepted boundary for repo reconciliation, as corrected by the Section 7A Reality Alignment Addendum.
 
 Implementation Plan status:
-External governance trail indicates Plan v1.0 + v1.0.1 Addendum was accepted, but original full text was not found in repo. This consolidated package captures the accepted implementation planning boundary for repo reconciliation.
+External governance trail indicates Plan v1.0 + v1.0.1 Addendum was accepted, but original full text was not found in repo. Section 7 of this package captures the accepted implementation planning boundary, as corrected by the Section 7A Reality Alignment Addendum.
+
+Reality alignment finding:
+Pre-implementation repo exploration found that Sections 6-7's organization-scoping assumptions and field-naming assumptions (matchingStatus/rawMenuName/rawQuantity) do not match the actual deployed Feature 023 schema or the actual (single-tenant, no orgId claim) auth model. Section 7A documents the corrections. Section 7A governs wherever it conflicts with Sections 6-7.
 
 Execution:
-Implementation coding remains paused until this docs-only reconciliation is reviewed.
+Implementation coding remains paused until this Reality Alignment Addendum is reviewed.
 
 Authorization:
-Docs-only reconciliation authorized.
-Feature implementation coding not authorized until Gatekeeper explicitly re-authorizes after reconciliation review.
+Docs-only reality alignment authorized and applied.
+Feature implementation coding not authorized until Gatekeeper explicitly re-authorizes after reviewing this addendum.
 ```
 
 ## 10. Non-Negotiable Prohibitions

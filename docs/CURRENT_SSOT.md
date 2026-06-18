@@ -194,21 +194,20 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-Feature 024: 菜名比對與推定配方建立 (dish-name matching and proposed recipe inference) — SSOT RECONCILIATION IN PROGRESS
+Feature 024: 菜名比對與推定配方建立 (dish-name matching and proposed recipe inference) — REALITY ALIGNMENT HOLD
 
 ---
 
 ## Current Phase
 
-SSOT RECONCILIATION IN PROGRESS (docs-only)
+REALITY ALIGNMENT HOLD (docs-only)
 
-Reason: an external governance trail (outside this repo) reported that Feature 024 Spec v1.6 Final Micro Patch and Implementation Plan v1.0 + v1.0.1 Addendum were reviewed and accepted. The original full-text artifacts were not found in this repo. See
-`docs/features/feature-024/SSOT_RECONCILIATION_PACKAGE.md` for the Gatekeeper-authored consolidated package capturing the accepted boundary, pending review.
+Reason: the SSOT reconciliation package (`docs/features/feature-024/SSOT_RECONCILIATION_PACKAGE.md`, Sections 6-7) assumed an organization-scoped/multi-tenant auth model and field names (`matchingStatus`, `rawMenuName`, `rawQuantity`) that do not match this repo's actual architecture or the deployed Feature 023 schema. This repo is single-project/single-database with no `orgId`/tenant auth claim, and Feature 023's `MenuImportItem` uses `matchStatus`/`rawDishName` with no `rawQuantity` field. Section 7A of the reconciliation package (Reality Alignment Addendum) documents the corrected boundary and governs wherever it conflicts with Sections 6-7.
 
-Current authorization: docs-only reconciliation authorized.
+Current authorization: docs-only reality alignment authorized and applied.
 Not authorized: Feature 024 implementation coding, Firestore rules implementation, service implementation, test implementation, PR creation, merge, deployment, production Firestore changes.
 
-Next: Grok / Gatekeeper review of this docs-only reconciliation commit, then Gatekeeper decides whether to re-authorize limited coding.
+Next: Grok / Gatekeeper review of this docs-only reality alignment commit, then Gatekeeper decides whether to re-authorize limited coding.
 
 ---
 
@@ -233,13 +232,13 @@ Next: Grok / Gatekeeper review of this docs-only reconciliation commit, then Gat
 
 ## Team State
 
-* Claude: SSOT RECONCILIATION IN PROGRESS (docs-only) for Feature 024
+* Claude: REALITY ALIGNMENT HOLD (docs-only) for Feature 024
 * Gemini: HOLD
-* Grok: HOLD — review of docs-only reconciliation pending
+* Grok: HOLD — review of docs-only reality alignment addendum pending
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
-Feature 024: SSOT RECONCILIATION IN PROGRESS — implementation coding NOT authorized
+Feature 024: REALITY ALIGNMENT HOLD — implementation coding NOT authorized
 
 ---
 

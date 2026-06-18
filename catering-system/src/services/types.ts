@@ -620,8 +620,18 @@ export type ImportStatus =
 
 export type ReviewStatus = 'pending' | 'confirmed' | 'rejected';
 
-/** Always 'unmatched' in Feature 023 — dish matching is Feature 024's scope. */
-export type MatchStatus = 'unmatched';
+/**
+ * Feature 023 baseline value is 'unmatched'. Feature 024 adds the remaining
+ * lifecycle states (additive — does not change the meaning of 'unmatched').
+ * See docs/features/feature-024/SSOT_RECONCILIATION_PACKAGE.md Section 7A.4.
+ */
+export type MatchStatus = 'unmatched' | 'mapped' | 'pending_review' | 'rejected' | 'unresolved';
+
+/** Feature 024: how a MenuImportItem came to be matched/proposed. */
+export type MatchSource = 'alias' | 'exact' | 'fuzzy' | 'manual' | 'none';
+
+/** Feature 024: human-review status for a staging alias/candidate record. */
+export type GovernanceReviewStatus = 'pending' | 'confirmed' | 'rejected';
 
 export type DishSlot = 'staple' | 'mainDish' | 'sideDish' | 'soup' | 'snack' | 'fruit' | 'other';
 
@@ -677,6 +687,60 @@ export interface MenuImportItem {
   slot: DishSlot;
   reviewStatus: ReviewStatus;
   matchStatus: MatchStatus;
+  notes?: string;
+  createdAt: Timestamp;
+  createdBy: string;
+  updatedAt: Timestamp;
+  updatedBy: string;
+  // ── Feature 024 additive matching fields (reference-only; do not trigger
+  //    formal recipes/ingredients/recipeIngredients writes) ─────────────────
+  /** Reference to /recipes/{recipeId} (Feature 011). Reference-only. */
+  matchedRecipeId?: string;
+  /** Reference to a staging ProposedRecipeCandidate. */
+  candidateId?: string;
+  matchConfidence?: number;
+  matchSource?: MatchSource;
+  matchingError?: string;
+}
+
+// ── Feature 024: 菜名比對與推定配方建立 (staging-only) ───────────────────────
+
+/**
+ * Staging-only proposed recipe inferred from an unmatched MenuImportItem.
+ * `ingredients` are free-text strings, never formal ingredientId /
+ * recipeIngredientId references. Confirmation is a human-review status
+ * change only — it never creates formal recipes/ingredients/recipeIngredients.
+ */
+export interface ProposedRecipeCandidate {
+  id: string;
+  /** The staging MenuImportItem this candidate was inferred from. */
+  sourceItemId: string;
+  sourceBatchId: string;
+  rawDishNameSnapshot: string;
+  /** Free-text only — never a formal ingredientId/recipeIngredientId. */
+  ingredients: string[];
+  status: GovernanceReviewStatus;
+  notes?: string;
+  createdAt: Timestamp;
+  createdBy: string;
+  updatedAt: Timestamp;
+  updatedBy: string;
+}
+
+/**
+ * Dish-name alias supporting matching against an existing /recipes/{recipeId}.
+ * `recipeId` is reference-only. Confirmed aliases are immutable on their core
+ * fields; rejected is final (see SSOT_RECONCILIATION_PACKAGE.md Section 6.5).
+ */
+export interface RecipeAlias {
+  id: string;
+  /** Immutable after create. */
+  rawAlias: string;
+  /** Immutable after create — generated consistently from rawAlias. */
+  normalizedAlias: string;
+  /** Reference to /recipes/{recipeId}. Reference-only. */
+  recipeId: string;
+  status: GovernanceReviewStatus;
   notes?: string;
   createdAt: Timestamp;
   createdBy: string;

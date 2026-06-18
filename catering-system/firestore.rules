@@ -519,19 +519,130 @@ service cloud.firestore {
           && request.resource.data.matchStatus == 'unmatched'
           && request.resource.data.createdAt is timestamp
           && request.resource.data.createdBy == request.auth.uid;
+        // Feature 024: additive matching fields + matchStatus lifecycle.
+        // matchStatus transitions are restricted to itemMatchStatusTransition();
+        // raw import fields (rawDishName/date/mealType/batchId/rowId/rowIndex/
+        // columnKey/createdAt/createdBy) remain immutable per Section 7A.3.
+        function itemMatchStatusTransition() {
+          let from = resource.data.matchStatus;
+          let to = request.resource.data.matchStatus;
+          return (from == 'unmatched' && to in ['unmatched', 'mapped', 'pending_review', 'unresolved'])
+            || (from == 'pending_review' && to in ['pending_review', 'mapped', 'rejected', 'unresolved'])
+            || (from == 'unresolved' && to in ['unresolved', 'pending_review', 'mapped'])
+            || (from == 'mapped' && to == 'mapped');
+        }
+        function itemMatchedRecipeIdValid() {
+          return request.resource.data.matchStatus != 'mapped'
+            || (request.resource.data.matchedRecipeId is string && request.resource.data.matchedRecipeId.size() > 0);
+        }
         allow update: if isPurchasingStaff()
           && get(/databases/$(database)/documents/menuImportBatches/$(batchId)).data.importStatus in ['parsed', 'reviewing']
           && request.resource.data.keys().hasOnly(['batchId', 'rowId', 'rowIndex', 'columnKey', 'rawDishName',
                'normalizedDishName', 'date', 'mealType', 'slot', 'reviewStatus', 'matchStatus', 'notes',
-               'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+               'createdAt', 'createdBy', 'updatedAt', 'updatedBy',
+               'matchedRecipeId', 'candidateId', 'matchConfidence', 'matchSource', 'matchingError'])
           && request.resource.data.rawDishName == resource.data.rawDishName
+          && request.resource.data.date == resource.data.date
+          && request.resource.data.mealType == resource.data.mealType
+          && request.resource.data.batchId == resource.data.batchId
+          && request.resource.data.rowId == resource.data.rowId
+          && request.resource.data.rowIndex == resource.data.rowIndex
+          && request.resource.data.columnKey == resource.data.columnKey
           && request.resource.data.createdAt == resource.data.createdAt
           && request.resource.data.createdBy == resource.data.createdBy
-          && request.resource.data.matchStatus == 'unmatched'
+          && resource.data.matchStatus != 'rejected'
+          && itemMatchStatusTransition()
+          && itemMatchedRecipeIdValid()
           && request.resource.data.updatedAt is timestamp
           && request.resource.data.updatedBy == request.auth.uid;
         allow delete: if false;
       }
+    }
+
+    // ── Feature 024: 菜名比對與推定配方建立 (staging-only) ──────────────────
+    // Reality-aligned: no org/tenant claim exists in this app (see
+    // docs/features/feature-024/SSOT_RECONCILIATION_PACKAGE.md Section 7A).
+    // Gated by the same isPurchasingStaff() role check used by Feature 023.
+    // Never grants write access to recipes/ingredients/recipeIngredients.
+
+    function validProposedRecipeCandidateCommon(data) {
+      return data.sourceItemId is string && data.sourceItemId.size() > 0
+        && data.sourceBatchId is string && data.sourceBatchId.size() > 0
+        && data.rawDishNameSnapshot is string
+        && data.ingredients is list
+        && data.status in ['pending', 'confirmed', 'rejected'];
+    }
+
+    function candidateAllowedFields() {
+      return ['sourceItemId', 'sourceBatchId', 'rawDishNameSnapshot', 'ingredients',
+        'status', 'notes', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'];
+    }
+
+    match /proposedRecipeCandidates/{candidateId} {
+      allow read: if isAuthenticated();
+      allow create: if isPurchasingStaff()
+        && validProposedRecipeCandidateCommon(request.resource.data)
+        && request.resource.data.keys().hasOnly(candidateAllowedFields())
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.updatedBy == request.auth.uid;
+      // Confirmation/rejection is a human-review status change only — it
+      // never creates formal recipes/ingredients/recipeIngredients (enforced
+      // by application code; this rule only allows the staging status flip).
+      allow update: if isPurchasingStaff()
+        && validProposedRecipeCandidateCommon(request.resource.data)
+        && request.resource.data.keys().hasOnly(candidateAllowedFields())
+        && request.resource.data.sourceItemId == resource.data.sourceItemId
+        && request.resource.data.sourceBatchId == resource.data.sourceBatchId
+        && request.resource.data.rawDishNameSnapshot == resource.data.rawDishNameSnapshot
+        && request.resource.data.ingredients == resource.data.ingredients
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdBy == resource.data.createdBy
+        && resource.data.status == 'pending'
+        && request.resource.data.status in ['confirmed', 'rejected']
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.updatedBy == request.auth.uid;
+      allow delete: if false;
+    }
+
+    function validRecipeAliasCommon(data) {
+      return data.rawAlias is string && data.rawAlias.size() > 0
+        && data.normalizedAlias is string && data.normalizedAlias.size() > 0
+        && data.recipeId is string && data.recipeId.size() > 0
+        && data.status in ['pending', 'confirmed', 'rejected'];
+    }
+
+    function aliasAllowedFields() {
+      return ['rawAlias', 'normalizedAlias', 'recipeId', 'status', 'notes',
+        'createdAt', 'createdBy', 'updatedAt', 'updatedBy'];
+    }
+
+    match /recipeAliases/{aliasId} {
+      allow read: if isAuthenticated();
+      allow create: if isPurchasingStaff()
+        && validRecipeAliasCommon(request.resource.data)
+        && request.resource.data.keys().hasOnly(aliasAllowedFields())
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.updatedBy == request.auth.uid;
+      // confirmed is immutable on core fields; rejected is final.
+      allow update: if isPurchasingStaff()
+        && validRecipeAliasCommon(request.resource.data)
+        && request.resource.data.keys().hasOnly(aliasAllowedFields())
+        && request.resource.data.rawAlias == resource.data.rawAlias
+        && request.resource.data.normalizedAlias == resource.data.normalizedAlias
+        && request.resource.data.recipeId == resource.data.recipeId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdBy == resource.data.createdBy
+        && resource.data.status == 'pending'
+        && request.resource.data.status in ['confirmed', 'rejected']
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.updatedBy == request.auth.uid;
+      allow delete: if false;
     }
 
     match /menuImportColumnMappingTemplates/{templateId} {

@@ -194,13 +194,21 @@ Group-meal 團膳管理系統
 
 ## Current Feature
 
-None — Feature 023 closed out. Awaiting Feature 024 Spec Planning authorization.
+Feature 024: 菜名比對與推定配方建立 (dish-name matching and proposed recipe inference) — SSOT RECONCILIATION IN PROGRESS
 
 ---
 
 ## Current Phase
 
-HOLD — Ready for Feature 024 Spec Planning when authorized by ibi and Gatekeeper.
+SSOT RECONCILIATION IN PROGRESS (docs-only)
+
+Reason: an external governance trail (outside this repo) reported that Feature 024 Spec v1.6 Final Micro Patch and Implementation Plan v1.0 + v1.0.1 Addendum were reviewed and accepted. The original full-text artifacts were not found in this repo. See
+`docs/features/feature-024/SSOT_RECONCILIATION_PACKAGE.md` for the Gatekeeper-authored consolidated package capturing the accepted boundary, pending review.
+
+Current authorization: docs-only reconciliation authorized.
+Not authorized: Feature 024 implementation coding, Firestore rules implementation, service implementation, test implementation, PR creation, merge, deployment, production Firestore changes.
+
+Next: Grok / Gatekeeper review of this docs-only reconciliation commit, then Gatekeeper decides whether to re-authorize limited coding.
 
 ---
 
@@ -225,13 +233,13 @@ HOLD — Ready for Feature 024 Spec Planning when authorized by ibi and Gatekeep
 
 ## Team State
 
-* Claude: HOLD after Feature 023 merge and runtime verification
+* Claude: SSOT RECONCILIATION IN PROGRESS (docs-only) for Feature 024
 * Gemini: HOLD
-* Grok: HOLD
+* Grok: HOLD — review of docs-only reconciliation pending
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
-Feature 024: NOT STARTED / NOT AUTHORIZED
+Feature 024: SSOT RECONCILIATION IN PROGRESS — implementation coding NOT authorized
 
 ---
 
@@ -243,7 +251,7 @@ Feature 009 (Real Model Config Apply Transaction Implementation) is CLOSED / ARC
 Features 010–023 are CLOSED / COMPLETED / DEPLOYED / VERIFIED, forming the current operating chain:
 食材主檔 → 配方管理 → 菜單配方 → 備料快照 → 採購需求草稿（含匯出 / 列印 / 人工流程狀態）→ 製程規劃 → 產能評估 → 菜單組合建議 → 草稿菜單 → 正式菜單 → 月菜單匯入暫存.
 
-Feature 024 is expected to address dish-name matching and proposed recipe inference. Feature 024 is not authorized until ibi and Gatekeeper explicitly start Spec Planning.
+Feature 024 addresses dish-name matching and proposed recipe inference. An external governance trail reported Spec v1.6 and Implementation Plan v1.0 + v1.0.1 Addendum as accepted, but the original full texts were not found in this repo; see `docs/features/feature-024/SSOT_RECONCILIATION_PACKAGE.md` for the consolidated reconciliation package. Implementation coding is not authorized until Gatekeeper reviews this docs-only reconciliation and explicitly re-authorizes limited coding.
 
 ---
 

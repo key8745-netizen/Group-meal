@@ -15,10 +15,14 @@ import { listRecipes } from '@/services/recipeService';
 import { MenuImportBatchList } from '@/components/menuImport/MenuImportBatchList';
 import { MatchStatusFilterBar } from './MatchStatusFilterBar';
 import { MatchItemDetailPanel } from './MatchItemDetailPanel';
+import { AliasReviewPanel } from './AliasReviewPanel';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 
+type Section = 'items' | 'aliases';
+
 export function MatchReviewWorkbench() {
+  const [section, setSection] = useState<Section>('items');
   const [batches, setBatches] = useState<MenuImportBatch[]>([]);
   const [activeBatch, setActiveBatch] = useState<MenuImportBatch | null>(null);
   const [items, setItems] = useState<MenuImportItem[]>([]);
@@ -70,9 +74,38 @@ export function MatchReviewWorkbench() {
     }
   }
 
+  const sectionToggle = (
+    <div className="flex gap-1 w-fit rounded-md border bg-muted/20 p-1">
+      <button
+        type="button"
+        onClick={() => setSection('items')}
+        className={['rounded-md px-3 py-1.5 text-xs font-medium', section === 'items' ? 'bg-background shadow-sm' : 'text-muted-foreground'].join(' ')}
+      >
+        菜名比對審核
+      </button>
+      <button
+        type="button"
+        onClick={() => setSection('aliases')}
+        className={['rounded-md px-3 py-1.5 text-xs font-medium', section === 'aliases' ? 'bg-background shadow-sm' : 'text-muted-foreground'].join(' ')}
+      >
+        別名審核
+      </button>
+    </div>
+  );
+
+  if (section === 'aliases') {
+    return (
+      <div className="space-y-4 p-1">
+        {sectionToggle}
+        <AliasReviewPanel recipes={recipes} />
+      </div>
+    );
+  }
+
   if (!activeBatch) {
     return (
       <div className="space-y-3 p-1">
+        {sectionToggle}
         <p className="text-sm text-muted-foreground">選擇一個匯入批次進行菜名比對審核。</p>
         <MenuImportBatchList batches={batches} onSelect={openBatch} />
       </div>
@@ -81,6 +114,7 @@ export function MatchReviewWorkbench() {
 
   return (
     <div className="space-y-4 p-1">
+      {sectionToggle}
       <div className="flex items-center justify-between">
         <Button type="button" size="sm" variant="ghost" onClick={() => setActiveBatch(null)}>返回批次列表</Button>
         <p className="text-sm text-muted-foreground">{activeBatch.organizationName} — {activeBatch.yearMonth} {activeBatch.mealProgram}</p>

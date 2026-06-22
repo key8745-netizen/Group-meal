@@ -3,14 +3,16 @@ import { DishManager }      from '@/components/menus/DishManager';
 import { MealPlanCalendar } from '@/components/menus/MealPlanCalendar';
 import { TodayPrep }        from '@/components/menus/TodayPrep';
 import { MenuImport }       from '@/components/menus/MenuImport';
+import { MatchReviewWorkbench } from '@/components/menuMatching/MatchReviewWorkbench';
 
-type Tab = 'today' | 'calendar' | 'dishes' | 'import';
+type Tab = 'today' | 'calendar' | 'dishes' | 'import' | 'matchReview';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'today',    label: '今日備料' },
   { key: 'calendar', label: '每月計畫' },
   { key: 'dishes',   label: '菜色管理' },
   { key: 'import',   label: '匯入菜單' },
+  { key: 'matchReview', label: '菜名比對審核' },
 ];
 
 export default function MenusPage() {
@@ -39,6 +41,7 @@ export default function MenusPage() {
       {tab === 'calendar' && <MealPlanCalendar />}
       {tab === 'dishes'   && <DishManager />}
       {tab === 'import'   && <MenuImport />}
+      {tab === 'matchReview' && <MatchReviewWorkbench />}
     </div>
   );
 }

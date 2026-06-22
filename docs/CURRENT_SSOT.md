@@ -190,17 +190,32 @@ Group-meal 團膳管理系統
   - No recipes, ingredients, recipeIngredients, recipeMenus, prepPlans, purchaseDemandDrafts, productionWorkflowPlans, orders, inventory, procurement, supplier, cost, PO, market price, export/print/PDF, Netlify Functions, or Feature 024/025 writes
   - Runtime verification PASSED by ibi (`OK了`)
 
+* Feature 024: Dish-Name Matching and Proposed Recipe Inference 菜名比對與推定配方建立 — COMPLETED / DEPLOYED / VERIFIED
+  - Reconciliation package: `docs/features/feature-024/SSOT_RECONCILIATION_PACKAGE.md` (docs-only reconciliation commit `86f861f`, Reality Alignment Addendum commit `6da9a37`)
+  - Implementation commit: `b569be0`
+  - Implementation branch: `claude/awesome-hawking-1mu479`
+  - Production PR #51 merged into `claude/fervent-dirac-HJT01`
+  - Reality Alignment Addendum (Section 7A) governs: no fake multi-tenant security, no `request.auth.token.orgId` (no such claim exists in this app), `organizationName` treated as metadata only, gating reuses existing `isPurchasingStaff()` role check
+  - Preserves Feature 023 schema: uses `matchStatus` (extended additively: `unmatched | mapped | pending_review | rejected | unresolved`), uses `rawDishName` (immutable), does not require `rawQuantity`
+  - Adds additive-only `MenuImportItem` fields: `matchedRecipeId`, `candidateId`, `matchConfidence`, `matchSource`, `matchingError`
+  - New staging-only collections: `/proposedRecipeCandidates/{candidateId}`, `/recipeAliases/{aliasId}`
+  - `ProposedRecipeCandidate.ingredients` is staging-only `string[]`; never a formal `ingredientId`/`recipeIngredientId`
+  - No writes to formal `recipes` / `ingredients` / `recipeIngredients`; `recipeId` references are read-only lookups; candidate/alias confirmation is a human-review status change only
+  - New services: `recipeAliasService.ts`, `proposedRecipeCandidateService.ts`, `dishNameMatchingService.ts`
+  - `npm run typecheck` passed clean
+  - Runtime verification PASSED by ibi
+
 ---
 
 ## Current Feature
 
-None — Feature 023 closed out. Awaiting Feature 024 Spec Planning authorization.
+None — Feature 024 closed out. Awaiting Feature 025 Spec Planning authorization.
 
 ---
 
 ## Current Phase
 
-HOLD — Ready for Feature 024 Spec Planning when authorized by ibi and Gatekeeper.
+HOLD — Ready for Feature 025 Spec Planning when authorized by ibi and Gatekeeper.
 
 ---
 
@@ -220,18 +235,19 @@ HOLD — Ready for Feature 024 Spec Planning when authorized by ibi and Gatekeep
 * Feature 021: COMPLETED / DEPLOYED / VERIFIED
 * Feature 022: COMPLETED / DEPLOYED / VERIFIED
 * Feature 023: COMPLETED / DEPLOYED / VERIFIED
+* Feature 024: COMPLETED / DEPLOYED / VERIFIED
 
 ---
 
 ## Team State
 
-* Claude: HOLD after Feature 023 merge and runtime verification
+* Claude: HOLD after Feature 024 merge and runtime verification
 * Gemini: HOLD
 * Grok: HOLD
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
-Feature 024: NOT STARTED / NOT AUTHORIZED
+Feature 025: NOT STARTED / NOT AUTHORIZED
 
 ---
 
@@ -240,10 +256,10 @@ Feature 024: NOT STARTED / NOT AUTHORIZED
 Feature 009 (Real Model Config Apply Transaction Implementation) is CLOSED / ARCHIVED — see
 `docs/archive/feature_009_final_state.md`.
 
-Features 010–023 are CLOSED / COMPLETED / DEPLOYED / VERIFIED, forming the current operating chain:
-食材主檔 → 配方管理 → 菜單配方 → 備料快照 → 採購需求草稿（含匯出 / 列印 / 人工流程狀態）→ 製程規劃 → 產能評估 → 菜單組合建議 → 草稿菜單 → 正式菜單 → 月菜單匯入暫存.
+Features 010–024 are CLOSED / COMPLETED / DEPLOYED / VERIFIED, forming the current operating chain:
+食材主檔 → 配方管理 → 菜單配方 → 備料快照 → 採購需求草稿（含匯出 / 列印 / 人工流程狀態）→ 製程規劃 → 產能評估 → 菜單組合建議 → 草稿菜單 → 正式菜單 → 月菜單匯入暫存 → 菜名比對與推定配方建立.
 
-Feature 024 is expected to address dish-name matching and proposed recipe inference. Feature 024 is not authorized until ibi and Gatekeeper explicitly start Spec Planning.
+Feature 025 is not yet defined. Feature 025 is not authorized until ibi and Gatekeeper explicitly start Spec Planning.
 
 ---
 

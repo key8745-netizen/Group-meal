@@ -1,5 +1,7 @@
 import { useState, useCallback } from 'react';
+import * as XLSX from 'xlsx';
 import { parseCsvText } from '@/services/menuImportService';
+import { isWideMonthlyMenuTemplate, parseWideMonthlyMenuTemplate } from '@/services/wideMenuTemplateParser';
 import { Button } from '@/components/ui/button';
 
 interface Props {
@@ -10,6 +12,7 @@ export function CsvUploadStep({ onParsed }: Props) {
   const [csvText, setCsvText] = useState('');
   const [headers, setHeaders] = useState<string[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
+  const [warnings, setWarnings] = useState<string[]>([]);
 
   const handlePreview = useCallback(() => {
     const result = parseCsvText(csvText);
@@ -17,11 +20,12 @@ export function CsvUploadStep({ onParsed }: Props) {
     setErrors(result.errors);
   }, [csvText]);
 
-  const handleFile = useCallback((file: File) => {
+  const handleCsvFile = useCallback((file: File) => {
     const reader = new FileReader();
     reader.onload = () => {
       const text = String(reader.result ?? '');
       setCsvText(text);
+      setWarnings([]);
       const result = parseCsvText(text);
       setHeaders(result.headers);
       setErrors(result.errors);
@@ -29,12 +33,50 @@ export function CsvUploadStep({ onParsed }: Props) {
     reader.readAsText(file, 'utf-8');
   }, []);
 
+  const handleExcelFile = useCallback((file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const data = reader.result as ArrayBuffer;
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '' });
+
+      if (!isWideMonthlyMenuTemplate(matrix)) {
+        setErrors(['未偵測到橫向月菜單版型（需含民國年月標題列與「日期」欄），請改用 CSV 上傳']);
+        setHeaders([]);
+        setWarnings([]);
+        return;
+      }
+
+      const result = parseWideMonthlyMenuTemplate(matrix);
+      setCsvText(result.csvText);
+      setHeaders(result.headers);
+      setErrors([]);
+      setWarnings(result.warnings);
+    };
+    reader.readAsArrayBuffer(file);
+  }, []);
+
+  const handleFile = useCallback(
+    (file: File) => {
+      const isExcel = /\.(xlsx|xls)$/i.test(file.name);
+      if (isExcel) {
+        handleExcelFile(file);
+      } else {
+        handleCsvFile(file);
+      }
+    },
+    [handleExcelFile, handleCsvFile],
+  );
+
   return (
     <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">僅支援 CSV（UTF-8）。請貼上內容或上傳檔案。</p>
+      <p className="text-sm text-muted-foreground">
+        支援 CSV（UTF-8）貼上/上傳，或上傳橫向月菜單 .xls / .xlsx 範本檔（含民國年月標題列）。
+      </p>
       <input
         type="file"
-        accept=".csv,text/csv"
+        accept=".csv,text/csv,.xls,.xlsx"
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) handleFile(file);
@@ -55,6 +97,14 @@ export function CsvUploadStep({ onParsed }: Props) {
         <ul className="text-xs text-destructive list-disc pl-4 space-y-0.5">
           {errors.map((e, i) => (
             <li key={i}>{e}</li>
+          ))}
+        </ul>
+      )}
+
+      {warnings.length > 0 && (
+        <ul className="text-xs text-amber-600 list-disc pl-4 space-y-0.5">
+          {warnings.map((w, i) => (
+            <li key={i}>{w}</li>
           ))}
         </ul>
       )}

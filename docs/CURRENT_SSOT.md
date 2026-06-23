@@ -205,17 +205,34 @@ Group-meal 團膳管理系統
   - `npm run typecheck` passed clean
   - Runtime verification PASSED by ibi
 
+* Feature 025: Dish Matching Review Workbench 菜名比對審核工作台 — COMPLETED / DEPLOYED / VERIFIED
+  - Production PR #52 merged into `claude/fervent-dirac-HJT01`, merge commit `544a1ae9d540af8321b518d934a48d163ad8e6e7`
+  - Adds `MatchReviewWorkbench`, `MatchItemDetailPanel`, `MatchStatusFilterBar`, `AliasReviewPanel`, `RecipePicker` UI components for human review of Feature 024 dish-name matching output
+  - Operates entirely on existing Feature 023/024 staging collections (`menuImportBatches/{batchId}/items`, `proposedRecipeCandidates`, `recipeAliases`); no new collections, no formal `recipes`/`ingredients`/`recipeIngredients` writes
+  - Production smoke test PASSED by ibi: workbench/staging display verified visible and usable; no automatic recipe/ingredient creation observed
+  - Note: `matchStatus` defaults to `unmatched` is N/A in production UI (UI surfaces confirmed/pending review status instead); `matchStatus` filter functionality was not tested in the production smoke test
+
+* Feature 026: Wide Monthly Menu Template Import Support 支援橫向月菜單版型匯入 — COMPLETED / DEPLOYED / VERIFIED
+  - Implementation commit: `482bcc6`
+  - Bugfix commit (real-file verification): `a6678cd`
+  - Production PR #53 merged into `claude/fervent-dirac-HJT01`, merge commit `e8f77ac9a2fcefb9a11d47884c39445adfb8964f`
+  - New file: `src/services/wideMenuTemplateParser.ts` — detects and converts horizontal/wide monthly menu `.xls`/`.xlsx` templates (ROC year/month title row, day-only date column, dish-slot columns) into synthetic CSV text consumed unmodified by the existing Feature 023 `parseCsvText` pipeline
+  - `CsvUploadStep.tsx` branches `.xls`/`.xlsx` uploads to the new parser via `xlsx` (already a repo dependency); standard CSV/pasted-text behavior unchanged
+  - No new Firestore collections, no schema changes, no formal `recipes`/`ingredients`/`recipeIngredients` writes
+  - Real-file verification (required by Gatekeeper before PR authorization) against actual production sample `115年7月菜單-成人.xls` surfaced and fixed two parser bugs invisible to synthetic fixtures: nutrition/summary column leakage (`(份)`, `熱量` headers) and fragmented non-service banner text (服務準備周不供餐) scattered across dish-slot cells of 7/28–7/31 rows
+  - Production smoke test PASSED by ibi: ROC 115年7月 → 2026-07 conversion correct; 19 service days parsed; 129 `MenuImportItem` records generated; 7/28–7/31 rows correctly skipped; `rawDishName` preserved; Feature 025 staging/review list displays imported items; no automatic recipes/ingredients/recipeIngredients creation observed (ingredient master list unchanged at 7 original entries; 配方管理 shows 尚無配方資料)
+
 ---
 
 ## Current Feature
 
-None — Feature 024 closed out. Awaiting Feature 025 Spec Planning authorization.
+None — Feature 025 and Feature 026 closed out. Feature 027 (Import Batch Management & Duplicate Protection 匯入批次管理與重複匯入防護) is HOLD pending Spec Planning authorization.
 
 ---
 
 ## Current Phase
 
-HOLD — Ready for Feature 025 Spec Planning when authorized by ibi and Gatekeeper.
+HOLD — Ready for Feature 027 Spec Planning when authorized by ibi and Gatekeeper.
 
 ---
 
@@ -236,18 +253,20 @@ HOLD — Ready for Feature 025 Spec Planning when authorized by ibi and Gatekeep
 * Feature 022: COMPLETED / DEPLOYED / VERIFIED
 * Feature 023: COMPLETED / DEPLOYED / VERIFIED
 * Feature 024: COMPLETED / DEPLOYED / VERIFIED
+* Feature 025: COMPLETED / DEPLOYED / VERIFIED
+* Feature 026: COMPLETED / DEPLOYED / VERIFIED
 
 ---
 
 ## Team State
 
-* Claude: HOLD after Feature 024 merge and runtime verification
+* Claude: HOLD after Feature 025 / Feature 026 production verification and docs-only close-out
 * Gemini: HOLD
 * Grok: HOLD
 * ChatGPT: Gatekeeper + SSOT maintainer
 * ibi: Final authority
 
-Feature 025: NOT STARTED / NOT AUTHORIZED
+Feature 027: NOT STARTED / NOT AUTHORIZED (Import Batch Management & Duplicate Protection 匯入批次管理與重複匯入防護 — proposed next, Spec Planning HOLD)
 
 ---
 
@@ -256,10 +275,10 @@ Feature 025: NOT STARTED / NOT AUTHORIZED
 Feature 009 (Real Model Config Apply Transaction Implementation) is CLOSED / ARCHIVED — see
 `docs/archive/feature_009_final_state.md`.
 
-Features 010–024 are CLOSED / COMPLETED / DEPLOYED / VERIFIED, forming the current operating chain:
-食材主檔 → 配方管理 → 菜單配方 → 備料快照 → 採購需求草稿（含匯出 / 列印 / 人工流程狀態）→ 製程規劃 → 產能評估 → 菜單組合建議 → 草稿菜單 → 正式菜單 → 月菜單匯入暫存 → 菜名比對與推定配方建立.
+Features 010–026 are CLOSED / COMPLETED / DEPLOYED / VERIFIED, forming the current operating chain:
+食材主檔 → 配方管理 → 菜單配方 → 備料快照 → 採購需求草稿（含匯出 / 列印 / 人工流程狀態）→ 製程規劃 → 產能評估 → 菜單組合建議 → 草稿菜單 → 正式菜單 → 月菜單匯入暫存 → 菜名比對與推定配方建立 → 菜名比對審核工作台 → 橫向月菜單版型匯入.
 
-Feature 025 is not yet defined. Feature 025 is not authorized until ibi and Gatekeeper explicitly start Spec Planning.
+Feature 027 (Import Batch Management & Duplicate Protection 匯入批次管理與重複匯入防護) is proposed as the next feature, motivated directly by real-world Feature 026 production use: duplicate-upload handling, batch rollback/archival, and import-source/summary traceability for the 129-item `115年7月菜單-成人.xls` import. Feature 027 is not authorized until ibi and Gatekeeper explicitly start Spec Planning.
 
 ---
 

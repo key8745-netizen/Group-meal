@@ -424,7 +424,10 @@ service cloud.firestore {
       return ['sourceFileName', 'organizationName', 'yearMonth', 'mealProgram',
         'servingBaseline', 'columnMappingTemplateId', 'columnMapping', 'importStatus',
         'rowCount', 'itemCount', 'reviewedItemCount', 'createdAt', 'createdBy',
-        'updatedAt', 'updatedBy', 'finalizedAt', 'finalizedBy', 'archivedAt', 'archivedBy', 'notes'];
+        'updatedAt', 'updatedBy', 'finalizedAt', 'finalizedBy', 'archivedAt', 'archivedBy', 'notes',
+        // Feature 027: additive duplicate-protection / import-summary fields.
+        'contentFingerprint', 'skippedRowCount', 'warningCount', 'serviceDayCount',
+        'duplicateOfBatchId', 'duplicateConfirmedAt', 'duplicateConfirmedBy'];
     }
 
     function validImportBatchCommon(data) {
@@ -432,7 +435,14 @@ service cloud.firestore {
         && data.yearMonth is string && data.mealProgram is string
         && data.servingBaseline is number && data.servingBaseline > 0
         && data.columnMapping is map
-        && data.importStatus in ['draft', 'mappingApplied', 'parsed', 'reviewing', 'finalized', 'archived'];
+        && data.importStatus in ['draft', 'mappingApplied', 'parsed', 'reviewing', 'finalized', 'archived']
+        && (!('contentFingerprint' in data) || data.contentFingerprint is string)
+        && (!('skippedRowCount' in data) || data.skippedRowCount is number)
+        && (!('warningCount' in data) || data.warningCount is number)
+        && (!('serviceDayCount' in data) || data.serviceDayCount is number)
+        && (!('duplicateOfBatchId' in data) || data.duplicateOfBatchId is string)
+        && (!('duplicateConfirmedAt' in data) || data.duplicateConfirmedAt is timestamp)
+        && (!('duplicateConfirmedBy' in data) || data.duplicateConfirmedBy is string);
     }
 
     function validImportBatchCreate() {
@@ -445,7 +455,11 @@ service cloud.firestore {
         && request.resource.data.updatedBy == request.auth.uid
         && request.resource.data.rowCount == 0
         && request.resource.data.itemCount == 0
-        && request.resource.data.reviewedItemCount == 0;
+        && request.resource.data.reviewedItemCount == 0
+        // Feature 027: duplicateOfBatchId is only settable alongside both confirmation audit fields.
+        && (!('duplicateOfBatchId' in request.resource.data)
+            || (request.resource.data.duplicateConfirmedAt is timestamp
+                && request.resource.data.duplicateConfirmedBy == request.auth.uid));
     }
 
     // Explicit transition whitelist — 'finalized'/'archived' are never reachable
@@ -457,6 +471,14 @@ service cloud.firestore {
         && request.resource.data.createdBy == resource.data.createdBy
         && request.resource.data.updatedAt is timestamp
         && request.resource.data.updatedBy == request.auth.uid
+        // Feature 027: content fingerprint and duplicate-confirmation audit fields are
+        // immutable once a batch is created — never re-writable via plain update.
+        && (('contentFingerprint' in resource.data) == ('contentFingerprint' in request.resource.data))
+        && (!('contentFingerprint' in resource.data) || request.resource.data.contentFingerprint == resource.data.contentFingerprint)
+        && (('duplicateOfBatchId' in resource.data) == ('duplicateOfBatchId' in request.resource.data))
+        && (!('duplicateOfBatchId' in resource.data) || request.resource.data.duplicateOfBatchId == resource.data.duplicateOfBatchId)
+        && (!('duplicateConfirmedAt' in resource.data) || request.resource.data.duplicateConfirmedAt == resource.data.duplicateConfirmedAt)
+        && (!('duplicateConfirmedBy' in resource.data) || request.resource.data.duplicateConfirmedBy == resource.data.duplicateConfirmedBy)
         && (
           (resource.data.importStatus == 'draft' && request.resource.data.importStatus in ['draft', 'mappingApplied'])
           || (resource.data.importStatus == 'mappingApplied' && request.resource.data.importStatus in ['mappingApplied', 'parsed'])

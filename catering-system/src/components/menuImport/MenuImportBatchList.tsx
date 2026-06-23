@@ -12,16 +12,20 @@ const STATUS_LABELS: Record<string, string> = {
 interface Props {
   batches: MenuImportBatch[];
   onSelect: (batch: MenuImportBatch) => void;
+  /** Feature 027: when false (default), `archived` batches are hidden. */
+  showArchived?: boolean;
 }
 
-export function MenuImportBatchList({ batches, onSelect }: Props) {
-  if (batches.length === 0) {
+export function MenuImportBatchList({ batches, onSelect, showArchived = false }: Props) {
+  const visibleBatches = showArchived ? batches : batches.filter((b) => b.importStatus !== 'archived');
+
+  if (visibleBatches.length === 0) {
     return <p className="text-sm text-muted-foreground">尚無匯入批次</p>;
   }
 
   return (
     <div className="space-y-2">
-      {batches.map((batch) => (
+      {visibleBatches.map((batch) => (
         <button
           key={batch.id}
           type="button"
@@ -32,6 +36,15 @@ export function MenuImportBatchList({ batches, onSelect }: Props) {
             <span className="font-semibold">{STATUS_LABELS[batch.importStatus] ?? batch.importStatus}</span>
             <span>{batch.organizationName} — {batch.yearMonth} {batch.mealProgram}</span>
             <span className="text-muted-foreground">{batch.itemCount} 項菜色</span>
+            {batch.serviceDayCount !== undefined && (
+              <span className="text-muted-foreground">{batch.serviceDayCount} 供餐日</span>
+            )}
+            {batch.skippedRowCount !== undefined && batch.skippedRowCount > 0 && (
+              <span className="text-muted-foreground">略過 {batch.skippedRowCount} 列</span>
+            )}
+            {batch.duplicateOfBatchId && (
+              <span className="text-amber-600">已確認重複匯入</span>
+            )}
           </div>
           <span className="text-xs text-muted-foreground">{batch.sourceFileName}</span>
         </button>

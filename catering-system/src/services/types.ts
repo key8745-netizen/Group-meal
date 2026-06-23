@@ -658,6 +658,18 @@ export interface MenuImportBatch {
   archivedAt?: Timestamp;
   archivedBy?: string;
   notes?: string;
+  /** Feature 027: SHA-256 of normalized import content, for duplicate detection. */
+  contentFingerprint?: string;
+  /** Feature 027: rows skipped during parse (non-fatal, e.g. malformed rows). */
+  skippedRowCount?: number;
+  /** Feature 027: non-fatal parse warnings (e.g. Feature 026 non-service-day skips). */
+  warningCount?: number;
+  /** Feature 027: distinct dates with >=1 parsed item. */
+  serviceDayCount?: number;
+  /** Feature 027: set only if user explicitly confirmed proceeding despite a detected duplicate risk. */
+  duplicateOfBatchId?: string;
+  duplicateConfirmedAt?: Timestamp;
+  duplicateConfirmedBy?: string;
 }
 
 export interface MenuImportRow {

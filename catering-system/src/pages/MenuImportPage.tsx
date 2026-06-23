@@ -11,7 +11,10 @@ import {
   archiveBatch,
   listBatches,
   listItems,
+  computeContentFingerprint,
+  findDuplicateBatches,
   type ColumnMapping,
+  type DuplicateMatch,
 } from '@/services/menuImportService';
 import { Toaster } from '@/components/ui/toaster';
 import { toast } from '@/hooks/use-toast';
@@ -36,6 +39,11 @@ export default function MenuImportPage() {
   const [csvText, setCsvText] = useState('');
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [fileName, setFileName] = useState('');
+  const [preParseWarningCount, setPreParseWarningCount] = useState(0);
+  const [pendingMapping, setPendingMapping] = useState<ColumnMapping | null>(null);
+  const [duplicateMatches, setDuplicateMatches] = useState<DuplicateMatch[]>([]);
+  const [pendingFingerprint, setPendingFingerprint] = useState<string | undefined>(undefined);
+  const [showArchived, setShowArchived] = useState(false);
 
   const reloadBatches = useCallback(() => {
     listBatches(db)
@@ -55,14 +63,19 @@ export default function MenuImportPage() {
     setStep('review');
   }, []);
 
-  const handleCsvParsed = useCallback((text: string, headers: string[]) => {
-    setCsvText(text);
-    setCsvHeaders(headers);
-    setStep('mapping');
-  }, []);
+  const handleCsvParsed = useCallback(
+    (text: string, headers: string[], sourceFileName: string, warningCount: number) => {
+      setCsvText(text);
+      setCsvHeaders(headers);
+      setFileName(sourceFileName);
+      setPreParseWarningCount(warningCount);
+      setStep('mapping');
+    },
+    [],
+  );
 
-  const handleCreateBatch = useCallback(
-    async (mapping: ColumnMapping) => {
+  const doCreateBatch = useCallback(
+    async (mapping: ColumnMapping, fingerprint: string | undefined, duplicateOfBatchId: string | undefined) => {
       const uid = auth.currentUser?.uid;
       if (!uid) return;
       try {
@@ -74,22 +87,63 @@ export default function MenuImportPage() {
             yearMonth,
             mealProgram,
             servingBaseline,
+            ...(fingerprint ? { contentFingerprint: fingerprint } : {}),
+            ...(duplicateOfBatchId ? { duplicateOfBatchId } : {}),
           },
           uid,
         );
-        const result = await parseAndCreateRowsItems(db, batchId, csvText, mapping, uid);
+        const result = await parseAndCreateRowsItems(db, batchId, csvText, mapping, uid, preParseWarningCount);
         if (result.errors.length > 0) {
           toast({ title: '部分資料略過', description: result.errors.join('；') });
         }
-        toast({ title: '已建立暫存批次', description: `${result.rowCount} 列、${result.itemCount} 項菜色` });
+        toast({
+          title: '已建立暫存批次',
+          description: `${result.serviceDayCount} 個供餐日、${result.itemCount} 項菜色、略過 ${result.skippedRowCount} 列、${result.warningCount} 項警告`,
+        });
         reloadBatches();
         setStep('list');
+        setDuplicateMatches([]);
+        setPendingMapping(null);
+        setPendingFingerprint(undefined);
       } catch (err) {
         toast({ title: '建立失敗', description: err instanceof Error ? err.message : '未知錯誤', variant: 'destructive' });
       }
     },
-    [fileName, organizationName, yearMonth, mealProgram, servingBaseline, csvText, reloadBatches],
+    [fileName, organizationName, yearMonth, mealProgram, servingBaseline, csvText, preParseWarningCount, reloadBatches],
   );
+
+  const handleCreateBatch = useCallback(
+    async (mapping: ColumnMapping) => {
+      const fingerprint = await computeContentFingerprint(yearMonth, csvHeaders, csvText);
+      const matches = findDuplicateBatches(batches, {
+        sourceFileName: fileName || '貼上內容',
+        organizationName,
+        yearMonth,
+        mealProgram,
+        contentFingerprint: fingerprint,
+      });
+      if (matches.length > 0) {
+        setDuplicateMatches(matches);
+        setPendingMapping(mapping);
+        setPendingFingerprint(fingerprint);
+        return;
+      }
+      await doCreateBatch(mapping, fingerprint, undefined);
+    },
+    [batches, csvHeaders, csvText, fileName, organizationName, yearMonth, mealProgram, doCreateBatch],
+  );
+
+  const confirmDuplicateAndCreate = useCallback(() => {
+    if (!pendingMapping) return;
+    const strongestMatch = duplicateMatches[0];
+    doCreateBatch(pendingMapping, pendingFingerprint, strongestMatch?.batch.id);
+  }, [pendingMapping, pendingFingerprint, duplicateMatches, doCreateBatch]);
+
+  const cancelDuplicateImport = useCallback(() => {
+    setDuplicateMatches([]);
+    setPendingMapping(null);
+    setPendingFingerprint(undefined);
+  }, []);
 
   const refreshActiveBatch = useCallback(() => {
     if (!activeBatch) return;
@@ -114,10 +168,14 @@ export default function MenuImportPage() {
 
       {step === 'list' && (
         <>
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
+              顯示已封存批次
+            </label>
             <Button type="button" size="sm" onClick={() => setStep('upload')}>新增匯入批次</Button>
           </div>
-          <MenuImportBatchList batches={batches} onSelect={openBatch} />
+          <MenuImportBatchList batches={batches} onSelect={openBatch} showArchived={showArchived} />
         </>
       )}
 
@@ -135,12 +193,7 @@ export default function MenuImportPage() {
               onChange={(e) => setServingBaseline(Number(e.target.value))}
             />
           </div>
-          <CsvUploadStep
-            onParsed={(text, headers) => {
-              setFileName('貼上內容');
-              handleCsvParsed(text, headers);
-            }}
-          />
+          <CsvUploadStep onParsed={handleCsvParsed} />
           <div>
             <Button type="button" size="sm" variant="ghost" onClick={() => setStep('list')}>取消</Button>
           </div>
@@ -149,8 +202,33 @@ export default function MenuImportPage() {
 
       {step === 'mapping' && (
         <div className="space-y-4">
-          <ColumnMappingForm headers={csvHeaders} onSubmit={handleCreateBatch} />
-          <Button type="button" size="sm" variant="ghost" onClick={() => setStep('upload')}>上一步</Button>
+          {duplicateMatches.length === 0 && (
+            <>
+              <ColumnMappingForm headers={csvHeaders} onSubmit={handleCreateBatch} />
+              <Button type="button" size="sm" variant="ghost" onClick={() => setStep('upload')}>上一步</Button>
+            </>
+          )}
+
+          {duplicateMatches.length > 0 && (
+            <div className="rounded-md border border-amber-400 bg-amber-50 p-4 space-y-3">
+              <p className="text-sm font-medium text-amber-800">偵測到可能重複匯入</p>
+              <ul className="text-xs text-amber-700 list-disc pl-4 space-y-1">
+                {duplicateMatches.map((m) => (
+                  <li key={m.batch.id}>
+                    {m.level === 'contentFingerprint' && '內容完全相同'}
+                    {m.level === 'filenameAndMonth' && '相同檔名與年月'}
+                    {m.level === 'organizationAndMonth' && '相同機構與年月'}
+                    {' — '}
+                    {m.batch.sourceFileName}（{m.batch.yearMonth} {m.batch.mealProgram}，{m.batch.importStatus}，{m.batch.itemCount} 項菜色）
+                  </li>
+                ))}
+              </ul>
+              <div className="flex gap-2 justify-end">
+                <Button type="button" size="sm" variant="ghost" onClick={cancelDuplicateImport}>取消匯入</Button>
+                <Button type="button" size="sm" onClick={confirmDuplicateAndCreate}>仍要繼續匯入</Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -33,6 +33,10 @@ export interface CreateBatchInput {
   mealProgram: string;
   servingBaseline: number;
   columnMappingTemplateId?: string;
+  /** Feature 027: SHA-256 of normalized import content, if computed. */
+  contentFingerprint?: string;
+  /** Feature 027: set only when the user explicitly confirmed proceeding despite a detected duplicate risk. */
+  duplicateOfBatchId?: string;
 }
 
 export async function createBatch(db: Firestore, input: CreateBatchInput, uid: string): Promise<string> {
@@ -43,6 +47,14 @@ export async function createBatch(db: Firestore, input: CreateBatchInput, uid: s
     mealProgram: input.mealProgram,
     servingBaseline: input.servingBaseline,
     ...(input.columnMappingTemplateId ? { columnMappingTemplateId: input.columnMappingTemplateId } : {}),
+    ...(input.contentFingerprint ? { contentFingerprint: input.contentFingerprint } : {}),
+    ...(input.duplicateOfBatchId
+      ? {
+          duplicateOfBatchId: input.duplicateOfBatchId,
+          duplicateConfirmedAt: serverTimestamp(),
+          duplicateConfirmedBy: uid,
+        }
+      : {}),
     columnMapping: {},
     importStatus: 'draft',
     rowCount: 0,
@@ -54,6 +66,63 @@ export async function createBatch(db: Firestore, input: CreateBatchInput, uid: s
     updatedBy: uid,
   });
   return ref.id;
+}
+
+/**
+ * Feature 027 — deterministic SHA-256 fingerprint of normalized import
+ * content, used for duplicate-risk detection. Uses the in-browser Web
+ * Crypto API; no new dependency.
+ */
+export async function computeContentFingerprint(yearMonth: string, headers: string[], csvText: string): Promise<string> {
+  const normalized = `${yearMonth}|${[...headers].sort().join(',')}|${csvText.trim().replace(/\r\n/g, '\n')}`;
+  const bytes = new TextEncoder().encode(normalized);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+export type DuplicateMatchLevel = 'contentFingerprint' | 'filenameAndMonth' | 'organizationAndMonth';
+
+export interface DuplicateMatch {
+  batch: MenuImportBatch;
+  level: DuplicateMatchLevel;
+}
+
+export interface DuplicateCheckInput {
+  sourceFileName: string;
+  organizationName: string;
+  yearMonth: string;
+  mealProgram: string;
+  contentFingerprint?: string;
+}
+
+/**
+ * Feature 027 — checks `candidates` (typically all existing batches,
+ * including archived ones) for duplicate-risk against `input`. Returns the
+ * strongest match per candidate batch; never mutates anything, never
+ * blocks — callers decide whether to warn/confirm.
+ */
+export function findDuplicateBatches(candidates: MenuImportBatch[], input: DuplicateCheckInput): DuplicateMatch[] {
+  const matches: DuplicateMatch[] = [];
+  for (const batch of candidates) {
+    if (input.contentFingerprint && batch.contentFingerprint && batch.contentFingerprint === input.contentFingerprint) {
+      matches.push({ batch, level: 'contentFingerprint' });
+      continue;
+    }
+    if (batch.sourceFileName === input.sourceFileName && batch.yearMonth === input.yearMonth) {
+      matches.push({ batch, level: 'filenameAndMonth' });
+      continue;
+    }
+    if (
+      batch.organizationName === input.organizationName &&
+      batch.yearMonth === input.yearMonth &&
+      batch.mealProgram === input.mealProgram
+    ) {
+      matches.push({ batch, level: 'organizationAndMonth' });
+    }
+  }
+  return matches;
 }
 
 /** Minimal RFC4180-subset CSV line splitter — supports quoted commas, rejects quoted newlines. */
@@ -146,7 +215,9 @@ export async function parseAndCreateRowsItems(
   csvText: string,
   columnMapping: ColumnMapping,
   uid: string,
-): Promise<{ rowCount: number; itemCount: number; errors: string[] }> {
+  /** Feature 027: pre-parse warning count (e.g. from the Feature 026 wide-template parser), folded into the persisted warningCount. */
+  preParseWarningCount = 0,
+): Promise<{ rowCount: number; itemCount: number; serviceDayCount: number; skippedRowCount: number; warningCount: number; errors: string[] }> {
   const batchSnap = await getDoc(doc(db, BATCHES, batchId));
   if (!batchSnap.exists()) {
     throw new Error(`menuImportBatch ${batchId} not found`);
@@ -165,6 +236,8 @@ export async function parseAndCreateRowsItems(
 
   let itemCount = 0;
   let rowCount = 0;
+  const serviceDays = new Set<string>();
+  const initialErrorCount = errors.length;
 
   for (const row of rows) {
     const date = dateHeader ? row.rawRowSnapshot[dateHeader] : '';
@@ -172,6 +245,7 @@ export async function parseAndCreateRowsItems(
       errors.push(`第 ${row.rowIndex + 1} 行缺少日期，已略過`);
       continue;
     }
+    serviceDays.add(date);
     const mealType = mealTypeHeader ? row.rawRowSnapshot[mealTypeHeader] : '';
 
     const rowRef = await addDoc(collection(db, BATCHES, batchId, 'rows'), {
@@ -210,16 +284,23 @@ export async function parseAndCreateRowsItems(
     }
   }
 
+  const skippedRowCount = errors.length - initialErrorCount;
+  const warningCount = preParseWarningCount + skippedRowCount;
+  const serviceDayCount = serviceDays.size;
+
   await updateDoc(doc(db, BATCHES, batchId), {
     columnMapping,
     importStatus: 'parsed',
     rowCount,
     itemCount,
+    skippedRowCount,
+    warningCount,
+    serviceDayCount,
     updatedAt: serverTimestamp(),
     updatedBy: uid,
   });
 
-  return { rowCount, itemCount, errors };
+  return { rowCount, itemCount, serviceDayCount, skippedRowCount, warningCount, errors };
 }
 
 export interface UpdateItemInput {

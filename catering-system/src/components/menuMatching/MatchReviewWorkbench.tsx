@@ -29,6 +29,7 @@ export function MatchReviewWorkbench() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [filter, setFilter] = useState<MatchStatus | 'all'>('pending_review');
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
 
   const reloadBatches = useCallback(() => {
     listBatches(db).then(setBatches).catch(() => {});
@@ -106,8 +107,14 @@ export function MatchReviewWorkbench() {
     return (
       <div className="space-y-3 p-1">
         {sectionToggle}
-        <p className="text-sm text-muted-foreground">選擇一個匯入批次進行菜名比對審核。</p>
-        <MenuImportBatchList batches={batches} onSelect={openBatch} />
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">選擇一個匯入批次進行菜名比對審核。</p>
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
+            顯示已封存批次
+          </label>
+        </div>
+        <MenuImportBatchList batches={batches} onSelect={openBatch} showArchived={showArchived} />
       </div>
     );
   }

@@ -21,8 +21,20 @@ export interface WideTemplateParseResult {
 
 const ROC_TITLE_RE = /(\d{2,3})\s*年\s*(\d{1,2})\s*月/;
 const NON_SERVICE_KEYWORDS = ['服務準備周', '不供餐', '休館', '休園'];
-const IGNORED_HEADER_KEYWORDS = ['星期', '週', '營養', '備註', '合計', '總計'];
+const IGNORED_HEADER_KEYWORDS = ['星期', '週', '營養', '備註', '合計', '總計', '(份)', '熱量'];
 const TITLE_SCAN_ROWS = 5;
+/**
+ * Non-service banner rows (e.g. "服務準備周　不供餐") sometimes have their
+ * characters scattered one-per-cell across the dish-slot columns of several
+ * consecutive rows rather than sitting as a clean phrase in the date column
+ * (observed in the real 115年7月 sample file — no actual cell merge present,
+ * just stray characters). A row whose dish-slot cells contain very little
+ * text (≤2 non-empty cells, ≤3 characters total) cannot be real multi-dish
+ * data — every legitimate row in the sample has ≥5 non-empty dish cells —
+ * so such rows are treated as non-service noise and skipped.
+ */
+const SPARSE_ROW_MAX_NON_EMPTY_CELLS = 2;
+const SPARSE_ROW_MAX_TOTAL_CHARS = 3;
 
 function cellText(v: unknown): string {
   if (v === null || v === undefined) return '';
@@ -142,7 +154,19 @@ export function parseWideMonthlyMenuTemplate(matrix: SheetMatrix): WideTemplateP
     }
     const date = `${gregorianYear}-${String(month).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
 
-    const cells = [date, ...slotColumns.map((c) => cellText(row[c.index]))];
+    const slotTexts = slotColumns.map((c) => cellText(row[c.index]));
+    const nonEmptySlotCount = slotTexts.filter((t) => t.length > 0).length;
+    const totalSlotChars = slotTexts.join('').length;
+    if (
+      nonEmptySlotCount > 0 &&
+      nonEmptySlotCount <= SPARSE_ROW_MAX_NON_EMPTY_CELLS &&
+      totalSlotChars <= SPARSE_ROW_MAX_TOTAL_CHARS
+    ) {
+      warnings.push(`第 ${r + 1} 列（${date}）菜色欄僅有零碎文字，視為非供餐日標示，已略過`);
+      continue;
+    }
+
+    const cells = [date, ...slotTexts];
     lines.push(cells.map(escapeCsvCell).join(','));
   }
 

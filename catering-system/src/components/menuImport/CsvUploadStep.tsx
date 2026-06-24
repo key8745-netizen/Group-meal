@@ -5,7 +5,7 @@ import { isWideMonthlyMenuTemplate, parseWideMonthlyMenuTemplate } from '@/servi
 import { Button } from '@/components/ui/button';
 
 interface Props {
-  onParsed: (csvText: string, headers: string[]) => void;
+  onParsed: (csvText: string, headers: string[], sourceFileName: string, preParseWarningCount: number) => void;
 }
 
 export function CsvUploadStep({ onParsed }: Props) {
@@ -13,6 +13,8 @@ export function CsvUploadStep({ onParsed }: Props) {
   const [headers, setHeaders] = useState<string[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
+
+  const [sourceFileName, setSourceFileName] = useState('貼上內容');
 
   const handlePreview = useCallback(() => {
     const result = parseCsvText(csvText);
@@ -26,6 +28,7 @@ export function CsvUploadStep({ onParsed }: Props) {
       const text = String(reader.result ?? '');
       setCsvText(text);
       setWarnings([]);
+      setSourceFileName(file.name);
       const result = parseCsvText(text);
       setHeaders(result.headers);
       setErrors(result.errors);
@@ -53,6 +56,7 @@ export function CsvUploadStep({ onParsed }: Props) {
       setHeaders(result.headers);
       setErrors([]);
       setWarnings(result.warnings);
+      setSourceFileName(file.name);
     };
     reader.readAsArrayBuffer(file);
   }, []);
@@ -118,7 +122,7 @@ export function CsvUploadStep({ onParsed }: Props) {
             ))}
           </div>
           <div className="flex justify-end">
-            <Button type="button" size="sm" onClick={() => onParsed(csvText, headers)}>
+            <Button type="button" size="sm" onClick={() => onParsed(csvText, headers, sourceFileName, warnings.length)}>
               下一步：欄位對應
             </Button>
           </div>

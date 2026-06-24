@@ -45,6 +45,9 @@ export function MenuImportBatchList({ batches, onSelect, showArchived = false }:
             {batch.duplicateOfBatchId && (
               <span className="text-amber-600">已確認重複匯入</span>
             )}
+            {batch.operationalFinalizedAt && (
+              <span className="text-emerald-600">已轉為正式營運菜單</span>
+            )}
           </div>
           <span className="text-xs text-muted-foreground">{batch.sourceFileName}</span>
         </button>

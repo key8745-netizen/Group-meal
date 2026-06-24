@@ -16,6 +16,10 @@ import {
   type ColumnMapping,
   type DuplicateMatch,
 } from '@/services/menuImportService';
+import {
+  evaluateOperationalFinalizeEligibility,
+  finalizeToOperationalMenu,
+} from '@/services/menuFinalizationService';
 import { Toaster } from '@/components/ui/toaster';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -44,6 +48,9 @@ export default function MenuImportPage() {
   const [duplicateMatches, setDuplicateMatches] = useState<DuplicateMatch[]>([]);
   const [pendingFingerprint, setPendingFingerprint] = useState<string | undefined>(undefined);
   const [showArchived, setShowArchived] = useState(false);
+  const [showFinalizeConfirm, setShowFinalizeConfirm] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
+  const [finalizeResult, setFinalizeResult] = useState<{ createdMenuIds: string[]; skippedExistingMenuIds: string[] } | null>(null);
 
   const reloadBatches = useCallback(() => {
     listBatches(db)
@@ -57,6 +64,8 @@ export default function MenuImportPage() {
 
   const openBatch = useCallback((batch: MenuImportBatch) => {
     setActiveBatch(batch);
+    setFinalizeResult(null);
+    setShowFinalizeConfirm(false);
     listItems(db, batch.id)
       .then(setItems)
       .catch((err) => toast({ title: '載入失敗', description: err instanceof Error ? err.message : '未知錯誤', variant: 'destructive' }));
@@ -153,6 +162,24 @@ export default function MenuImportPage() {
     });
     listItems(db, activeBatch.id).then(setItems);
   }, [activeBatch]);
+
+  const handleFinalizeToOperationalMenu = useCallback(async () => {
+    if (!activeBatch) return;
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+    setFinalizing(true);
+    try {
+      const result = await finalizeToOperationalMenu(db, activeBatch.id, uid);
+      setFinalizeResult(result);
+      setShowFinalizeConfirm(false);
+      toast({ title: '已轉為正式營運菜單', description: `新增 ${result.createdMenuIds.length} 筆菜單` });
+      refreshActiveBatch();
+    } catch (err) {
+      toast({ title: '轉換失敗', description: err instanceof Error ? err.message : '未知錯誤', variant: 'destructive' });
+    } finally {
+      setFinalizing(false);
+    }
+  }, [activeBatch, refreshActiveBatch]);
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-8">
@@ -266,6 +293,57 @@ export default function MenuImportPage() {
               });
             }}
           />
+
+          {activeBatch.importStatus === 'finalized' && !activeBatch.operationalFinalizedAt && (
+            <div className="rounded-md border p-4 space-y-3">
+              <p className="text-sm font-medium">轉為正式營運菜單</p>
+              {(() => {
+                const eligibility = evaluateOperationalFinalizeEligibility(activeBatch, items);
+                if (!showFinalizeConfirm) {
+                  return (
+                    <div className="space-y-2">
+                      {!eligibility.eligible && (
+                        <ul className="text-xs text-amber-700 list-disc pl-4 space-y-1">
+                          {eligibility.blockedReasons.map((reason) => <li key={reason}>{reason}</li>)}
+                        </ul>
+                      )}
+                      <Button type="button" size="sm" disabled={!eligibility.eligible} onClick={() => setShowFinalizeConfirm(true)}>
+                        轉為正式營運菜單
+                      </Button>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="space-y-3">
+                    <p className="text-xs text-muted-foreground">
+                      將把 {eligibility.statusCounts.mapped} 筆已比對成功的項目轉換為正式營運菜單，此操作無法復原。
+                    </p>
+                    <div className="flex gap-2 justify-end">
+                      <Button type="button" size="sm" variant="ghost" onClick={() => setShowFinalizeConfirm(false)} disabled={finalizing}>取消</Button>
+                      <Button type="button" size="sm" onClick={handleFinalizeToOperationalMenu} disabled={finalizing}>
+                        {finalizing ? '轉換中...' : '確認轉換'}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
+          {activeBatch.operationalFinalizedAt && (
+            <div className="rounded-md border border-emerald-400 bg-emerald-50 p-4 space-y-2">
+              <p className="text-sm font-medium text-emerald-800">已轉為正式營運菜單</p>
+              {finalizeResult && (
+                <ul className="text-xs text-emerald-700 list-disc pl-4 space-y-1">
+                  {finalizeResult.createdMenuIds.map((id) => (
+                    <li key={id}>
+                      <a className="underline" href="/recipe-menus">{id}</a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -166,21 +166,32 @@ service cloud.firestore {
       );
     }
 
+    // Feature 028: optional finalization-tracking fields, present only when a
+    // recipeMenu was created via batch finalization of a menuImportBatch.
+    function validRecipeMenuImportFinalizeFields(data) {
+      return !('sourceMenuImportBatchId' in data) || (
+        data.sourceMenuImportBatchId is string && data.sourceMenuImportBatchId.size() > 0
+        && data.sourceMenuImportBatchSnapshot is map
+      );
+    }
+
     function validRecipeMenuCreate() {
       return validRecipeMenuCommon(request.resource.data)
-        && request.resource.data.keys().hasOnly(['name', 'date', 'mealType', 'menuRecipes', 'isActive', 'notes', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy', 'sourceMenuDraftId', 'sourceMenuDraftSnapshot', 'manualApprovalAcknowledgement'])
+        && request.resource.data.keys().hasOnly(['name', 'date', 'mealType', 'menuRecipes', 'isActive', 'notes', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy', 'sourceMenuDraftId', 'sourceMenuDraftSnapshot', 'manualApprovalAcknowledgement', 'sourceMenuImportBatchId', 'sourceMenuImportBatchSnapshot'])
         && request.resource.data.createdAt is timestamp && request.resource.data.createdBy is string
         && request.resource.data.updatedAt is timestamp && request.resource.data.updatedBy is string
-        && validRecipeMenuConversionFields(request.resource.data);
+        && validRecipeMenuConversionFields(request.resource.data)
+        && validRecipeMenuImportFinalizeFields(request.resource.data);
     }
 
     function validRecipeMenuUpdate() {
       return validRecipeMenuCommon(request.resource.data)
-        && request.resource.data.keys().hasOnly(['name', 'date', 'mealType', 'menuRecipes', 'isActive', 'notes', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy', 'sourceMenuDraftId', 'sourceMenuDraftSnapshot', 'manualApprovalAcknowledgement'])
+        && request.resource.data.keys().hasOnly(['name', 'date', 'mealType', 'menuRecipes', 'isActive', 'notes', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy', 'sourceMenuDraftId', 'sourceMenuDraftSnapshot', 'manualApprovalAcknowledgement', 'sourceMenuImportBatchId', 'sourceMenuImportBatchSnapshot'])
         && request.resource.data.updatedAt is timestamp && request.resource.data.updatedBy is string
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.createdBy == resource.data.createdBy
-        && validRecipeMenuConversionFields(request.resource.data);
+        && validRecipeMenuConversionFields(request.resource.data)
+        && validRecipeMenuImportFinalizeFields(request.resource.data);
     }
 
     match /recipeMenus/{menuId} {
@@ -427,7 +438,9 @@ service cloud.firestore {
         'updatedAt', 'updatedBy', 'finalizedAt', 'finalizedBy', 'archivedAt', 'archivedBy', 'notes',
         // Feature 027: additive duplicate-protection / import-summary fields.
         'contentFingerprint', 'skippedRowCount', 'warningCount', 'serviceDayCount',
-        'duplicateOfBatchId', 'duplicateConfirmedAt', 'duplicateConfirmedBy'];
+        'duplicateOfBatchId', 'duplicateConfirmedAt', 'duplicateConfirmedBy',
+        // Feature 028: additive operational-finalization tracking fields.
+        'operationalFinalizedAt', 'operationalFinalizedBy'];
     }
 
     function validImportBatchCommon(data) {
@@ -442,7 +455,9 @@ service cloud.firestore {
         && (!('serviceDayCount' in data) || data.serviceDayCount is number)
         && (!('duplicateOfBatchId' in data) || data.duplicateOfBatchId is string)
         && (!('duplicateConfirmedAt' in data) || data.duplicateConfirmedAt is timestamp)
-        && (!('duplicateConfirmedBy' in data) || data.duplicateConfirmedBy is string);
+        && (!('duplicateConfirmedBy' in data) || data.duplicateConfirmedBy is string)
+        && (!('operationalFinalizedAt' in data) || data.operationalFinalizedAt is timestamp)
+        && (!('operationalFinalizedBy' in data) || data.operationalFinalizedBy is string);
     }
 
     function validImportBatchCreate() {
@@ -479,6 +494,11 @@ service cloud.firestore {
         && (!('duplicateOfBatchId' in resource.data) || request.resource.data.duplicateOfBatchId == resource.data.duplicateOfBatchId)
         && (!('duplicateConfirmedAt' in resource.data) || request.resource.data.duplicateConfirmedAt == resource.data.duplicateConfirmedAt)
         && (!('duplicateConfirmedBy' in resource.data) || request.resource.data.duplicateConfirmedBy == resource.data.duplicateConfirmedBy)
+        // Feature 028: operational-finalization fields are immutable once set —
+        // never re-writable via plain update; only validImportBatchOperationalFinalize can set them.
+        && (('operationalFinalizedAt' in resource.data) == ('operationalFinalizedAt' in request.resource.data))
+        && (!('operationalFinalizedAt' in resource.data) || request.resource.data.operationalFinalizedAt == resource.data.operationalFinalizedAt)
+        && (!('operationalFinalizedBy' in resource.data) || request.resource.data.operationalFinalizedBy == resource.data.operationalFinalizedBy)
         && (
           (resource.data.importStatus == 'draft' && request.resource.data.importStatus in ['draft', 'mappingApplied'])
           || (resource.data.importStatus == 'mappingApplied' && request.resource.data.importStatus in ['mappingApplied', 'parsed'])
@@ -509,11 +529,26 @@ service cloud.firestore {
              .hasOnly(['importStatus', 'archivedAt', 'archivedBy', 'updatedAt', 'updatedBy']);
     }
 
+    // Feature 028: marks a 'finalized' batch as converted into operational
+    // /recipeMenus docs. Settable only once — never reachable through
+    // validImportBatchUpdate, and the diff is restricted to exactly these keys.
+    function validImportBatchOperationalFinalize() {
+      return resource.data.importStatus == 'finalized'
+        && request.resource.data.importStatus == 'finalized'
+        && !('operationalFinalizedAt' in resource.data)
+        && request.resource.data.operationalFinalizedAt is timestamp
+        && request.resource.data.operationalFinalizedBy == request.auth.uid
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['operationalFinalizedAt', 'operationalFinalizedBy', 'updatedAt', 'updatedBy']);
+    }
+
     match /menuImportBatches/{batchId} {
       allow read: if isAuthenticated();
       allow create: if isPurchasingStaff() && validImportBatchCreate();
       allow update: if isPurchasingStaff()
-        && (validImportBatchUpdate() || validImportBatchFinalize() || validImportBatchArchive());
+        && (validImportBatchUpdate() || validImportBatchFinalize() || validImportBatchArchive() || validImportBatchOperationalFinalize());
       allow delete: if false;
 
       match /rows/{rowId} {

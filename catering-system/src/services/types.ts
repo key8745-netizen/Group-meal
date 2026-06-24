@@ -188,6 +188,8 @@ export interface RecipeMenuItem {
   /** Number of servings for this recipe in the menu. Must be > 0. */
   servings: number;
   notes?: string;
+  /** Feature 028: traceability back to the source /menuImportBatches/{batchId}/items/{itemId} this line was finalized from. */
+  sourceMenuImportItemId?: string;
 }
 
 /** A recipe menu stored at /recipeMenus/{menuId}, referencing /recipes. */
@@ -209,6 +211,17 @@ export interface RecipeMenu {
   sourceMenuDraftId?: string;
   sourceMenuDraftSnapshot?: RecipeMenuSourceDraftSnapshot;
   manualApprovalAcknowledgement?: boolean;
+  // ── Feature 028: present only when this menu was created via batch
+  // finalization of a menuImportBatch. Absent on normal Feature 012 menus.
+  sourceMenuImportBatchId?: string;
+  sourceMenuImportBatchSnapshot?: RecipeMenuSourceImportBatchSnapshot;
+}
+
+export interface RecipeMenuSourceImportBatchSnapshot {
+  organizationName: string;
+  yearMonth: string;
+  mealProgram: string;
+  sourceFileName: string;
 }
 
 // ── Feature 022: Draft Menu Approval to RecipeMenu ───────────────────────────
@@ -670,6 +683,9 @@ export interface MenuImportBatch {
   duplicateOfBatchId?: string;
   duplicateConfirmedAt?: Timestamp;
   duplicateConfirmedBy?: string;
+  /** Feature 028: set once all eligible items have been converted into operational /recipeMenus docs. */
+  operationalFinalizedAt?: Timestamp;
+  operationalFinalizedBy?: string;
 }
 
 export interface MenuImportRow {

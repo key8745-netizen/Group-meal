@@ -27,6 +27,7 @@ import { CsvUploadStep } from '@/components/menuImport/CsvUploadStep';
 import { ColumnMappingForm } from '@/components/menuImport/ColumnMappingForm';
 import { MenuImportBatchList } from '@/components/menuImport/MenuImportBatchList';
 import { MenuImportItemReviewTable } from '@/components/menuImport/MenuImportItemReviewTable';
+import { BulkDishMappingPanel } from '@/components/menuImport/BulkDishMappingPanel';
 
 type WizardStep = 'list' | 'upload' | 'mapping' | 'review';
 
@@ -293,6 +294,15 @@ export default function MenuImportPage() {
               });
             }}
           />
+
+          {(activeBatch.importStatus === 'parsed' || activeBatch.importStatus === 'reviewing') && auth.currentUser && (
+            <BulkDishMappingPanel
+              batchId={activeBatch.id}
+              items={items}
+              uid={auth.currentUser.uid}
+              onApplied={refreshActiveBatch}
+            />
+          )}
 
           {activeBatch.importStatus === 'finalized' && !activeBatch.operationalFinalizedAt && (
             <div className="rounded-md border p-4 space-y-3">

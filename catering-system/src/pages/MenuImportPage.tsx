@@ -295,7 +295,10 @@ export default function MenuImportPage() {
             }}
           />
 
-          {(activeBatch.importStatus === 'parsed' || activeBatch.importStatus === 'reviewing') && auth.currentUser && (
+          {(activeBatch.importStatus === 'parsed' ||
+            activeBatch.importStatus === 'reviewing' ||
+            (activeBatch.importStatus === 'finalized' && !activeBatch.operationalFinalizedAt)) &&
+            auth.currentUser && (
             <BulkDishMappingPanel
               batchId={activeBatch.id}
               items={items}

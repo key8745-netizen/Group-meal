@@ -18,6 +18,7 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, Timestamp } from 'firebase/firestore';
 import { INITIAL_INGREDIENTS } from '../src/constants/initialIngredients';
+import { normalizeIngredientName } from '../src/utils/normalizeIngredientName';
 
 const firebaseConfig = {
   apiKey:            process.env.VITE_FIREBASE_API_KEY,
@@ -53,6 +54,14 @@ export async function seedIngredients(): Promise<void> {
       category:     '核心食材',
       minStockLevel: 0,
       supplierIds:  [],
+      // ── Feature 010 食材主檔管理 fields — required for RecipeForm unit dropdown ──
+      normalizedName: normalizeIngredientName(ing.name),
+      baseUnit:                    ing.baseUnit,
+      purchaseUnit:                ing.purchaseUnit,
+      conversionFactorToBaseUnit:  ing.conversionFactorToBaseUnit,
+      defaultPrice:                ing.defaultPrice,
+      defaultPriceUnit:            ing.defaultPriceUnit,
+      isActive: true,
     });
     console.log(`✓ ingredient: ${ing.name}`);
 

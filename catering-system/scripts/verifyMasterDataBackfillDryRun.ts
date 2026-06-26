@@ -10,7 +10,7 @@
  *   npx tsx scripts/verifyMasterDataBackfillDryRun.ts
  */
 
-import { planBackfillForIngredient, type IngredientDocLike } from './backfillIngredientMasterFields';
+import { planBackfillForIngredient, type IngredientDocLike } from '../src/services/ingredientBackfillPlanner';
 
 let pass = 0;
 let fail = 0;

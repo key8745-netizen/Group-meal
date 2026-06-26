@@ -45,6 +45,7 @@ const navGroups: { section: string; items: NavItem[] }[] = [
     section: '基礎資料',
     items: [
       { to: '/ingredients-master', label: '食材主檔', icon: Package },
+      { to: '/master-data-dry-run-report', label: '基礎資料 Dry-Run 報告', icon: ClipboardCheck },
     ],
   },
   {

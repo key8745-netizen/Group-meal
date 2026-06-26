@@ -10,6 +10,7 @@ import PurchasePage from '@/pages/PurchasePage';
 import PlanPage from '@/pages/PlanPage';
 import MenusPage from '@/pages/MenusPage';
 import IngredientMasterPage from '@/pages/IngredientMasterPage';
+import MasterDataDryRunReportPage from '@/pages/MasterDataDryRunReportPage';
 import RecipePage from '@/pages/RecipePage';
 import RecipeMenuPage from '@/pages/RecipeMenuPage';
 import PrepPlanPage from '@/pages/PrepPlanPage';
@@ -59,6 +60,7 @@ export default function App() {
           <Route path="menus" element={<MenusPage />} />
           <Route path="purchase" element={<PurchasePage />} />
           <Route path="ingredients-master" element={<IngredientMasterPage />} />
+          <Route path="master-data-dry-run-report" element={<MasterDataDryRunReportPage />} />
           <Route path="recipes" element={<RecipePage />} />
           <Route path="recipe-menus" element={<RecipeMenuPage />} />
           <Route path="prep-plans" element={<PrepPlanPage />} />

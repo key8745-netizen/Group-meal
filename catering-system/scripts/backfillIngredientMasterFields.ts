@@ -24,6 +24,8 @@
 
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { fileURLToPath } from 'url';
+import { resolve } from 'path';
 import { INITIAL_INGREDIENTS } from '../src/constants/initialIngredients';
 import { normalizeIngredientName } from '../src/utils/normalizeIngredientName';
 import type { IngredientBaseUnit } from '../src/services/types';
@@ -198,7 +200,12 @@ async function main(): Promise<void> {
 
 // Only run when invoked directly (e.g. `npx tsx scripts/backfillIngredientMasterFields.ts`),
 // never as a side effect of importing planBackfillForIngredient() for verification/tests.
-const isDirectRun = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;
+// Comparing via resolved filesystem paths (rather than raw string equality against
+// `file://${process.argv[1]}`) keeps this correct on Windows, where import.meta.url
+// is URL-encoded (e.g. spaces as %20, forward slashes) and differs in form from
+// process.argv[1]'s native OS path — a direct string comparison never matches there.
+const isDirectRun =
+  !!process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
 if (isDirectRun) {
   main().catch((err) => {
     console.error('Backfill 失敗：', err);

@@ -749,6 +749,31 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── costAwareMenuSuggestions ─────────────────────────────────────────────
+    // 性價比菜單建議記錄：建立後不可修改/刪除（immutable）。
+    // 已登入可讀；建立需採購人員。人工參考用，不會自動建立菜單或採購。
+    function validCostAwareMenuSuggestionCreate() {
+      let data = request.resource.data;
+      return data.keys().hasOnly([
+        'targetServingCount', 'priceSnapshotDate', 'assessedRecipeCount',
+        'items', 'manualReviewNotes',
+        'createdAt', 'createdBy'
+      ])
+      && data.targetServingCount is number && data.targetServingCount > 0
+      && (data.priceSnapshotDate == null || data.priceSnapshotDate is string)
+      && data.assessedRecipeCount is number && data.assessedRecipeCount >= 0
+      && data.items is list
+      && data.manualReviewNotes is list
+      && data.createdBy == request.auth.uid;
+    }
+
+    match /costAwareMenuSuggestions/{id} {
+      allow read: if isAuthenticated();
+      allow create: if isPurchasingStaff() && validCostAwareMenuSuggestionCreate();
+      allow update: if false;
+      allow delete: if false;
+    }
+
     // ── 其他所有路徑：預設拒絕 ────────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

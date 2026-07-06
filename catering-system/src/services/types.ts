@@ -817,3 +817,42 @@ export interface MarketPriceSnapshot {
   fetchedAt?: Timestamp;
   fetchedBy: string;
 }
+
+// ── Feature 033: 性價比菜單建議與採購成本標註 ────────────────────────────────
+
+/** Per-recipe assessment result within a CostAwareMenuSuggestion. */
+export interface CostAwareRecipeAssessmentItem {
+  recipeId: string;
+  recipeNameSnapshot: string;
+  /** Sum over recipe ingredients of baseQuantity * pricePerBaseUnit; null if ANY ingredient line has an unresolvable price. */
+  estimatedCostPerServing: number | null;
+  /** Fraction (0..1) of ingredient lines with a resolvable price. */
+  costCoverageRatio: number;
+  marketPricedIngredientCount: number;
+  defaultPricedIngredientCount: number;
+  unpricedIngredientCount: number;
+  /** min over ingredient lines of floor(availableBaseQty / baseQuantity); null if no line has stock data. */
+  maxServingsFromStock: number | null;
+  /** Fraction (0..1) of ingredient lines with stock data available. */
+  stockCoverageRatio: number;
+  /** The ingredient line that minimizes maxServingsFromStock, when stock data exists for at least one line. */
+  limitingIngredientNameSnapshot?: string;
+  /** Cheaper-per-serving + more cookable-from-stock scores higher; null when estimatedCostPerServing is null/<=0. */
+  valueScore: number | null;
+  reasoningNotes: string[];
+}
+
+/** Immutable create-only record stored at /costAwareMenuSuggestions/{id}. */
+export interface CostAwareMenuSuggestion {
+  id: string;
+  targetServingCount: number;
+  /** ISO date of the market price snapshot used, or null if none was cached today. */
+  priceSnapshotDate: string | null;
+  assessedRecipeCount: number;
+  /** Sorted best valueScore first; null-score items last (sorted by name). */
+  items: CostAwareRecipeAssessmentItem[];
+  manualReviewNotes: string[];
+  createdAt?: Timestamp;
+  createdBy: string;
+  // NO updatedAt / NO updatedBy — immutable record
+}

@@ -18,6 +18,7 @@ import PurchaseDemandDraftPage from '@/pages/PurchaseDemandDraftPage';
 import ProductionWorkflowPage from '@/pages/ProductionWorkflowPage';
 import CapacityFeasibilityPage from '@/pages/CapacityFeasibilityPage';
 import MenuMixRecommendationPage from '@/pages/MenuMixRecommendationPage';
+import CostAwareMenuSuggestionPage from '@/pages/CostAwareMenuSuggestionPage';
 import MenuDraftsPage from '@/pages/MenuDraftsPage';
 import MenuImportPage from '@/pages/MenuImportPage';
 import MarketPricePage from '@/pages/MarketPricePage';
@@ -69,6 +70,7 @@ export default function App() {
           <Route path="production-workflows" element={<ProductionWorkflowPage />} />
           <Route path="capacity-feasibility" element={<CapacityFeasibilityPage />} />
           <Route path="menu-mix-recommendations" element={<MenuMixRecommendationPage />} />
+          <Route path="cost-menu-suggestions" element={<CostAwareMenuSuggestionPage />} />
           <Route path="menu-drafts" element={<MenuDraftsPage />} />
           <Route path="menu-import" element={<MenuImportPage />} />
           <Route path="market-prices" element={<MarketPricePage />} />

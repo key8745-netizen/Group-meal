@@ -16,6 +16,7 @@ import {
   ClipboardCheck,
   FileUp,
   TrendingUp,
+  Coins,
 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -64,6 +65,7 @@ const navGroups: { section: string; items: NavItem[] }[] = [
       { to: '/production-workflows', label: '製程規劃', icon: ClipboardCheck },
       { to: '/capacity-feasibility', label: '產能評估', icon: BarChart2 },
       { to: '/menu-mix-recommendations', label: '菜單組合建議', icon: ChefHat },
+      { to: '/cost-menu-suggestions', label: '性價比菜單建議', icon: Coins },
       { to: '/menu-drafts', label: '草稿菜單', icon: ClipboardCheck },
       { to: '/menu-import', label: '月菜單匯入', icon: FileUp },
       { to: '/market-prices', label: '市場行情', icon: TrendingUp },

@@ -126,7 +126,7 @@ export default function Dashboard() {
       value:   loading ? null : String(todayOrderCount),
       desc:    '今日新建訂單總數',
       alert:   false,
-      onClick: () => navigate('/orders'),
+      onClick: () => navigate('/daily-ops'),
     },
     {
       title:   '低庫存食材',
@@ -268,17 +268,17 @@ export default function Dashboard() {
         <div className="space-y-3">
           <h2 className="text-sm font-semibold">快捷操作</h2>
           <div className="space-y-2 rounded-lg border p-4">
-            <Button className="w-full justify-start gap-2" onClick={() => navigate('/orders')}>
+            <Button className="w-full justify-start gap-2" onClick={() => navigate('/daily-ops')}>
               <ClipboardList size={14} />
-              快速下單
+              每日工作總覽
             </Button>
             <Button
               variant="outline"
               className="w-full justify-start gap-2"
-              onClick={() => navigate('/plan')}
+              onClick={() => navigate('/prep-plans')}
             >
               <UtensilsCrossed size={14} />
-              備料規劃
+              備料快照
             </Button>
             <Button
               variant="outline"

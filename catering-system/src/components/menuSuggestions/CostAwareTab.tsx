@@ -1,6 +1,6 @@
 /**
- * CostAwareMenuSuggestionPage — 性價比菜單建議 (Feature 033: Cost/Inventory-Aware
- * Menu Suggestions, Part A).
+ * CostAwareTab — 性價比 tab (Feature 033: Cost/Inventory-Aware
+ * Menu Suggestions, Part A; merged into 菜單建議 by Feature 039).
  *
  * Ranks active recipes by an estimated cost-per-serving (market price when
  * linked + cached today, else default price) and how many servings can be
@@ -9,8 +9,6 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Coins } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { db, auth } from '@/lib/firebase';
 import { getDocs, collection } from 'firebase/firestore';
 import type { CostAwareMenuSuggestion, InventoryDoc } from '@/services/types';
@@ -88,8 +86,7 @@ function CostAwareResultTable({ result }: { result: CostAwareMenuSuggestion }) {
   );
 }
 
-export default function CostAwareMenuSuggestionPage() {
-  const navigate = useNavigate();
+export function CostAwareTab() {
   const [targetServingCount, setTargetServingCount] = useState(100);
   const [submitting, setSubmitting] = useState(false);
   const [latestResult, setLatestResult] = useState<CostAwareMenuSuggestion | null>(null);
@@ -161,19 +158,6 @@ export default function CostAwareMenuSuggestionPage() {
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-8">
       <Toaster />
-
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Coins size={22} className="text-primary" />
-          <div>
-            <h1 className="text-xl font-semibold">性價比菜單建議</h1>
-            <p className="text-sm text-muted-foreground">依成本與庫存人工參考用啟發式菜色排序建議</p>
-          </div>
-        </div>
-        <Button variant="outline" size="sm" onClick={() => navigate('/market-prices')}>
-          前往市場行情
-        </Button>
-      </div>
 
       {/* Form */}
       <section className="rounded-lg border bg-card p-5 shadow-sm space-y-3">

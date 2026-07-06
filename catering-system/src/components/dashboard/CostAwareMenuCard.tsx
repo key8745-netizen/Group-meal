@@ -83,7 +83,7 @@ export default function CostAwareMenuCard() {
             </ul>
           </>
         )}
-        <Link to="/cost-menu-suggestions" className="block text-xs font-medium text-primary hover:underline">
+        <Link to="/menu-suggestions?tab=cost" className="block text-xs font-medium text-primary hover:underline">
           查看性價比菜單建議 →
         </Link>
       </CardContent>

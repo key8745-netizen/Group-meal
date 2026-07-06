@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ClipboardCheck, Plus, Eye, EyeOff, BarChart2 } from 'lucide-react';
+import { ClipboardCheck, Plus, Eye, EyeOff, CalendarClock } from 'lucide-react';
 import { db, auth } from '@/lib/firebase';
 import type { ProductionWorkflowPlan, ProductionWorkflowTask } from '@/services/types';
 import {
@@ -143,9 +143,9 @@ export default function ProductionWorkflowPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => navigate('/capacity-feasibility')} className="gap-1.5">
-            <BarChart2 size={16} />
-            查看產能評估
+          <Button variant="outline" onClick={() => navigate('/production-schedules')} className="gap-1.5">
+            <CalendarClock size={16} />
+            查看生產排程
           </Button>
           <Button onClick={() => { setEditing({ mode: 'create' }); }} className="gap-1.5">
             <Plus size={14} /> 從備料規劃建立製程規劃

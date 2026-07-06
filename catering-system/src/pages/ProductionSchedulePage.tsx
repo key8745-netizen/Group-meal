@@ -88,6 +88,10 @@ export default function ProductionSchedulePage() {
         </div>
       </div>
 
+      <p className="text-xs text-muted-foreground">
+        產能評估已整併至生產排程——排程結果的「可完成／超時／無法排入」即為可行性判定。
+      </p>
+
       <p className="text-sm text-muted-foreground rounded-md border bg-muted/30 p-3">
         排程建議不會回寫製程規劃，僅供排班參考。
       </p>

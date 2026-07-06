@@ -20,6 +20,7 @@ import MenuImportPage from '@/pages/MenuImportPage';
 import MarketPricePage from '@/pages/MarketPricePage';
 import DailyOpsPage from '@/pages/DailyOpsPage';
 import Analytics from '@/pages/Analytics';
+import ShareOrderPage from '@/pages/share/ShareOrderPage';
 import Login from '@/pages/Login';
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -46,6 +47,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Public: purchase-order share links sent to suppliers */}
+        <Route path="share/:orderId" element={<ShareOrderPage />} />
+
         {/* Auth-protected */}
         <Route element={<AuthGuard><AppLayout /></AuthGuard>}>
           <Route index element={<Dashboard />} />

@@ -7,9 +7,12 @@ security rule, or service-layer changes.
 
 **Legacy pages (Part A, unused old menus/orders pipeline):**
 - `/orders` — `OrderEntry.tsx` (nav 訂單管理)
-- `/share/:orderId` — `share/ShareOrderPage.tsx` (public share page, read `purchaseOrders`)
 - `/menus` — `MenusPage.tsx` (nav 菜單管理; tabs 今日備料/每月計畫/菜色管理/匯入菜單/菜名比對審核)
 - `/plan` — `PlanPage.tsx` (nav 備料規劃)
+- `/share/:orderId` (`share/ShareOrderPage.tsx`) was initially removed with
+  訂單管理 but **restored in the follow-up fix commit**: it reads
+  `purchaseOrders` and is the target of the 分享 button in the kept
+  採購管理 page (and of share links already sent to suppliers).
 - Page-exclusive components removed with them: `components/menus/*` (4 files),
   `components/menuMatching/*` (5 files), `ProductionPlanner.tsx`,
   `PurchaseSuggestionCard.tsx`.
@@ -45,14 +48,14 @@ they guard data/API surface.
 |---|---|
 | `/menu-mix-recommendations` | `/menu-suggestions` |
 | `/cost-menu-suggestions` | `/menu-suggestions?tab=cost` |
-| `/orders`, `/share/:orderId`, `/menus`, `/plan`, `/capacity-feasibility` | removed, no redirect (owner-confirmed unused) |
+| `/orders`, `/menus`, `/plan`, `/capacity-feasibility` | removed, no redirect (owner-confirmed unused) |
+| `/share/:orderId` | kept (purchase-order share links) |
 
-## Known follow-up (not in scope, flagged for owner)
+## Follow-up fixes applied in the same PR
 
-- `PurchaseOrderList.tsx`'s "分享" button (inside kept `/purchase` page)
-  still builds a link to `/share/:orderId`, which no longer resolves.
-- `Dashboard.tsx` quick actions still `navigate('/orders')` / `navigate('/plan')`.
-  Both pages were explicitly out of scope ("keep untouched") for this feature.
+- `/share/:orderId` route + `ShareOrderPage.tsx` restored (see Part A note).
+- `Dashboard.tsx` dead-end navigations repointed: 今日訂單 KPI and 快捷操作
+  now go to `/daily-ops` (每日工作總覽) and `/prep-plans` (備料快照).
 
 ## Rollback
 

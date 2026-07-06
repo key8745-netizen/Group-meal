@@ -18,6 +18,7 @@ import {
   TrendingUp,
   Coins,
   CalendarClock,
+  ListChecks,
 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -39,6 +40,7 @@ const navGroups: { section: string; items: NavItem[] }[] = [
   {
     section: '日常作業',
     items: [
+      { to: '/daily-ops', label: '每日工作總覽', icon: ListChecks },
       { to: '/orders', label: '訂單管理', icon: ClipboardList },
       { to: '/menus', label: '菜單管理', icon: BookOpen },
       { to: '/plan', label: '備料規劃', icon: UtensilsCrossed },

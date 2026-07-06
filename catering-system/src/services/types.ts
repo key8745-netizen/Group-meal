@@ -856,3 +856,52 @@ export interface CostAwareMenuSuggestion {
   createdBy: string;
   // NO updatedAt / NO updatedBy — immutable record
 }
+
+// ── Feature 034: 人力與製作順序自動排程 (Production Schedule Suggestion) ─────
+
+export interface ScheduledTaskAssignment {
+  taskId: string;
+  taskName: string;
+  processType: ProcessType;
+  equipmentType: EquipmentType;
+  /** Minutes from schedule start (0 = work start). */
+  startOffsetMinutes: number;
+  endOffsetMinutes: number;
+  /** e.g. ["廚師#1"] — role + 1-based slot index; length === task.staffCount. */
+  assignedStaffSlots: string[];
+  /** e.g. "wok#2", null when equipmentType === 'none'. */
+  assignedEquipmentSlot: string | null;
+  dependsOnTaskIds: string[];
+  /** Per-task issues (e.g. role fallback used). */
+  warnings: string[];
+}
+
+export type ProductionScheduleStatus = 'fits' | 'overrun' | 'infeasible';
+
+/** Immutable create-only record stored at /productionScheduleSuggestions/{id}. */
+export interface ProductionScheduleSuggestion {
+  id: string;
+  sourceProductionWorkflowPlanId: string;
+  sourcePlanNameSnapshot: string;
+  targetServiceDateTime: Timestamp;
+  capacityWindowMinutes: number;
+  bufferMinutes: number;
+  availableStaff: AvailableStaffInput[];
+  availableEquipment: AvailableEquipmentInput[];
+  /** Sorted by startOffsetMinutes, then taskName. */
+  scheduledTasks: ScheduledTaskAssignment[];
+  /** End of last task (0 if nothing scheduled). */
+  makespanMinutes: number;
+  scheduleStatus: ProductionScheduleStatus;
+  unschedulableTaskIds: string[];
+  /** Per role: busyMinutes / (count * (window - buffer)), 2dp. */
+  staffUtilization: Record<string, number>;
+  /** Per equipment type actually used. */
+  equipmentUtilization: Record<string, number>;
+  /** ISO datetime = targetServiceDateTime - makespan - buffer (suggested latest start). */
+  workStartSuggestion: string;
+  manualReviewNotes: string[];
+  createdAt?: Timestamp;
+  createdBy: string;
+  // NO updatedAt / NO updatedBy — immutable record
+}

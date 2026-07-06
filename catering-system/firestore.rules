@@ -774,6 +774,46 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── productionScheduleSuggestions ────────────────────────────────────────
+    // 生產排程建議記錄：建立後不可修改/刪除（immutable）。
+    // 已登入可讀；建立需採購人員。人工參考用，不會回寫製程規劃。
+    function validProductionScheduleSuggestionCreate() {
+      let data = request.resource.data;
+      return data.keys().hasOnly([
+        'sourceProductionWorkflowPlanId', 'sourcePlanNameSnapshot',
+        'targetServiceDateTime', 'capacityWindowMinutes', 'bufferMinutes',
+        'availableStaff', 'availableEquipment',
+        'scheduledTasks', 'makespanMinutes', 'scheduleStatus',
+        'unschedulableTaskIds', 'staffUtilization', 'equipmentUtilization',
+        'workStartSuggestion', 'manualReviewNotes',
+        'createdAt', 'createdBy'
+      ])
+      && data.sourceProductionWorkflowPlanId is string
+      && data.sourceProductionWorkflowPlanId.size() > 0
+      && data.sourcePlanNameSnapshot is string
+      && data.targetServiceDateTime is timestamp
+      && data.capacityWindowMinutes is number && data.capacityWindowMinutes > 0
+      && data.bufferMinutes is number && data.bufferMinutes >= 0
+      && data.availableStaff is list
+      && data.availableEquipment is list
+      && data.scheduledTasks is list
+      && data.makespanMinutes is number && data.makespanMinutes >= 0
+      && data.scheduleStatus in ['fits', 'overrun', 'infeasible']
+      && data.unschedulableTaskIds is list
+      && data.staffUtilization is map
+      && data.equipmentUtilization is map
+      && data.workStartSuggestion is string
+      && data.manualReviewNotes is list
+      && data.createdBy == request.auth.uid;
+    }
+
+    match /productionScheduleSuggestions/{id} {
+      allow read: if isAuthenticated();
+      allow create: if isPurchasingStaff() && validProductionScheduleSuggestionCreate();
+      allow update: if false;
+      allow delete: if false;
+    }
+
     // ── 其他所有路徑：預設拒絕 ────────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

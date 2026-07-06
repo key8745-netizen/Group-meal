@@ -121,17 +121,29 @@ export function aggregateAmisRows(rows: AmisTransactionRow[]): AggregatedMarketP
 }
 
 /**
- * Calls the `market-price` Netlify function for the given date/crop names,
- * then caches the full snapshot at `/marketPrices/{date}` (merge-overwrite
- * of the whole doc). Returns the snapshot (its `fetchedAt` reflects the
- * server timestamp only once re-read from Firestore).
+ * Splits the crop name list into request-sized batches. The Netlify function
+ * caps one request at 30 crops, and each crop costs an upstream AMIS fetch —
+ * batches must stay well under the function's ~10s execution limit, so we
+ * send at most 10 crops per invocation.
  */
-export async function fetchAndCacheMarketPrices(
-  db: Firestore,
-  date: string,
-  cropNames: string[],
-  uid: string,
-): Promise<MarketPriceSnapshot> {
+export const FETCH_BATCH_SIZE = 10;
+
+export function chunkCropNames(cropNames: string[], size: number = FETCH_BATCH_SIZE): string[][] {
+  const chunks: string[][] = [];
+  for (let i = 0; i < cropNames.length; i += size) {
+    chunks.push(cropNames.slice(i, i + size));
+  }
+  return chunks;
+}
+
+interface MarketPriceFunctionResponse {
+  date: string;
+  rocDate: string;
+  prices: MarketPriceEntry[];
+  warnings?: string[];
+}
+
+async function fetchMarketPriceBatch(date: string, cropNames: string[]): Promise<MarketPriceFunctionResponse> {
   const res = await fetch('/.netlify/functions/market-price', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -146,19 +158,57 @@ export async function fetchAndCacheMarketPrices(
     throw new Error(message);
   }
 
-  let data: { date: string; rocDate: string; prices: MarketPriceEntry[]; warnings?: string[] };
   try {
-    data = await res.json();
+    return await res.json();
   } catch {
     throw new Error('市場行情查詢失敗：伺服器未回傳有效資料，請確認 Netlify function 已部署');
+  }
+}
+
+/**
+ * Calls the `market-price` Netlify function for the given date/crop names —
+ * in sequential batches of FETCH_BATCH_SIZE so large tracked-ingredient lists
+ * stay within the function's per-request crop cap and execution time limit —
+ * merges the results, then caches the full snapshot at `/marketPrices/{date}`
+ * (merge-overwrite of the whole doc). A failed batch degrades to warnings for
+ * its crops instead of failing the whole refresh; only total failure throws.
+ */
+export async function fetchAndCacheMarketPrices(
+  db: Firestore,
+  date: string,
+  cropNames: string[],
+  uid: string,
+): Promise<MarketPriceSnapshot> {
+  const batches = chunkCropNames(cropNames);
+  const entries: MarketPriceEntry[] = [];
+  const warnings: string[] = [];
+  let rocDate = '';
+  let anySucceeded = false;
+  let firstError: Error | null = null;
+
+  for (const batch of batches) {
+    try {
+      const data = await fetchMarketPriceBatch(date, batch);
+      anySucceeded = true;
+      rocDate = data.rocDate || rocDate;
+      entries.push(...data.prices);
+      warnings.push(...(data.warnings ?? []));
+    } catch (err) {
+      firstError = firstError ?? (err instanceof Error ? err : new Error(String(err)));
+      warnings.push(`批次查詢失敗（${batch.join('、')}）`);
+    }
+  }
+
+  if (!anySucceeded) {
+    throw firstError ?? new Error('市場行情查詢失敗');
   }
 
   const snapshot: MarketPriceSnapshot = {
     id: date,
-    date: data.date,
-    rocDate: data.rocDate,
-    entries: data.prices,
-    warnings: data.warnings ?? [],
+    date,
+    rocDate,
+    entries,
+    warnings,
     fetchedBy: uid,
   };
 

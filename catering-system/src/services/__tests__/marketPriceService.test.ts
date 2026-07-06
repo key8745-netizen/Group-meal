@@ -7,7 +7,7 @@
  */
 
 import {
-  toRocDate, pricePerKgFromDefault, aggregateAmisRows,
+  toRocDate, pricePerKgFromDefault, aggregateAmisRows, chunkCropNames, FETCH_BATCH_SIZE,
 } from '../marketPriceService';
 import type { IngredientMaster } from '../types';
 
@@ -188,6 +188,26 @@ check(
     })),
   ).sampleCropNames,
   ['作物0', '作物1', '作物2', '作物3', '作物4'],
+);
+
+console.log('\n── marketPriceService: chunkCropNames ─────────────────────────');
+
+check('empty list -> no chunks', chunkCropNames([]), []);
+check('list within one batch stays one chunk', chunkCropNames(['a', 'b', 'c']), [['a', 'b', 'c']]);
+check(
+  '62 crops split into batches of FETCH_BATCH_SIZE preserving order',
+  chunkCropNames(Array.from({ length: 62 }, (_, i) => `c${i}`)).map((c) => c.length),
+  [10, 10, 10, 10, 10, 10, 2],
+);
+check(
+  'exact multiple of batch size has no trailing empty chunk',
+  chunkCropNames(Array.from({ length: FETCH_BATCH_SIZE * 2 }, (_, i) => `c${i}`)).length,
+  2,
+);
+check(
+  'custom size respected and order preserved',
+  chunkCropNames(['a', 'b', 'c', 'd', 'e'], 2),
+  [['a', 'b'], ['c', 'd'], ['e']],
 );
 
 console.log(`\n${passed} passed, ${failed} failed\n`);

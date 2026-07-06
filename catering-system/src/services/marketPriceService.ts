@@ -140,15 +140,18 @@ export async function fetchAndCacheMarketPrices(
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(text || `市場行情查詢失敗（HTTP ${res.status}）`);
+    const message = text && !text.trim().startsWith('<')
+      ? text
+      : `市場行情查詢失敗（HTTP ${res.status}），請確認 Netlify function 已部署`;
+    throw new Error(message);
   }
 
-  const data = await res.json() as {
-    date: string;
-    rocDate: string;
-    prices: MarketPriceEntry[];
-    warnings?: string[];
-  };
+  let data: { date: string; rocDate: string; prices: MarketPriceEntry[]; warnings?: string[] };
+  try {
+    data = await res.json();
+  } catch {
+    throw new Error('市場行情查詢失敗：伺服器未回傳有效資料，請確認 Netlify function 已部署');
+  }
 
   const snapshot: MarketPriceSnapshot = {
     id: date,

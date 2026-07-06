@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Plus, Package, Eye, EyeOff } from 'lucide-react';
+import { Plus, Package, Eye, EyeOff, Upload } from 'lucide-react';
 import { db, auth } from '@/lib/firebase';
 import type { IngredientMaster } from '@/services/types';
 import {
@@ -22,6 +22,7 @@ import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
 import { IngredientMasterList } from '@/components/ingredients/IngredientMasterList';
 import { IngredientMasterForm } from '@/components/ingredients/IngredientMasterForm';
+import { SeedImportDialog } from '@/components/ingredients/SeedImportDialog';
 
 type EditingState =
   | { mode: 'create' }
@@ -49,6 +50,7 @@ export default function IngredientMasterPage() {
   const [editing, setEditing] = useState<EditingState>(null);
   const [search, setSearch] = useState('');
   const [showInactive, setShowInactive] = useState(false);
+  const [showSeedImport, setShowSeedImport] = useState(false);
 
   async function reload() {
     setLoading(true);
@@ -111,10 +113,27 @@ export default function IngredientMasterPage() {
             </p>
           </div>
         </div>
-        <Button onClick={() => setEditing({ mode: 'create' })} className="gap-1.5">
-          <Plus size={14} /> 新增食材
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowSeedImport(true)}
+            className="gap-1.5"
+          >
+            <Upload size={14} /> 匯入常用食材範本
+          </Button>
+          <Button onClick={() => setEditing({ mode: 'create' })} className="gap-1.5">
+            <Plus size={14} /> 新增食材
+          </Button>
+        </div>
       </div>
+
+      {showSeedImport && (
+        <SeedImportDialog
+          existingIngredients={ingredients}
+          onClose={() => setShowSeedImport(false)}
+          onImported={reload}
+        />
+      )}
 
       {editing?.mode === 'create' && (
         <div className="rounded-lg border bg-muted/20 p-4">

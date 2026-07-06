@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { ChefHat } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { db, auth } from '@/lib/firebase';
 import { getDocs, collection, query, where } from 'firebase/firestore';
@@ -12,13 +11,12 @@ import {
 } from '@/services/menuMixRecommendationService';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
-import { Button } from '@/components/ui/button';
 import { MenuMixRecommendationForm } from '@/components/menuMixRecommendation/MenuMixRecommendationForm';
 import { MenuMixRecommendationResult as ResultCard } from '@/components/menuMixRecommendation/MenuMixRecommendationResult';
 import { MenuMixRecommendationHistory } from '@/components/menuMixRecommendation/MenuMixRecommendationHistory';
 import { MenuDraftCreateDialog } from '@/components/menuDraft/MenuDraftCreateDialog';
 
-export default function MenuMixRecommendationPage() {
+export function MenuMixTab() {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [latestResult, setLatestResult] = useState<MenuMixRecommendationResult | null>(null);
@@ -73,19 +71,6 @@ export default function MenuMixRecommendationPage() {
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-8">
       <Toaster />
-
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <ChefHat size={22} className="text-primary" />
-          <div>
-            <h1 className="text-xl font-semibold">菜單組合建議</h1>
-            <p className="text-sm text-muted-foreground">人工參考用啟發式菜單組合配比建議</p>
-          </div>
-        </div>
-        <Button variant="outline" size="sm" onClick={() => navigate('/menu-drafts')}>
-          查看草稿菜單
-        </Button>
-      </div>
 
       {/* Form */}
       <section className="rounded-lg border bg-card p-5 shadow-sm">

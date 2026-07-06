@@ -19,6 +19,8 @@ import {
   pricePerKgFromDefault,
   todayLocalIsoDate,
 } from '@/services/marketPriceService';
+import { buildCropTrends, listRecentMarketPriceSnapshots, type CropTrend } from '@/services/marketPriceTrendService';
+import { CropTrendCard } from '@/components/marketPrices/CropTrendCard';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -46,6 +48,9 @@ export default function MarketPricePage() {
   const [autoRefreshing, setAutoRefreshing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [trendSnapshots, setTrendSnapshots] = useState<MarketPriceSnapshot[]>([]);
+  const [trendLoading, setTrendLoading] = useState(true);
+  const [trendError, setTrendError] = useState(false);
 
   const date = todayLocalIsoDate();
 
@@ -75,8 +80,27 @@ export default function MarketPricePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setTrendLoading(true);
+      setTrendError(false);
+      try {
+        const snaps = await listRecentMarketPriceSnapshots(db, 30);
+        if (!cancelled) setTrendSnapshots(snaps);
+      } catch {
+        if (!cancelled) setTrendError(true);
+      } finally {
+        if (!cancelled) setTrendLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const trackedIngredients = ingredients.filter((i) => i.marketCropName && i.marketCropName.trim());
   const cropNames = Array.from(new Set(trackedIngredients.map((i) => i.marketCropName as string)));
+  const cropTrends: CropTrend[] = buildCropTrends(trendSnapshots, cropNames);
+  const totalTrendDays = new Set(trendSnapshots.map((s) => s.date)).size;
 
   async function handleRefresh() {
     if (cropNames.length === 0) return;
@@ -203,6 +227,32 @@ export default function MarketPricePage() {
 
       {!snapshot && trackedIngredients.length > 0 && !loading && (
         <p className="text-xs text-muted-foreground">尚無今日行情快取，請點選「更新市價」查詢。</p>
+      )}
+
+      {trackedIngredients.length > 0 && (
+        <div className="flex flex-col gap-3 pt-2">
+          <h2 className="text-lg font-semibold tracking-tight">市價趨勢（近 30 天）</h2>
+
+          {trendError && (
+            <p className="text-xs text-muted-foreground">載入趨勢失敗</p>
+          )}
+
+          {trendLoading ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-48 w-full rounded-lg" />)}
+            </div>
+          ) : !trendError && totalTrendDays < 2 ? (
+            <p className="text-xs text-muted-foreground">
+              趨勢需要累積多日市價快取（每日開啟市場行情頁即會自動累積）。
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {cropTrends.map((trend) => (
+                <CropTrendCard key={trend.cropName} trend={trend} />
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       <Toaster />

@@ -277,17 +277,33 @@ Features 032–036 shipped in PR #61 (merged 2026-07-06, merge commit `8c0ec57`)
 
 Verification gate: `npm run typecheck` clean; hand-rolled tsx test suites pass (marketPriceService 19, marketPriceAutoRefresh 8, marketPriceTrendService 26, costAwareMenuSuggestionService 40, productionScheduleService 35, workflowTaskDraftService 38, dailyOpsService 32 — 198 total).
 
+Features 037–038 shipped in PR #62 (merged 2026-07-06, merge commit `498ed6d`).
+
+* Feature 039: 介面整併與舊管線退役 UI Consolidation & Legacy Retirement — MERGED (PR #63, merge commit `942bb58`)
+  - Removed unused legacy pages (owner-approved): 訂單管理 `/orders`, 菜單管理 `/menus`, 備料規劃 `/plan`, 產能評估 `/capacity-feasibility` (superseded by 生產排程); all Firestore data/rules/services untouched
+  - Merged 菜單組合建議 + 性價比菜單建議 into tabbed `/menu-suggestions` (nav 菜單建議) with redirects from old routes
+  - `/share/:orderId` restored in follow-up fix (it serves purchaseOrders share links from the kept 採購管理 page); Dashboard dead links repointed to `/daily-ops` / `/prep-plans`
+  - Doc: `docs/FEATURE_039_UI_CONSOLIDATION.md`
+
+* Feature 040: 週間規劃與多日彙總採購 Week Planning + Multi-Day Purchase Aggregation — IMPLEMENTED / PENDING VERIFICATION
+  - New `weekPlanService.ts` (pure week math, dailyOps-consistent linking, range demand aggregation priced via `resolveIngredientPrice`, CSV export reusing Feature 016 helpers)
+  - New route `/week-plan`, nav `週間規劃` (日常作業); day cells deep-link to `/daily-ops?date=...` (DailyOpsPage now reads the date query param)
+  - 100% read-only; no new collections, no rules changes, no draft creation from aggregation
+  - Doc: `docs/FEATURE_040_WEEK_PLAN.md`
+
+Verification gate: typecheck clean; 8 test suites 249/249 (adds weekPlanService 51).
+
 ---
 
 ## Current Feature
 
-Features 032–036 merged (PR #61); Features 037–038 implemented on the dev branch, pending ibi production verification. Feature 027 (Import Batch Management & Duplicate Protection 匯入批次管理與重複匯入防護) remains HOLD pending Spec Planning authorization.
+Features 032–039 merged (PRs #61–#63); Feature 040 implemented on the dev branch, pending ibi production verification. Feature 027 (Import Batch Management & Duplicate Protection 匯入批次管理與重複匯入防護) remains HOLD pending Spec Planning authorization.
 
 ---
 
 ## Current Phase
 
-Features 032–036: MERGED / DEPLOYED (PR #61). Features 037–038: IMPLEMENTED / AWAITING DEPLOY + RUNTIME VERIFICATION by ibi.
+Features 032–039: MERGED / DEPLOYED (PRs #61–#63). Feature 040: IMPLEMENTED / AWAITING DEPLOY + RUNTIME VERIFICATION by ibi.
 
 ---
 

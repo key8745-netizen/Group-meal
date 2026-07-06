@@ -261,19 +261,33 @@ Group-meal 團膳管理系統
   - Pure client-side generation: no new collections, no rules changes, no service write-path changes, no auto-save
   - Doc: `docs/FEATURE_036_WORKFLOW_TASK_AUTO_DRAFT.md`
 
-Verification gate for all five: `npm run typecheck` clean; hand-rolled tsx test suites pass (marketPriceService 19, marketPriceAutoRefresh 8, costAwareMenuSuggestionService 40, productionScheduleService 35, workflowTaskDraftService 38 — 140 total).
+Features 032–036 shipped in PR #61 (merged 2026-07-06, merge commit `8c0ec57`); AMIS market price integration runtime-verified by ibi on the deploy preview (市價已更新 with live prices). PR #61 also carried two deploy fixes: Netlify functions relocated to `catering-system/netlify/functions/` (base-relative resolution) and function deps moved to `catering-system/package.json`.
+
+* Feature 037: 市價趨勢與採購時機建議 Market Price Trends + Buy Signal — IMPLEMENTED / PENDING VERIFICATION
+  - New `marketPriceTrendService.ts`: pure `buildCropTrends` over accumulated `/marketPrices/*` daily snapshots — 30-day series, 7-day average, period min/max, change %, buy signal (≤−10% goodBuy / ≥+10% wait)
+  - 市場行情 page gains a 市價趨勢（近 30 天）section with per-crop recharts line cards; independent load, never blocks the price table
+  - No new collections, no rules changes
+  - Doc: `docs/FEATURE_037_MARKET_PRICE_TRENDS.md`
+
+* Feature 038: 每日工作總覽 Daily Ops Cockpit — IMPLEMENTED / PENDING VERIFICATION
+  - New `dailyOpsService.ts`: pure `buildDailyOpsOverview` + read-only loader — per-date status of the 6-step chain 菜單 → 備料快照 → 採購需求草稿 → 製程規劃 → 排程建議 → 市場行情 with done/partial/missing/na semantics and next-action hints
+  - New route `/daily-ops`, nav label `每日工作總覽` (first item of 日常作業)
+  - 100% read-only aggregation; no writes, no new collections, no rules changes; schedule-suggestion reads bounded to 5 plans
+  - Doc: `docs/FEATURE_038_DAILY_OPS_COCKPIT.md`
+
+Verification gate: `npm run typecheck` clean; hand-rolled tsx test suites pass (marketPriceService 19, marketPriceAutoRefresh 8, marketPriceTrendService 26, costAwareMenuSuggestionService 40, productionScheduleService 35, workflowTaskDraftService 38, dailyOpsService 32 — 198 total).
 
 ---
 
 ## Current Feature
 
-Features 032–036 implemented on the dev branch (PR #61), pending ibi production verification. Feature 027 (Import Batch Management & Duplicate Protection 匯入批次管理與重複匯入防護) remains HOLD pending Spec Planning authorization.
+Features 032–036 merged (PR #61); Features 037–038 implemented on the dev branch, pending ibi production verification. Feature 027 (Import Batch Management & Duplicate Protection 匯入批次管理與重複匯入防護) remains HOLD pending Spec Planning authorization.
 
 ---
 
 ## Current Phase
 
-Features 032–036: IMPLEMENTED / AWAITING DEPLOY + RUNTIME VERIFICATION by ibi.
+Features 032–036: MERGED / DEPLOYED (PR #61). Features 037–038: IMPLEMENTED / AWAITING DEPLOY + RUNTIME VERIFICATION by ibi.
 
 ---
 

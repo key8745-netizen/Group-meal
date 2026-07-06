@@ -14,9 +14,10 @@ import { db, auth } from '@/lib/firebase';
 import type { IngredientMaster, MarketPriceSnapshot } from '@/services/types';
 import { listIngredients } from '@/services/ingredientMasterService';
 import {
+  ensureTodayMarketPrices,
   fetchAndCacheMarketPrices,
-  getMarketPriceSnapshot,
   pricePerKgFromDefault,
+  todayLocalIsoDate,
 } from '@/services/marketPriceService';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -25,10 +26,6 @@ import {
 } from '@/components/ui/table';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
-
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function diffPercent(marketPrice: number, basePrice: number): number | null {
   if (!(basePrice > 0)) return null;
@@ -46,21 +43,26 @@ export default function MarketPricePage() {
   const [ingredients, setIngredients] = useState<IngredientMaster[]>([]);
   const [snapshot, setSnapshot] = useState<MarketPriceSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
+  const [autoRefreshing, setAutoRefreshing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const date = today();
+  const date = todayLocalIsoDate();
 
   async function load() {
     setLoading(true);
     setError(null);
     try {
-      const [ingredientList, cached] = await Promise.all([
-        listIngredients(db),
-        getMarketPriceSnapshot(db, date),
-      ]);
+      const ingredientList = await listIngredients(db);
       setIngredients(ingredientList);
-      setSnapshot(cached);
+      setAutoRefreshing(true);
+      try {
+        const uid = auth.currentUser?.uid ?? '';
+        const snap = await ensureTodayMarketPrices(db, ingredientList, uid);
+        setSnapshot(snap);
+      } finally {
+        setAutoRefreshing(false);
+      }
     } catch {
       toast({ variant: 'destructive', title: '無法載入市場行情資料' });
     } finally {
@@ -136,6 +138,9 @@ export default function MarketPricePage() {
 
       {loading ? (
         <div className="space-y-3">
+          {autoRefreshing && (
+            <p className="text-xs text-muted-foreground">自動更新今日市價中…</p>
+          )}
           {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-lg" />)}
         </div>
       ) : trackedIngredients.length === 0 ? (

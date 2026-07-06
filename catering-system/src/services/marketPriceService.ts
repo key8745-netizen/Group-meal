@@ -177,3 +177,68 @@ export async function getMarketPriceSnapshot(db: Firestore, date: string): Promi
   if (!snap.exists()) return null;
   return { id: snap.id, ...snap.data() } as MarketPriceSnapshot;
 }
+
+/**
+ * Local (browser-timezone) ISO date "YYYY-MM-DD" for "today". Used to key
+ * the daily `/marketPrices/{date}` cache consistently between manual
+ * refresh (Feature 032) and the Feature 035 auto-refresh helpers below.
+ */
+export function todayLocalIsoDate(date: Date = new Date()): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Feature 035: 每日市價自動更新 — pure staleness check.
+ *
+ * Returns true when there is something worth fetching (`cropNames` non-empty)
+ * AND the cached snapshot doesn't already cover every requested crop name
+ * (compared as sets — extra entries already cached for other crops are
+ * fine). A null snapshot is always stale when there is at least one crop to
+ * track.
+ */
+export function shouldRefreshSnapshot(snapshot: MarketPriceSnapshot | null, cropNames: string[]): boolean {
+  if (cropNames.length === 0) return false;
+  if (!snapshot) return true;
+  const covered = new Set(snapshot.entries.map((e) => e.cropName));
+  return cropNames.some((name) => !covered.has(name));
+}
+
+/**
+ * Feature 035: ensures today's market price snapshot is cached and covers
+ * every ingredient's `marketCropName`, fetching only when necessary
+ * (`shouldRefreshSnapshot`). Best-effort: never throws — on any read/fetch
+ * failure it falls back to whatever snapshot (possibly null) was already
+ * available, so callers can render partial/stale data instead of breaking.
+ */
+export async function ensureTodayMarketPrices(
+  db: Firestore,
+  ingredients: IngredientMaster[],
+  uid: string,
+): Promise<MarketPriceSnapshot | null> {
+  const date = todayLocalIsoDate();
+  const cropNames = Array.from(new Set(
+    ingredients
+      .map((i) => i.marketCropName)
+      .filter((name): name is string => typeof name === 'string' && name.trim().length > 0),
+  ));
+
+  let existing: MarketPriceSnapshot | null = null;
+  try {
+    existing = await getMarketPriceSnapshot(db, date);
+  } catch {
+    existing = null;
+  }
+
+  if (!shouldRefreshSnapshot(existing, cropNames)) {
+    return existing;
+  }
+
+  try {
+    return await fetchAndCacheMarketPrices(db, date, cropNames, uid);
+  } catch {
+    return existing;
+  }
+}

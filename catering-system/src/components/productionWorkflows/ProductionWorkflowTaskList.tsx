@@ -1,8 +1,13 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Sparkles } from 'lucide-react';
+import { db } from '@/lib/firebase';
+import { getPrepPlan } from '@/services/prepPlanService';
+import { listIngredients } from '@/services/ingredientMasterService';
+import { generateTaskDraftsFromPrepPlan } from '@/services/workflowTaskDraftService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { toast } from '@/hooks/use-toast';
 import type {
   ProductionWorkflowTask,
   ProcessType,
@@ -58,10 +63,12 @@ function emptyNewTask(): Omit<ProductionWorkflowTask, 'id'> {
 
 export function ProductionWorkflowTaskList({
   tasks,
+  sourcePrepPlanId,
   onSaveTasks,
   saving,
 }: {
   tasks: ProductionWorkflowTask[];
+  sourcePrepPlanId: string;
   onSaveTasks: (tasks: ProductionWorkflowTask[]) => Promise<void>;
   saving?: boolean;
 }) {
@@ -71,6 +78,9 @@ export function ProductionWorkflowTaskList({
   const [addingTask, setAddingTask] = useState(false);
   const [newTask, setNewTask] = useState<Omit<ProductionWorkflowTask, 'id'>>(emptyNewTask());
   const [pendingTasks, setPendingTasks] = useState<ProductionWorkflowTask[]>(tasks);
+  const [generatingDraft, setGeneratingDraft] = useState(false);
+  const [draftNotes, setDraftNotes] = useState<string[] | null>(null);
+  const [draftTaskIds, setDraftTaskIds] = useState<Set<string>>(new Set());
 
   const visible = pendingTasks
     .filter((t) => showArchived || t.taskStatus === 'active')
@@ -97,6 +107,49 @@ export function ProductionWorkflowTaskList({
     await onSaveTasks(updated);
     setNewTask(emptyNewTask());
     setAddingTask(false);
+  }
+
+  async function handleGenerateDrafts() {
+    const activeCount = pendingTasks.filter((t) => t.taskStatus === 'active').length;
+    if (activeCount > 0) {
+      const proceed = window.confirm(
+        `此規劃已有 ${activeCount} 項進行中的任務，是否仍要附加自動產生的任務草稿？`,
+      );
+      if (!proceed) return;
+    }
+    setGeneratingDraft(true);
+    try {
+      const prepPlan = await getPrepPlan(db, sourcePrepPlanId);
+      if (!prepPlan || prepPlan.isActive === false) {
+        toast({ variant: 'destructive', title: '來源備料快照不存在或已停用，無法產生任務草稿' });
+        return;
+      }
+      const ingredients = await listIngredients(db, { includeInactive: true });
+      const result = generateTaskDraftsFromPrepPlan(prepPlan, ingredients, pendingTasks.map((t) => t.id));
+      if (result.tasks.length === 0) {
+        toast({ title: '沒有可產生的任務', description: '來源備料快照沒有食材項目。' });
+        return;
+      }
+      setPendingTasks((prev) => [...prev, ...result.tasks]);
+      setDraftTaskIds(new Set(result.tasks.map((t) => t.id)));
+      setDraftNotes(result.generationNotes);
+    } catch (err) {
+      toast({ variant: 'destructive', title: '產生任務草稿失敗', description: err instanceof Error ? err.message : undefined });
+    } finally {
+      setGeneratingDraft(false);
+    }
+  }
+
+  async function handleSaveDrafts() {
+    await onSaveTasks(pendingTasks);
+    setDraftTaskIds(new Set());
+    setDraftNotes(null);
+  }
+
+  function handleDiscardDrafts() {
+    setPendingTasks((prev) => prev.filter((t) => !draftTaskIds.has(t.id)));
+    setDraftTaskIds(new Set());
+    setDraftNotes(null);
   }
 
   return (
@@ -127,14 +180,40 @@ export function ProductionWorkflowTaskList({
           {showArchived ? '隱藏已封存任務' : '顯示已封存任務'}
         </Button>
         <Button
+          variant="outline"
           size="sm"
           className="gap-1 text-xs ml-auto"
+          onClick={handleGenerateDrafts}
+          disabled={generatingDraft}
+        >
+          <Sparkles size={12} /> {generatingDraft ? '產生中…' : '自動產生任務草稿'}
+        </Button>
+        <Button
+          size="sm"
+          className="gap-1 text-xs"
           onClick={() => setAddingTask(true)}
           disabled={addingTask}
         >
           <Plus size={12} /> 新增任務
         </Button>
       </div>
+
+      {draftNotes && (
+        <div className="rounded-lg border bg-muted/20 p-4 flex flex-col gap-2">
+          <p className="text-sm font-medium">自動產生任務草稿結果（尚未儲存）</p>
+          <ul className="list-disc pl-5 text-xs text-muted-foreground">
+            {draftNotes.map((note, i) => <li key={i}>{note}</li>)}
+          </ul>
+          <div className="mt-1 flex gap-2">
+            <Button size="sm" onClick={handleSaveDrafts} disabled={saving}>
+              {saving ? '儲存中…' : '儲存草稿任務'}
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleDiscardDrafts} disabled={saving}>
+              捨棄草稿
+            </Button>
+          </div>
+        </div>
+      )}
 
       {addingTask && (
         <div className="rounded-lg border bg-muted/20 p-4">
@@ -318,7 +397,12 @@ export function ProductionWorkflowTaskList({
               {visible.map((task) => (
                 <tr key={task.id} className="border-b last:border-0">
                   <td className="px-3 py-2 tabular-nums text-xs">{task.sequence}</td>
-                  <td className="px-3 py-2 font-medium text-xs">{task.taskName}</td>
+                  <td className="px-3 py-2 font-medium text-xs">
+                    {task.taskName}
+                    {draftTaskIds.has(task.id) && (
+                      <Badge variant="outline" className="ml-1.5 text-[10px]">未儲存草稿</Badge>
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-xs">{PROCESS_TYPE_LABELS[task.processType]}</td>
                   <td className="px-3 py-2 text-xs">{task.cutType ? CUT_TYPE_LABELS[task.cutType] : '—'}</td>
                   <td className="px-3 py-2 text-xs">{task.cookingMethod ? COOKING_METHOD_LABELS[task.cookingMethod] : '—'}</td>

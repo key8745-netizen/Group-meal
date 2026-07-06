@@ -293,17 +293,28 @@ Features 037–038 shipped in PR #62 (merged 2026-07-06, merge commit `498ed6d`)
 
 Verification gate: typecheck clean; 8 test suites 249/249 (adds weekPlanService 51).
 
+Feature 040 shipped in PR #64 (merged 2026-07-06, merge commit `e9aeb48`).
+
+* Feature 041: 常用食材一鍵建檔 One-Click Common Ingredient Seeding — IMPLEMENTED / PENDING VERIFICATION
+  - Curated in-repo template dataset `src/constants/ingredientSeedTemplates.ts`: 77 common 團膳 ingredients, 62 with AMIS `marketCropName` mappings (per AMIS naming conventions: 甘藍/青江白菜/蕹菜/甘藷葉/花胡瓜/敏豆/芫荽/青花苔…), rough NT$/kg baselines for adjustment
+  - `ingredientSeedService.ts`: pure `planSeedImport` (dedupe vs existing via shared `normalizeIngredientName`, within-template dedupe) + `runSeedImport` (sequential `createIngredient` writes, per-item failure capture, progress callback) — no batch writes, no rules changes
+  - 食材主檔 gains 匯入常用食材範本 button with category-grouped preview, progress, and result summary; never overwrites existing ingredients
+  - AMIS mapping correctness is verified live via 市場行情 → 更新市價 (no-data items indicate a name to adjust per-ingredient)
+  - Doc: `docs/FEATURE_041_INGREDIENT_SEED.md`
+
+Verification gate: typecheck clean; 9 test suites 269/269 (adds ingredientSeedService 20).
+
 ---
 
 ## Current Feature
 
-Features 032–039 merged (PRs #61–#63); Feature 040 implemented on the dev branch, pending ibi production verification. Feature 027 (Import Batch Management & Duplicate Protection 匯入批次管理與重複匯入防護) remains HOLD pending Spec Planning authorization.
+Features 032–040 merged (PRs #61–#64); Feature 041 implemented on the dev branch, pending ibi production verification. Feature 027 (Import Batch Management & Duplicate Protection 匯入批次管理與重複匯入防護) remains HOLD pending Spec Planning authorization.
 
 ---
 
 ## Current Phase
 
-Features 032–039: MERGED / DEPLOYED (PRs #61–#63). Feature 040: IMPLEMENTED / AWAITING DEPLOY + RUNTIME VERIFICATION by ibi.
+Features 032–040: MERGED / DEPLOYED (PRs #61–#64). Feature 041: IMPLEMENTED / AWAITING DEPLOY + RUNTIME VERIFICATION by ibi.
 
 ---
 

@@ -24,6 +24,7 @@ const EMPTY_FORM: IngredientMasterFormValues = {
   defaultPriceUnit: '',
   supplierId: null,
   notes: '',
+  marketCropName: '',
 };
 
 export function validateIngredientMasterForm(
@@ -149,6 +150,15 @@ export function IngredientMasterForm({
             value={form.supplierId ?? ''}
             onChange={(e) => setForm((f) => ({ ...f, supplierId: e.target.value || null }))}
             placeholder="選填"
+          />
+        </div>
+
+        <div className="col-span-2 flex flex-col gap-1">
+          <label className="text-xs font-medium">市場作物名稱（AMIS 行情對應，選填）</label>
+          <Input
+            value={form.marketCropName ?? ''}
+            onChange={(e) => setForm((f) => ({ ...f, marketCropName: e.target.value || null }))}
+            placeholder="例：甘藍"
           />
         </div>
 

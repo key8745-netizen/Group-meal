@@ -39,6 +39,7 @@ function toFormValues(ingredient: IngredientMaster): IngredientMasterInput {
     defaultPriceUnit: ingredient.defaultPriceUnit,
     supplierId: ingredient.supplierId ?? null,
     notes: ingredient.notes ?? '',
+    marketCropName: ingredient.marketCropName ?? '',
   };
 }
 

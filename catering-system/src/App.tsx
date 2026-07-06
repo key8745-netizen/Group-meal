@@ -17,9 +17,12 @@ import PrepPlanPage from '@/pages/PrepPlanPage';
 import PurchaseDemandDraftPage from '@/pages/PurchaseDemandDraftPage';
 import ProductionWorkflowPage from '@/pages/ProductionWorkflowPage';
 import CapacityFeasibilityPage from '@/pages/CapacityFeasibilityPage';
+import ProductionSchedulePage from '@/pages/ProductionSchedulePage';
 import MenuMixRecommendationPage from '@/pages/MenuMixRecommendationPage';
+import CostAwareMenuSuggestionPage from '@/pages/CostAwareMenuSuggestionPage';
 import MenuDraftsPage from '@/pages/MenuDraftsPage';
 import MenuImportPage from '@/pages/MenuImportPage';
+import MarketPricePage from '@/pages/MarketPricePage';
 import Analytics from '@/pages/Analytics';
 import Login from '@/pages/Login';
 import ShareOrderPage from '@/pages/share/ShareOrderPage';
@@ -67,9 +70,12 @@ export default function App() {
           <Route path="purchase-demand-drafts" element={<PurchaseDemandDraftPage />} />
           <Route path="production-workflows" element={<ProductionWorkflowPage />} />
           <Route path="capacity-feasibility" element={<CapacityFeasibilityPage />} />
+          <Route path="production-schedules" element={<ProductionSchedulePage />} />
           <Route path="menu-mix-recommendations" element={<MenuMixRecommendationPage />} />
+          <Route path="cost-menu-suggestions" element={<CostAwareMenuSuggestionPage />} />
           <Route path="menu-drafts" element={<MenuDraftsPage />} />
           <Route path="menu-import" element={<MenuImportPage />} />
+          <Route path="market-prices" element={<MarketPricePage />} />
           <Route path="analytics" element={<Analytics />} />
         </Route>
       </Routes>

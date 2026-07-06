@@ -5,7 +5,7 @@ import {
   ClipboardList, Package, ShoppingCart, TrendingDown, UtensilsCrossed, FileEdit,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import type { Ingredient, InventoryDoc } from '@/services/types';
+import type { Ingredient, IngredientMaster, InventoryDoc } from '@/services/types';
 import { UnitConverter } from '@/services/unitConverter';
 import { generatePurchaseSuggestion } from '@/services/purchaseService';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,6 +16,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import MarketPriceCard from '@/components/dashboard/MarketPriceCard';
+import CostAwareMenuCard from '@/components/dashboard/CostAwareMenuCard';
+import ProductionScheduleCard from '@/components/dashboard/ProductionScheduleCard';
 
 interface LowStockItem {
   ingredientId: string;
@@ -36,6 +39,7 @@ export default function Dashboard() {
   const [draftOrderCount,  setDraftOrderCount]  = useState(0);
   const [lowStockItems,    setLowStockItems]    = useState<LowStockItem[]>([]);
   const [purchaseEstimate, setPurchaseEstimate] = useState<number | null>(null);
+  const [ingredientMasters, setIngredientMasters] = useState<IngredientMaster[]>([]);
 
   useEffect(() => {
     async function load() {
@@ -70,6 +74,13 @@ export default function Dashboard() {
         ingredientSnap.docs.forEach(doc => {
           ingredientMap.set(doc.id, { id: doc.id, ...doc.data() } as Ingredient);
         });
+
+        // Feature 035: same docs, reused as IngredientMaster (additive fields
+        // on the same `ingredients/{id}` doc — see marketPriceService) for
+        // the 今日市場行情 dashboard card, avoiding a duplicate query.
+        setIngredientMasters(
+          ingredientSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as IngredientMaster)),
+        );
 
         const lowItems: LowStockItem[] = [];
         inventorySnap.docs.forEach(doc => {
@@ -174,6 +185,16 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         ))}
+      </div>
+
+      {/* Feature 035: Intelligence cards — market prices, cost-aware menu, production schedule */}
+      <div className="space-y-3">
+        <h2 className="text-sm font-semibold">智慧卡片</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <MarketPriceCard ingredients={ingredientMasters} ready={!loading} />
+          <CostAwareMenuCard />
+          <ProductionScheduleCard />
+        </div>
       </div>
 
       {/* Body: Alerts + Quick Actions */}

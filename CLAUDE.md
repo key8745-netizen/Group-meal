@@ -17,12 +17,19 @@ Group-meal/
 │   │   ├── utils/            # Standalone utilities
 │   │   ├── constants/        # Static seed data
 │   │   └── hooks/            # use-toast
+│   ├── netlify/
+│   │   └── functions/        # Netlify serverless functions (see below)
 │   └── scripts/              # One-off Node scripts (run with tsx)
-├── netlify/
-│   └── functions/
-│       └── ocr-menu.ts       # Gemini Vision serverless function
 └── netlify.toml              # Build: base=catering-system, functions=netlify/functions
 ```
+
+**Important:** `netlify.toml` sets `base = "catering-system"`, which makes
+`functions.directory` resolve **relative to that base**, not the repo root.
+The functions directory therefore lives at `catering-system/netlify/functions/`
+(not a top-level `netlify/` folder) — this was fixed after a real deploy
+failure where a repo-root `netlify/functions/` silently deployed zero
+functions. Function runtime dependencies (e.g. `@google/generative-ai`)
+belong in `catering-system/package.json`, not the repo-root one.
 
 ## Commands
 
@@ -137,13 +144,21 @@ requiredKg = (qtyPerServingKg × headCount) × (1 + wasteFactor)
 | `/purchase` | Protected | `PurchasePage` (tabs: 採購建議 / 手動建單 / 採購單管理) |
 | `/analytics` | Protected | `Analytics` |
 
-## Netlify Function
+## Netlify Functions
 
-`netlify/functions/ocr-menu.ts` — proxies photo uploads to Gemini Vision (`gemini-2.0-flash`).
-- Dependencies in `/` (repo root) `package.json` — `@google/generative-ai` + `@netlify/functions`
-- Build: esbuild (configured in `netlify.toml`)
+Located at `catering-system/netlify/functions/` (see Repository Layout note above on why this isn't a repo-root `netlify/` folder).
+
+`ocr-menu.ts` — proxies photo uploads to Gemini Vision (`gemini-2.0-flash`).
 - Input: `POST { imageBase64: string }` (browser pre-compresses to ≤ 1200px JPEG)
 - Output: `{ rows: [{ date, headCount, dishes[] }] }`
+
+`market-price.ts` — proxies Taiwan MOA AMIS wholesale produce price open data.
+- Input: `POST { date: "YYYY-MM-DD", cropNames: string[] }`
+- Output: `{ date, rocDate, prices: [...], warnings: [...] }`
+
+Both:
+- Dependencies in `catering-system/package.json` — `@google/generative-ai` (runtime, ocr-menu) + `@netlify/functions` (types only, devDependency)
+- Build: esbuild (configured in `netlify.toml`)
 
 ## Git Branches
 

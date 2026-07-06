@@ -24,7 +24,8 @@ service cloud.firestore {
         && data.baseUnit in ['g', 'ml', 'pcs']
         && data.conversionFactorToBaseUnit is number && data.conversionFactorToBaseUnit > 0
         && data.isActive is bool
-        && (!('supplierId' in data) || data.supplierId == null || data.supplierId is string);
+        && (!('supplierId' in data) || data.supplierId == null || data.supplierId is string)
+        && (!('marketCropName' in data) || data.marketCropName == null || data.marketCropName is string);
     }
 
     // 允許寫入的完整欄位白名單：包含 Feature 010 新欄位，以及既有功能
@@ -37,6 +38,7 @@ service cloud.firestore {
         'baseUnit', 'purchaseUnit', 'conversionFactorToBaseUnit',
         'defaultPrice', 'defaultPriceUnit', 'supplierId',
         'isActive', 'notes', 'wasteFactor', 'isOcr', 'verified',
+        'marketCropName',
         'createdAt', 'updatedAt', 'createdBy', 'updatedBy',
       ];
     }
@@ -712,6 +714,103 @@ service cloud.firestore {
         && request.resource.data.columnMappings is map
         && request.resource.data.updatedAt is timestamp
         && request.resource.data.updatedBy == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // ── Feature 032: 果菜市場市價整合 (marketPrices) ────────────────────────
+    // 共用每日行情快取，doc ID = ISO 日期 "YYYY-MM-DD"。任何已登入員工皆可
+    // 觸發重新整理（非個人資料，是全店共用的快取，故不限採購人員角色）。
+    // 不可刪除；不可修改 date/rocDate（快取鍵值意義的欄位）。
+    function validMarketPriceCommon(data) {
+      return data.keys().hasOnly(['date', 'rocDate', 'entries', 'warnings', 'fetchedAt', 'fetchedBy'])
+        && data.date is string && data.date.size() > 0
+        && data.rocDate is string && data.rocDate.size() > 0
+        && data.entries is list
+        && data.warnings is list
+        && data.fetchedAt is timestamp
+        && data.fetchedBy is string;
+    }
+
+    function validMarketPriceCreate() {
+      return validMarketPriceCommon(request.resource.data)
+        && request.resource.data.fetchedBy == request.auth.uid;
+    }
+
+    function validMarketPriceUpdate() {
+      return validMarketPriceCommon(request.resource.data)
+        && request.resource.data.date == resource.data.date
+        && request.resource.data.fetchedBy == request.auth.uid;
+    }
+
+    match /marketPrices/{date} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && validMarketPriceCreate();
+      allow update: if isAuthenticated() && validMarketPriceUpdate();
+      allow delete: if false;
+    }
+
+    // ── costAwareMenuSuggestions ─────────────────────────────────────────────
+    // 性價比菜單建議記錄：建立後不可修改/刪除（immutable）。
+    // 已登入可讀；建立需採購人員。人工參考用，不會自動建立菜單或採購。
+    function validCostAwareMenuSuggestionCreate() {
+      let data = request.resource.data;
+      return data.keys().hasOnly([
+        'targetServingCount', 'priceSnapshotDate', 'assessedRecipeCount',
+        'items', 'manualReviewNotes',
+        'createdAt', 'createdBy'
+      ])
+      && data.targetServingCount is number && data.targetServingCount > 0
+      && (data.priceSnapshotDate == null || data.priceSnapshotDate is string)
+      && data.assessedRecipeCount is number && data.assessedRecipeCount >= 0
+      && data.items is list
+      && data.manualReviewNotes is list
+      && data.createdBy == request.auth.uid;
+    }
+
+    match /costAwareMenuSuggestions/{id} {
+      allow read: if isAuthenticated();
+      allow create: if isPurchasingStaff() && validCostAwareMenuSuggestionCreate();
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ── productionScheduleSuggestions ────────────────────────────────────────
+    // 生產排程建議記錄：建立後不可修改/刪除（immutable）。
+    // 已登入可讀；建立需採購人員。人工參考用，不會回寫製程規劃。
+    function validProductionScheduleSuggestionCreate() {
+      let data = request.resource.data;
+      return data.keys().hasOnly([
+        'sourceProductionWorkflowPlanId', 'sourcePlanNameSnapshot',
+        'targetServiceDateTime', 'capacityWindowMinutes', 'bufferMinutes',
+        'availableStaff', 'availableEquipment',
+        'scheduledTasks', 'makespanMinutes', 'scheduleStatus',
+        'unschedulableTaskIds', 'staffUtilization', 'equipmentUtilization',
+        'workStartSuggestion', 'manualReviewNotes',
+        'createdAt', 'createdBy'
+      ])
+      && data.sourceProductionWorkflowPlanId is string
+      && data.sourceProductionWorkflowPlanId.size() > 0
+      && data.sourcePlanNameSnapshot is string
+      && data.targetServiceDateTime is timestamp
+      && data.capacityWindowMinutes is number && data.capacityWindowMinutes > 0
+      && data.bufferMinutes is number && data.bufferMinutes >= 0
+      && data.availableStaff is list
+      && data.availableEquipment is list
+      && data.scheduledTasks is list
+      && data.makespanMinutes is number && data.makespanMinutes >= 0
+      && data.scheduleStatus in ['fits', 'overrun', 'infeasible']
+      && data.unschedulableTaskIds is list
+      && data.staffUtilization is map
+      && data.equipmentUtilization is map
+      && data.workStartSuggestion is string
+      && data.manualReviewNotes is list
+      && data.createdBy == request.auth.uid;
+    }
+
+    match /productionScheduleSuggestions/{id} {
+      allow read: if isAuthenticated();
+      allow create: if isPurchasingStaff() && validProductionScheduleSuggestionCreate();
+      allow update: if false;
       allow delete: if false;
     }
 

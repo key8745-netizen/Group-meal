@@ -224,15 +224,56 @@ Group-meal 團膳管理系統
 
 ---
 
+## Implemented — Pending Production Verification
+
+> The following features were implemented on branch `claude/kitchen-mgmt-system-dev-kbo4ac` (PR #61) at ibi's direct instruction (2026-07-06 session). They are NOT yet deployed or production-verified. Note: Features 027–031 were merged earlier on this branch but are not yet reflected in this file.
+
+* Feature 032: 果菜市場市價整合 Market Price Integration — IMPLEMENTED / PENDING VERIFICATION
+  - Netlify function `netlify/functions/market-price.ts` proxying MOA AMIS open data API (`AgriProductsTransType`, ROC dates, NT$/kg)
+  - New service `marketPriceService.ts`; daily cache collection `/marketPrices/{YYYY-MM-DD}` (read/create/update: authenticated; delete: false)
+  - Additive optional ingredient field `marketCropName` (types, service write payloads, `ingredientAllowedFields()` in rules, master form UI)
+  - New route `/market-prices`, nav label `市場行情`
+  - Upstream API unreachable from the dev sandbox (network policy) — runtime verification must happen on deployed Netlify
+  - Doc: `docs/FEATURE_032_MARKET_PRICE_INTEGRATION.md`
+
+* Feature 033: 性價比菜單建議與採購成本標註 Cost/Inventory-Aware Menu Suggestions — IMPLEMENTED / PENDING VERIFICATION
+  - New service `costAwareMenuSuggestionService.ts`: pure ranking of active recipes by estimated cost per serving (market price first, `defaultPrice` fallback) × stock feasibility (`inventory` kg → baseUnit; `pcs` has no stock mapping)
+  - Immutable create-only collection `/costAwareMenuSuggestions/{id}` (create: isPurchasingStaff, mirroring `menuMixRecommendations`)
+  - New route `/cost-menu-suggestions`, nav label `性價比菜單建議`
+  - Purchase demand draft view now shows display-only 預估單價/預估金額/價格來源 badges and ≥15%-over-baseline warnings; no draft schema or write-path changes
+  - Doc: `docs/FEATURE_033_COST_AWARE_MENU_SUGGESTIONS.md`
+
+* Feature 034: 人力與製作順序自動排程建議 Production Schedule Suggestion — IMPLEMENTED / PENDING VERIFICATION
+  - New service `productionScheduleService.ts`: deterministic list scheduler over a `productionWorkflowPlan`'s active tasks (Kahn cycle detection, critical-path priority, event-driven staff-slot/equipment-slot placement, per-recipe exclusivity for `canRunInParallel: false`)
+  - Suggestion-only: never writes to `productionWorkflowPlans`; immutable create-only collection `/productionScheduleSuggestions/{id}` (create: isPurchasingStaff, mirroring `capacityFeasibilityChecks`)
+  - New route `/production-schedules`, nav label `生產排程`
+  - Doc: `docs/FEATURE_034_PRODUCTION_SCHEDULE_SUGGESTION.md`
+
+* Feature 035: 每日市價自動更新與儀表板智慧卡片 Auto Daily Price Refresh + Dashboard Cards — IMPLEMENTED / PENDING VERIFICATION
+  - `ensureTodayMarketPrices` / `shouldRefreshSnapshot` in `marketPriceService.ts`: first visit of the day auto-fetches missing crops (best-effort, never throws); manual 更新市價 unchanged
+  - Dashboard adds three read-only cards: 今日市場行情 (movers vs 基準價), 性價比菜單 Top 3, 最新生產排程 status
+  - No new collections, no rules changes, no scheduled/server-side cron (client-triggered refresh only)
+  - Doc: `docs/FEATURE_035_AUTO_PRICE_REFRESH_DASHBOARD.md`
+
+* Feature 036: 製程任務自動草稿 Workflow Task Auto-Draft — IMPLEMENTED / PENDING VERIFICATION
+  - New pure generator `workflowTaskDraftService.ts`: category-keyword templates (蔬菜 wash→cut, 肉類 cut→marinate, 乾貨 portion, fallback wash→cut with note), kg-scaled minutes, one cook task per recipe depending on the last prep step of each of its ingredients
+  - UI: 自動產生任務草稿 button in 製程規劃 task editor appends drafts to unsaved local state with explicit 儲存/捨棄; saving goes through the existing `updateProductionWorkflowPlan` human-approval path
+  - Pure client-side generation: no new collections, no rules changes, no service write-path changes, no auto-save
+  - Doc: `docs/FEATURE_036_WORKFLOW_TASK_AUTO_DRAFT.md`
+
+Verification gate for all five: `npm run typecheck` clean; hand-rolled tsx test suites pass (marketPriceService 19, marketPriceAutoRefresh 8, costAwareMenuSuggestionService 40, productionScheduleService 35, workflowTaskDraftService 38 — 140 total).
+
+---
+
 ## Current Feature
 
-None — Feature 025 and Feature 026 closed out. Feature 027 (Import Batch Management & Duplicate Protection 匯入批次管理與重複匯入防護) is HOLD pending Spec Planning authorization.
+Features 032–036 implemented on the dev branch (PR #61), pending ibi production verification. Feature 027 (Import Batch Management & Duplicate Protection 匯入批次管理與重複匯入防護) remains HOLD pending Spec Planning authorization.
 
 ---
 
 ## Current Phase
 
-HOLD — Ready for Feature 027 Spec Planning when authorized by ibi and Gatekeeper.
+Features 032–036: IMPLEMENTED / AWAITING DEPLOY + RUNTIME VERIFICATION by ibi.
 
 ---
 

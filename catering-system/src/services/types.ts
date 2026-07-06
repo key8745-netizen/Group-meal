@@ -143,6 +143,8 @@ export interface IngredientMaster {
   /** Whether this ingredient is active and selectable in new BOMs/orders. */
   isActive: boolean;
   notes?: string;
+  /** Feature 032: crop name used to match this ingredient against the MOA AMIS wholesale market price API, or null/undefined when unassigned. */
+  marketCropName?: string | null;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
   createdBy?: string;
@@ -790,4 +792,116 @@ export interface MenuImportColumnMappingTemplate {
   createdBy: string;
   updatedAt: Timestamp;
   updatedBy: string;
+}
+
+// ── Feature 032: 果菜市場市價整合 (Wholesale Produce Market Price Integration) ──
+
+/** A single crop's aggregated wholesale price summary for one day (from the MOA AMIS API). */
+export interface MarketPriceEntry {
+  cropName: string;
+  avgPrice: number | null;
+  minPrice: number | null;
+  maxPrice: number | null;
+  totalQuantity: number;
+  marketCount: number;
+  sampleCropNames: string[];
+}
+
+/** Daily cache document stored at /marketPrices/{date} (doc ID = ISO date "YYYY-MM-DD"). */
+export interface MarketPriceSnapshot {
+  id: string;
+  date: string;
+  rocDate: string;
+  entries: MarketPriceEntry[];
+  warnings: string[];
+  fetchedAt?: Timestamp;
+  fetchedBy: string;
+}
+
+// ── Feature 033: 性價比菜單建議與採購成本標註 ────────────────────────────────
+
+/** Per-recipe assessment result within a CostAwareMenuSuggestion. */
+export interface CostAwareRecipeAssessmentItem {
+  recipeId: string;
+  recipeNameSnapshot: string;
+  /** Sum over recipe ingredients of baseQuantity * pricePerBaseUnit; null if ANY ingredient line has an unresolvable price. */
+  estimatedCostPerServing: number | null;
+  /** Fraction (0..1) of ingredient lines with a resolvable price. */
+  costCoverageRatio: number;
+  marketPricedIngredientCount: number;
+  defaultPricedIngredientCount: number;
+  unpricedIngredientCount: number;
+  /** min over ingredient lines of floor(availableBaseQty / baseQuantity); null if no line has stock data. */
+  maxServingsFromStock: number | null;
+  /** Fraction (0..1) of ingredient lines with stock data available. */
+  stockCoverageRatio: number;
+  /** The ingredient line that minimizes maxServingsFromStock, when stock data exists for at least one line. */
+  limitingIngredientNameSnapshot?: string;
+  /** Cheaper-per-serving + more cookable-from-stock scores higher; null when estimatedCostPerServing is null/<=0. */
+  valueScore: number | null;
+  reasoningNotes: string[];
+}
+
+/** Immutable create-only record stored at /costAwareMenuSuggestions/{id}. */
+export interface CostAwareMenuSuggestion {
+  id: string;
+  targetServingCount: number;
+  /** ISO date of the market price snapshot used, or null if none was cached today. */
+  priceSnapshotDate: string | null;
+  assessedRecipeCount: number;
+  /** Sorted best valueScore first; null-score items last (sorted by name). */
+  items: CostAwareRecipeAssessmentItem[];
+  manualReviewNotes: string[];
+  createdAt?: Timestamp;
+  createdBy: string;
+  // NO updatedAt / NO updatedBy — immutable record
+}
+
+// ── Feature 034: 人力與製作順序自動排程 (Production Schedule Suggestion) ─────
+
+export interface ScheduledTaskAssignment {
+  taskId: string;
+  taskName: string;
+  processType: ProcessType;
+  equipmentType: EquipmentType;
+  /** Minutes from schedule start (0 = work start). */
+  startOffsetMinutes: number;
+  endOffsetMinutes: number;
+  /** e.g. ["廚師#1"] — role + 1-based slot index; length === task.staffCount. */
+  assignedStaffSlots: string[];
+  /** e.g. "wok#2", null when equipmentType === 'none'. */
+  assignedEquipmentSlot: string | null;
+  dependsOnTaskIds: string[];
+  /** Per-task issues (e.g. role fallback used). */
+  warnings: string[];
+}
+
+export type ProductionScheduleStatus = 'fits' | 'overrun' | 'infeasible';
+
+/** Immutable create-only record stored at /productionScheduleSuggestions/{id}. */
+export interface ProductionScheduleSuggestion {
+  id: string;
+  sourceProductionWorkflowPlanId: string;
+  sourcePlanNameSnapshot: string;
+  targetServiceDateTime: Timestamp;
+  capacityWindowMinutes: number;
+  bufferMinutes: number;
+  availableStaff: AvailableStaffInput[];
+  availableEquipment: AvailableEquipmentInput[];
+  /** Sorted by startOffsetMinutes, then taskName. */
+  scheduledTasks: ScheduledTaskAssignment[];
+  /** End of last task (0 if nothing scheduled). */
+  makespanMinutes: number;
+  scheduleStatus: ProductionScheduleStatus;
+  unschedulableTaskIds: string[];
+  /** Per role: busyMinutes / (count * (window - buffer)), 2dp. */
+  staffUtilization: Record<string, number>;
+  /** Per equipment type actually used. */
+  equipmentUtilization: Record<string, number>;
+  /** ISO datetime = targetServiceDateTime - makespan - buffer (suggested latest start). */
+  workStartSuggestion: string;
+  manualReviewNotes: string[];
+  createdAt?: Timestamp;
+  createdBy: string;
+  // NO updatedAt / NO updatedBy — immutable record
 }

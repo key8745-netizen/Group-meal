@@ -202,6 +202,7 @@ export default function ProductionWorkflowPage() {
                 <ProductionWorkflowTaskList
                   key={editing.plan.id}
                   tasks={editing.plan.tasks}
+                  sourcePrepPlanId={editing.plan.sourcePrepPlanId}
                   onSaveTasks={(tasks) => handleSaveTasks(editing.plan.id, tasks)}
                   saving={taskSaving}
                 />

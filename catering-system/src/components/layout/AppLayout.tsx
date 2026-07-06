@@ -15,6 +15,7 @@ import {
   CalendarRange,
   ClipboardCheck,
   FileUp,
+  TrendingUp,
 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -65,6 +66,7 @@ const navGroups: { section: string; items: NavItem[] }[] = [
       { to: '/menu-mix-recommendations', label: '菜單組合建議', icon: ChefHat },
       { to: '/menu-drafts', label: '草稿菜單', icon: ClipboardCheck },
       { to: '/menu-import', label: '月菜單匯入', icon: FileUp },
+      { to: '/market-prices', label: '市場行情', icon: TrendingUp },
     ],
   },
   {

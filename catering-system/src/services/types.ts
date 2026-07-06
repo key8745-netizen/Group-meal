@@ -143,6 +143,8 @@ export interface IngredientMaster {
   /** Whether this ingredient is active and selectable in new BOMs/orders. */
   isActive: boolean;
   notes?: string;
+  /** Feature 032: crop name used to match this ingredient against the MOA AMIS wholesale market price API, or null/undefined when unassigned. */
+  marketCropName?: string | null;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
   createdBy?: string;
@@ -790,4 +792,28 @@ export interface MenuImportColumnMappingTemplate {
   createdBy: string;
   updatedAt: Timestamp;
   updatedBy: string;
+}
+
+// ── Feature 032: 果菜市場市價整合 (Wholesale Produce Market Price Integration) ──
+
+/** A single crop's aggregated wholesale price summary for one day (from the MOA AMIS API). */
+export interface MarketPriceEntry {
+  cropName: string;
+  avgPrice: number | null;
+  minPrice: number | null;
+  maxPrice: number | null;
+  totalQuantity: number;
+  marketCount: number;
+  sampleCropNames: string[];
+}
+
+/** Daily cache document stored at /marketPrices/{date} (doc ID = ISO date "YYYY-MM-DD"). */
+export interface MarketPriceSnapshot {
+  id: string;
+  date: string;
+  rocDate: string;
+  entries: MarketPriceEntry[];
+  warnings: string[];
+  fetchedAt?: Timestamp;
+  fetchedBy: string;
 }

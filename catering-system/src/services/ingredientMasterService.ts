@@ -32,6 +32,8 @@ export interface IngredientMasterInput {
   defaultPriceUnit: string;
   supplierId?: string | null;
   notes?: string;
+  /** Feature 032: crop name used to match this ingredient against the MOA AMIS wholesale market price API. */
+  marketCropName?: string | null;
 }
 
 export async function listIngredients(
@@ -60,6 +62,7 @@ export async function createIngredient(
     defaultPriceUnit: input.defaultPriceUnit,
     supplierId: input.supplierId ?? null,
     notes: input.notes ?? '',
+    marketCropName: input.marketCropName ?? null,
     isActive: true,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -88,6 +91,7 @@ export async function updateIngredient(
     defaultPriceUnit: input.defaultPriceUnit,
     supplierId: input.supplierId ?? null,
     notes: input.notes ?? '',
+    marketCropName: input.marketCropName ?? null,
     updatedAt: serverTimestamp(),
     updatedBy: uid,
   });

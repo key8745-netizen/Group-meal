@@ -16,6 +16,7 @@ import {
   TrendingUp,
   CalendarClock,
   ListChecks,
+  CalendarDays,
 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -38,6 +39,7 @@ const navGroups: { section: string; items: NavItem[] }[] = [
     section: '日常作業',
     items: [
       { to: '/daily-ops', label: '每日工作總覽', icon: ListChecks },
+      { to: '/week-plan', label: '週間規劃', icon: CalendarDays },
     ],
   },
   {

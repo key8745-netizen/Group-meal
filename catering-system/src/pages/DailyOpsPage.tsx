@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   ListChecks,
   CheckCircle2,
@@ -62,7 +62,8 @@ const STATUS_LABEL: Record<OpsStepStatus, string> = {
 };
 
 export default function DailyOpsPage() {
-  const [date, setDate] = useState(todayLocalIsoDate());
+  const [searchParams] = useSearchParams();
+  const [date, setDate] = useState(searchParams.get('date') || todayLocalIsoDate());
   const [overview, setOverview] = useState<DailyOpsOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

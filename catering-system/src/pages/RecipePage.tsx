@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Plus, BookOpen, Eye, EyeOff } from 'lucide-react';
+import { Plus, BookOpen, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { db, auth } from '@/lib/firebase';
 import type { Recipe } from '@/services/types';
 import {
@@ -22,6 +22,7 @@ import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
 import { RecipeList } from '@/components/recipes/RecipeList';
 import { RecipeForm, type RecipeFormValues } from '@/components/recipes/RecipeForm';
+import { RecipeDraftImportDialog } from '@/components/recipes/RecipeDraftImportDialog';
 
 type EditingState =
   | { mode: 'create' }
@@ -48,6 +49,7 @@ export default function RecipePage() {
   const [editing, setEditing] = useState<EditingState>(null);
   const [search, setSearch] = useState('');
   const [showInactive, setShowInactive] = useState(false);
+  const [showDraftImport, setShowDraftImport] = useState(false);
 
   async function reload() {
     setLoading(true);
@@ -106,10 +108,27 @@ export default function RecipePage() {
             </p>
           </div>
         </div>
-        <Button onClick={() => setEditing({ mode: 'create' })} className="gap-1.5">
-          <Plus size={14} /> 新增配方
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowDraftImport(true)}
+            className="gap-1.5"
+          >
+            <Sparkles size={14} /> 從月菜單產生配方草稿
+          </Button>
+          <Button onClick={() => setEditing({ mode: 'create' })} className="gap-1.5">
+            <Plus size={14} /> 新增配方
+          </Button>
+        </div>
       </div>
+
+      {showDraftImport && (
+        <RecipeDraftImportDialog
+          existingRecipes={recipes}
+          onClose={() => setShowDraftImport(false)}
+          onImported={reload}
+        />
+      )}
 
       {editing?.mode === 'create' && (
         <div className="rounded-lg border bg-muted/20 p-4">

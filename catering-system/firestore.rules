@@ -55,12 +55,16 @@ service cloud.firestore {
 
     function validIngredientUpdate() {
       let data = request.resource.data;
+      // createdAt/createdBy: 不可變更；但舊資料（Feature 010 之前建立）可能
+      // 沒有這兩個欄位，允許在編輯時回填一次（updateIngredient 會保留既有值）。
       return validIngredientCommon(data)
         && data.keys().hasOnly(ingredientAllowedFields())
         && data.updatedAt is timestamp
         && data.updatedBy is string
-        && data.createdAt == resource.data.createdAt
-        && data.createdBy == resource.data.createdBy;
+        && (!('createdAt' in resource.data) || data.createdAt == resource.data.createdAt)
+        && (!('createdBy' in resource.data) || data.createdBy == resource.data.createdBy)
+        && data.createdAt is timestamp
+        && data.createdBy is string;
     }
 
     // ── orders ────────────────────────────────────────────────────────────────

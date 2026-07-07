@@ -134,10 +134,13 @@ console.log('\n── ingredientSeedService: INGREDIENT_SEED_TEMPLATES dataset s
   check('all entries have positive conversionFactorToBaseUnit', badFactor, []);
 }
 
-// ── baseUnit is 'g' for every entry ───────────────────────────────────────
+// ── baseUnit is a valid IngredientBaseUnit for every entry ────────────────
+// (most entries use 'g'; liquids like 鮮奶 deliberately use 'ml')
 {
-  const badUnit = INGREDIENT_SEED_TEMPLATES.filter((t) => t.baseUnit !== 'g').map((t) => t.name);
-  check('all entries use baseUnit g', badUnit, []);
+  const badUnit = INGREDIENT_SEED_TEMPLATES
+    .filter((t) => t.baseUnit !== 'g' && t.baseUnit !== 'ml' && t.baseUnit !== 'pcs')
+    .map((t) => t.name);
+  check('all entries use a valid baseUnit (g/ml/pcs)', badUnit, []);
 }
 
 // ── marketCropName, when present, is a non-empty trimmed string ──────────

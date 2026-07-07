@@ -10,8 +10,10 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   addDoc,
+  setDoc,
   updateDoc,
   serverTimestamp,
   type Firestore,
@@ -72,15 +74,44 @@ export async function createIngredient(
   return ref.id;
 }
 
+/**
+ * Legacy fields (pre-Feature-010 pipeline) that must survive an edit when
+ * present on the existing document. Anything NOT in this list and not part of
+ * the master schema is intentionally dropped on save, because the security
+ * rules' field allow-list rejects documents carrying unknown fields — legacy
+ * docs with stray fields were otherwise impossible to edit at all.
+ */
+const LEGACY_CARRYOVER_FIELDS = [
+  'id', 'unit', 'unitCost', 'minStockLevel', 'supplierIds',
+  'wasteFactor', 'isOcr', 'verified',
+] as const;
+
 export async function updateIngredient(
   db: Firestore,
   id: string,
   input: IngredientMasterInput,
   uid: string,
 ): Promise<void> {
-  // createdAt / createdBy are preserved automatically — we never write them
-  // here, so the existing values on the document remain untouched.
-  await updateDoc(doc(db, COLLECTION, id), {
+  // Full-document replacement (setDoc without merge) instead of updateDoc:
+  // legacy documents can be missing required schema fields or carry stray
+  // ones, and a partial update leaves those in place, which the security
+  // rules then reject. Rewriting the whole document guarantees the saved doc
+  // is schema-complete. createdAt/createdBy are preserved when present and
+  // backfilled otherwise (the rules tolerate backfill on legacy docs).
+  const ref = doc(db, COLLECTION, id);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) {
+    throw new Error(`找不到食材（ID: ${id}）`);
+  }
+  const existing = snap.data();
+
+  const carryover: Record<string, unknown> = {};
+  for (const field of LEGACY_CARRYOVER_FIELDS) {
+    if (existing[field] !== undefined) carryover[field] = existing[field];
+  }
+
+  await setDoc(ref, {
+    ...carryover,
     name: input.name,
     normalizedName: normalizeIngredientName(input.name),
     category: input.category,
@@ -92,6 +123,9 @@ export async function updateIngredient(
     supplierId: input.supplierId ?? null,
     notes: input.notes ?? '',
     marketCropName: input.marketCropName ?? null,
+    isActive: existing.isActive !== false,
+    createdAt: existing.createdAt ?? serverTimestamp(),
+    createdBy: existing.createdBy ?? uid,
     updatedAt: serverTimestamp(),
     updatedBy: uid,
   });

@@ -304,17 +304,28 @@ Feature 040 shipped in PR #64 (merged 2026-07-06, merge commit `e9aeb48`).
 
 Verification gate: typecheck clean; 9 test suites 269/269 (adds ingredientSeedService 20).
 
+Feature 041 shipped in PR #65 (merged 2026-07-06, merge commit `728cd42`), including a follow-up fix: market-price refreshes are now batched client-side (10 crops per function invocation, merged into one snapshot; failed batches degrade to warnings) because the seeded 62 tracked crops exceeded the function's 30-crop request cap. Runtime-verified by ibi: 77 ingredients imported, 62 crops queried in 7 batches, 25 crops returned live Sunday prices.
+
+* Feature 042: 配方草稿自動建立 Auto Recipe Drafts from Menu Import Dish Names — IMPLEMENTED / PENDING VERIFICATION
+  - Curated dataset `src/constants/recipeSeedTemplates.ts`: 65 common 團膳 dish templates with per-serving gram BOMs referencing the Feature 041 ingredient names, plus a dish-name→ingredient alias table
+  - `recipeDraftService.ts`: pure `planRecipeDrafts` — template match (name/alias) → BOM resolution against ingredient master → longest-keyword-first name inference with category-based default grams → unmatched; `runRecipeDraftImport` creates recipes sequentially via existing `createRecipe` (isActive, 草稿 note); never overwrites existing recipes; menu import staging is read-only
+  - 配方管理 gains 從月菜單產生配方草稿 button: batch picker → preview (範本命中/菜名推定/略過/無法推定) → progress → summary
+  - Dataset sanity is test-enforced (all template BOM names and alias values resolve to seeded ingredients)
+  - Doc: `docs/FEATURE_042_RECIPE_DRAFTS.md`
+
+Verification gate: typecheck clean; 10 test suites 311/311 (adds recipeDraftService 37, marketPriceService now 24).
+
 ---
 
 ## Current Feature
 
-Features 032–040 merged (PRs #61–#64); Feature 041 implemented on the dev branch, pending ibi production verification. Feature 027 (Import Batch Management & Duplicate Protection 匯入批次管理與重複匯入防護) remains HOLD pending Spec Planning authorization.
+Features 032–041 merged (PRs #61–#65); Feature 042 implemented on the dev branch, pending ibi production verification. Feature 027 (Import Batch Management & Duplicate Protection 匯入批次管理與重複匯入防護) remains HOLD pending Spec Planning authorization.
 
 ---
 
 ## Current Phase
 
-Features 032–040: MERGED / DEPLOYED (PRs #61–#64). Feature 041: IMPLEMENTED / AWAITING DEPLOY + RUNTIME VERIFICATION by ibi.
+Features 032–041: MERGED / DEPLOYED (PRs #61–#65). Feature 042: IMPLEMENTED / AWAITING DEPLOY + RUNTIME VERIFICATION by ibi.
 
 ---
 

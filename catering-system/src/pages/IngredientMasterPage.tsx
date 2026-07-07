@@ -30,14 +30,24 @@ type EditingState =
   | null;
 
 function toFormValues(ingredient: IngredientMaster): IngredientMasterInput {
+  // Legacy documents (pre-Feature-010) can be missing schema fields entirely.
+  // Feeding `undefined` into the controlled form makes fields impossible to
+  // change (e.g. the baseUnit select displays 'g' but never fires onChange),
+  // so fall back to sensible defaults the user can then confirm and save.
+  const validBaseUnit = ingredient.baseUnit === 'g' || ingredient.baseUnit === 'ml' || ingredient.baseUnit === 'pcs';
   return {
-    name: ingredient.name,
-    category: ingredient.category,
-    baseUnit: ingredient.baseUnit,
-    purchaseUnit: ingredient.purchaseUnit,
-    conversionFactorToBaseUnit: ingredient.conversionFactorToBaseUnit,
-    defaultPrice: ingredient.defaultPrice,
-    defaultPriceUnit: ingredient.defaultPriceUnit,
+    name: ingredient.name ?? '',
+    category: ingredient.category ?? '',
+    baseUnit: validBaseUnit ? ingredient.baseUnit : 'g',
+    purchaseUnit: ingredient.purchaseUnit || 'kg',
+    conversionFactorToBaseUnit:
+      typeof ingredient.conversionFactorToBaseUnit === 'number' && ingredient.conversionFactorToBaseUnit > 0
+        ? ingredient.conversionFactorToBaseUnit
+        : 1000,
+    defaultPrice: typeof ingredient.defaultPrice === 'number' && Number.isFinite(ingredient.defaultPrice)
+      ? ingredient.defaultPrice
+      : 0,
+    defaultPriceUnit: ingredient.defaultPriceUnit || 'kg',
     supplierId: ingredient.supplierId ?? null,
     notes: ingredient.notes ?? '',
     marketCropName: ingredient.marketCropName ?? '',

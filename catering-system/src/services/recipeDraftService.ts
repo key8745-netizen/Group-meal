@@ -48,6 +48,13 @@ export interface RecipeDraftBomLine {
   ingredientId: string;
   ingredientName: string;
   grams: number;
+  /**
+   * The ingredient's base unit ('g' when absent). Quantities are always the
+   * template/inferred gram figure, interpreted 1:1 in this unit — for
+   * ml-based ingredients (e.g. 鮮奶) that means ml, per the repo-wide
+   * 1 g ≈ 1 ml approximation.
+   */
+  baseUnit?: 'g' | 'ml' | 'pcs';
 }
 
 export interface RecipeDraftPlanItem {
@@ -187,7 +194,7 @@ function inferBom(dishName: string, candidates: InferenceCandidate[]): RecipeDra
   return matched.map((ing) => {
     const grams = gramsForIngredient(ing, meatCount);
     if (ing.category === MEAT_CATEGORY) meatCount++;
-    return { ingredientId: ing.id, ingredientName: ing.name, grams };
+    return { ingredientId: ing.id, ingredientName: ing.name, grams, baseUnit: ing.baseUnit };
   });
 }
 
@@ -204,7 +211,7 @@ function resolveTemplateBom(
       notes.push(`找不到食材「${line.ingredientName}」，已略過`);
       continue;
     }
-    bom.push({ ingredientId: ing.id, ingredientName: ing.name, grams: line.gramsPerServing });
+    bom.push({ ingredientId: ing.id, ingredientName: ing.name, grams: line.gramsPerServing, baseUnit: ing.baseUnit });
   }
   return { bom, notes };
 }
@@ -328,7 +335,7 @@ export async function runRecipeDraftImport(
         recipeIngredients: item.bom.map((line) => ({
           ingredientId: line.ingredientId,
           quantity: line.grams,
-          unit: 'g',
+          unit: line.baseUnit ?? 'g',
         })),
       };
       await createRecipe(db, input, uid);

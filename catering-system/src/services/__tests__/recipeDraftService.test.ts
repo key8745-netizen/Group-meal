@@ -79,9 +79,9 @@ console.log('\n── recipeDraftService: planRecipeDrafts — template matching
   check('exact template match: source', plan.toCreate[0].source, 'template');
   check('exact template match: matchedTemplateName', plan.toCreate[0].matchedTemplateName, '番茄炒蛋');
   check('exact template match: bom', plan.toCreate[0].bom, [
-    { ingredientId: '大番茄', ingredientName: '大番茄', grams: 60 },
-    { ingredientId: '雞蛋', ingredientName: '雞蛋', grams: 50 },
-    { ingredientId: '青蔥', ingredientName: '青蔥', grams: 3 },
+    { ingredientId: '大番茄', ingredientName: '大番茄', grams: 60, baseUnit: 'g' },
+    { ingredientId: '雞蛋', ingredientName: '雞蛋', grams: 50, baseUnit: 'g' },
+    { ingredientId: '青蔥', ingredientName: '青蔥', grams: 3, baseUnit: 'g' },
   ]);
   check('exact template match: no notes', plan.toCreate[0].notes, []);
 }
@@ -105,8 +105,8 @@ console.log('\n── recipeDraftService: dropped template line (missing ingredi
   const plan = planRecipeDrafts(['三色蛋'], ingredients, []);
   check('dropped line: still a template hit (not all lines dropped)', plan.toCreate[0].source, 'template');
   check('dropped line: bom keeps resolvable lines only', plan.toCreate[0].bom, [
-    { ingredientId: '雞蛋', ingredientName: '雞蛋', grams: 60 },
-    { ingredientId: '胡蘿蔔', ingredientName: '胡蘿蔔', grams: 15 },
+    { ingredientId: '雞蛋', ingredientName: '雞蛋', grams: 60, baseUnit: 'g' },
+    { ingredientId: '胡蘿蔔', ingredientName: '胡蘿蔔', grams: 15, baseUnit: 'g' },
   ]);
   check('dropped line: note explains the drop', plan.toCreate[0].notes, ['找不到食材「毛豆」，已略過']);
 }
@@ -125,7 +125,7 @@ console.log('\n── recipeDraftService: demote to inference when all template 
   check('demote: source becomes inferred', plan.toCreate[0].source, 'inferred');
   check('demote: no matchedTemplateName', plan.toCreate[0].matchedTemplateName, undefined);
   check('demote: bom resolved via inference (菇 -> 生香菇)', plan.toCreate[0].bom, [
-    { ingredientId: '生香菇', ingredientName: '生香菇', grams: 30 },
+    { ingredientId: '生香菇', ingredientName: '生香菇', grams: 30, baseUnit: 'g' },
   ]);
   check('demote: note explains the demotion', plan.toCreate[0].notes, ['範本食材皆無法對應，已改用菜名推定']);
   check('demote: nothing left unmatched', plan.unmatched, []);
@@ -142,8 +142,8 @@ console.log('\n── recipeDraftService: inference — longest-keyword-first co
   const plan = planRecipeDrafts(['紅蘿蔔炒蛋'], ingredients, []);
   check('longest-first: 1 item, inferred', plan.toCreate[0]?.source, 'inferred');
   check('longest-first: bom is 胡蘿蔔 + 雞蛋 only', plan.toCreate[0]?.bom, [
-    { ingredientId: '胡蘿蔔', ingredientName: '胡蘿蔔', grams: 80 },
-    { ingredientId: '雞蛋', ingredientName: '雞蛋', grams: 50 },
+    { ingredientId: '胡蘿蔔', ingredientName: '胡蘿蔔', grams: 80, baseUnit: 'g' },
+    { ingredientId: '雞蛋', ingredientName: '雞蛋', grams: 50, baseUnit: 'g' },
   ]);
   const names = (plan.toCreate[0]?.bom ?? []).map((b) => b.ingredientName);
   checkTrue('longest-first: no false-positive 白蘿蔔', !names.includes('白蘿蔔'));
@@ -158,8 +158,8 @@ console.log('\n── recipeDraftService: inference — meat grams (first 70g / 
   const ingredients = makeFullIngredientMaster();
   const plan = planRecipeDrafts(['雞胸肉炒豬絞肉'], ingredients, []);
   check('meat grams: bom order + grams', plan.toCreate[0]?.bom, [
-    { ingredientId: '雞胸肉', ingredientName: '雞胸肉', grams: 70 },
-    { ingredientId: '豬絞肉', ingredientName: '豬絞肉', grams: 40 },
+    { ingredientId: '雞胸肉', ingredientName: '雞胸肉', grams: 70, baseUnit: 'g' },
+    { ingredientId: '豬絞肉', ingredientName: '豬絞肉', grams: 40, baseUnit: 'g' },
   ]);
 }
 

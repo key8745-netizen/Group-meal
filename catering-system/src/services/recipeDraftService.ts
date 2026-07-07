@@ -89,7 +89,9 @@ const CATEGORY_GRAMS: Record<string, number> = {
   米麵乾貨: 100,
 };
 const DEFAULT_CATEGORY_GRAMS = 50;
-const FIRST_MEAT_GRAMS = 70;
+// 便當基準（成人一餐＝1 主菜 + 4 副菜）：菜名含肉的多半是主菜，主肉抓 90g；
+// 同一道菜的第二種肉（配角）維持 40g。
+const FIRST_MEAT_GRAMS = 90;
 const LATER_MEAT_GRAMS = 40;
 const EGG_GRAMS = 50;
 const TOFU_EGG_DEFAULT_GRAMS = 60;

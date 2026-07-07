@@ -150,15 +150,15 @@ console.log('\n── recipeDraftService: inference — longest-keyword-first co
   checkTrue('longest-first: no false-positive 青蔥', !names.includes('青蔥'));
 }
 
-// ─── inference: meat grams (first 70g, later 40g) ─────────────────────────
+// ─── inference: meat grams (first 90g, later 40g — 便當主菜基準) ──────────
 
-console.log('\n── recipeDraftService: inference — meat grams (first 70g / later 40g) ──');
+console.log('\n── recipeDraftService: inference — meat grams (first 90g / later 40g) ──');
 
 {
   const ingredients = makeFullIngredientMaster();
   const plan = planRecipeDrafts(['雞胸肉炒豬絞肉'], ingredients, []);
   check('meat grams: bom order + grams', plan.toCreate[0]?.bom, [
-    { ingredientId: '雞胸肉', ingredientName: '雞胸肉', grams: 70, baseUnit: 'g' },
+    { ingredientId: '雞胸肉', ingredientName: '雞胸肉', grams: 90, baseUnit: 'g' },
     { ingredientId: '豬絞肉', ingredientName: '豬絞肉', grams: 40, baseUnit: 'g' },
   ]);
 }

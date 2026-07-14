@@ -34,6 +34,10 @@ export interface TaskDraftTemplateStep {
   baseMinutes: number;
   minutesPerKg: number;
   staffRole: string;
+  /** zh-TW step name override（工序名稱）；缺省用 processType 標籤。 */
+  label?: string;
+  /** 工序要領——寫入任務 notes 供現場人員參考（Feature 051）。 */
+  guidance?: string;
 }
 
 export interface GeneratedTaskDraftResult {
@@ -41,51 +45,167 @@ export interface GeneratedTaskDraftResult {
   generationNotes: string[];
 }
 
-// ─── Template table (editable defaults — heuristic minutes, human adjusts in the editor) ───
+// ─── Template table（Feature 051: 專業備料工序範本）────────────────────────
+// 依團膳實務工序編寫：前置清潔 → 刀工成型 → 蛋白質精處理（醃漬上漿）→
+// 半製備初熟（汆燙/過油/預炸）→ 小料與醬汁預調。每步驟附「要領」寫入
+// 任務備註。全部是可編輯的草稿預設值，不是硬性規則。
 
-/** category includes 蔬 / 菜 / 葉 → wash then cut(slice). */
-export const VEGETABLE_TEMPLATE: TaskDraftTemplateStep[] = [
-  { processType: 'wash', equipmentType: 'sink', baseMinutes: 5, minutesPerKg: 2, staffRole: '助手' },
-  { processType: 'cut', cutType: 'slice', equipmentType: 'cuttingStation', baseMinutes: 5, minutesPerKg: 4, staffRole: '助手' },
+/** 葉菜類：挑揀摘除 → 流動水清洗＋瀝乾 → 切段。 */
+export const LEAFY_TEMPLATE: TaskDraftTemplateStep[] = [
+  { processType: 'wash', equipmentType: 'prepTable', baseMinutes: 4, minutesPerKg: 2, staffRole: '助手',
+    label: '挑揀摘除', guidance: '摘除黃葉、老梗與蒂頭；不可食部位去蕪存菁' },
+  { processType: 'wash', equipmentType: 'sink', baseMinutes: 5, minutesPerKg: 2, staffRole: '助手',
+    label: '清洗瀝乾', guidance: '流動清水浸泡沖洗去除農藥與泥沙；脫水籮甩乾，避免多餘水分稀釋醬汁、降低炒製溫度' },
+  { processType: 'cut', cutType: 'section', equipmentType: 'cuttingStation', baseMinutes: 4, minutesPerKg: 3, staffRole: '助手',
+    label: '切段成型', guidance: '依菜式切等長段落，受熱均勻、口感一致' },
 ];
 
-/** category includes 肉 / 雞 / 豬 / 牛 / 魚 / 海鮮 → cut(slice) then marinate. */
-export const MEAT_SEAFOOD_TEMPLATE: TaskDraftTemplateStep[] = [
-  { processType: 'cut', cutType: 'slice', equipmentType: 'cuttingStation', baseMinutes: 5, minutesPerKg: 5, staffRole: '廚師' },
-  { processType: 'marinate', equipmentType: 'prepTable', baseMinutes: 10, minutesPerKg: 2, staffRole: '廚師' },
+/** 根莖／瓜果類：刷洗削皮 → 切割成型（滾刀塊/片/絲依菜式）。 */
+export const ROOT_GOURD_TEMPLATE: TaskDraftTemplateStep[] = [
+  { processType: 'peel', equipmentType: 'sink', baseMinutes: 5, minutesPerKg: 3, staffRole: '助手',
+    label: '刷洗削皮', guidance: '帶皮品項以專用刷具刷除縫隙泥沙；需削皮者以刨刀去皮、去蒂頭' },
+  { processType: 'cut', cutType: 'rollCut', equipmentType: 'cuttingStation', baseMinutes: 5, minutesPerKg: 4, staffRole: '助手',
+    label: '切割成型', guidance: '圓柱狀食材滾刀塊（每切一刀轉 90°）多切面受熱均勻易入味；燉煮用 1.5cm 以上角塊、快炒切片或切絲（逆紋較嫩）' },
 ];
 
-/** category includes 乾貨 / 調味 / 米 / 麵 → single portioning step. */
+/** 豆菜類：挑揀去筋 → 切段。 */
+export const BEAN_VEG_TEMPLATE: TaskDraftTemplateStep[] = [
+  { processType: 'wash', equipmentType: 'sink', baseMinutes: 5, minutesPerKg: 3, staffRole: '助手',
+    label: '挑揀去筋', guidance: '撕除豆莢頭尾與粗筋（豌豆絲），流動水清洗瀝乾' },
+  { processType: 'cut', cutType: 'section', equipmentType: 'cuttingStation', baseMinutes: 4, minutesPerKg: 3, staffRole: '助手',
+    label: '切段', guidance: '切等長段落' },
+];
+
+/** 辛香類：清洗去皮 → 小料準備（切末分裝調料盒）。 */
+export const AROMATICS_TEMPLATE: TaskDraftTemplateStep[] = [
+  { processType: 'wash', equipmentType: 'sink', baseMinutes: 3, minutesPerKg: 2, staffRole: '助手',
+    label: '清洗去皮', guidance: '蒜剝皮、薑刷洗、蔥去根與黃葉' },
+  { processType: 'cut', cutType: 'mince', equipmentType: 'cuttingStation', baseMinutes: 5, minutesPerKg: 6, staffRole: '助手',
+    label: '小料準備', guidance: '切蔥花／薑末／蒜末／辣椒絲（細丁約 0.2cm），依爆香比例分裝小調料盒備用' },
+];
+
+/** 菇蕈類：修整清潔（勿久泡）→ 切片。 */
+export const MUSHROOM_TEMPLATE: TaskDraftTemplateStep[] = [
+  { processType: 'wash', equipmentType: 'sink', baseMinutes: 3, minutesPerKg: 2, staffRole: '助手',
+    label: '修整清潔', guidance: '剪除根部，快速沖洗或濕布擦拭；勿久泡吸水影響口感' },
+  { processType: 'cut', cutType: 'slice', equipmentType: 'cuttingStation', baseMinutes: 4, minutesPerKg: 3, staffRole: '助手',
+    label: '切片', guidance: '依菜式切片或撕條' },
+];
+
+/** 肉類：分切修整 → 醃漬上漿 → 預熟處理（視菜式，可刪）。 */
+export const MEAT_TEMPLATE: TaskDraftTemplateStep[] = [
+  { processType: 'cut', cutType: 'slice', equipmentType: 'cuttingStation', baseMinutes: 6, minutesPerKg: 5, staffRole: '廚師',
+    label: '分切修整', guidance: '依克重定量分切；修除多餘肥油、淋巴與硬筋膜；逆紋切破壞纖維口感較嫩；厚排以肉槌/刀背斷筋防縮' },
+  { processType: 'marinate', equipmentType: 'prepTable', baseMinutes: 10, minutesPerKg: 2, staffRole: '廚師',
+    label: '醃漬上漿', guidance: '打水：水或高湯分次揉入使蛋白質吸水；上漿：蛋白＋太白粉揉勻形成保護膜鎖水；鹽/醬油/米酒/薑汁打底去腥' },
+  { processType: 'preCook', equipmentType: 'stoveBurner', baseMinutes: 8, minutesPerKg: 3, staffRole: '廚師',
+    label: '預熟處理', guidance: '視菜式選用：排骨/大骨冷水下鍋汆燙去血水雜質；上漿肉片 120–140°C 低溫過油定型保嫩；需預炸定型者高溫油炸——不需要此步驟請刪除' },
+];
+
+/** 水產類：分切修整 → 去腥醃漬。 */
+export const SEAFOOD_TEMPLATE: TaskDraftTemplateStep[] = [
+  { processType: 'cut', cutType: 'slice', equipmentType: 'cuttingStation', baseMinutes: 6, minutesPerKg: 5, staffRole: '廚師',
+    label: '分切修整', guidance: '魚去鱗去刺（片菲力）；蝦開背去腸泥；依克重定量分切' },
+  { processType: 'marinate', equipmentType: 'prepTable', baseMinutes: 6, minutesPerKg: 2, staffRole: '廚師',
+    label: '去腥醃漬', guidance: '米酒、薑汁去腥，鹽打底；海鮮醃漬時間宜短以免出水' },
+];
+
+/** 蛋豆製品：前處理（切塊/打散，板豆腐可先汆燙）。 */
+export const EGG_TOFU_TEMPLATE: TaskDraftTemplateStep[] = [
+  { processType: 'cut', cutType: 'dice', equipmentType: 'cuttingStation', baseMinutes: 4, minutesPerKg: 3, staffRole: '助手',
+    label: '前處理', guidance: '豆腐切塊（板豆腐可先汆燙定型去豆味）；蛋打散調味；豆干切片或切丁' },
+];
+
+/** 米麵乾貨：泡發/洗米 → 分裝備用。 */
 export const DRY_GOODS_TEMPLATE: TaskDraftTemplateStep[] = [
-  { processType: 'portion', equipmentType: 'prepTable', baseMinutes: 3, minutesPerKg: 1, staffRole: '助手' },
+  { processType: 'wash', equipmentType: 'sink', baseMinutes: 4, minutesPerKg: 2, staffRole: '助手',
+    label: '泡發洗淨', guidance: '乾香菇/金針/海帶芽等溫水泡發；米洗淨浸泡；麵條備妥' },
+  { processType: 'portion', equipmentType: 'prepTable', baseMinutes: 3, minutesPerKg: 1, staffRole: '助手',
+    label: '分裝備用', guidance: '依出餐量分裝' },
 ];
 
-/** Unknown/missing category, or ingredient missing from master data → same chain as vegetables. */
-export const FALLBACK_TEMPLATE: TaskDraftTemplateStep[] = VEGETABLE_TEMPLATE;
+/** 加工食品類：解凍分裝。 */
+export const PROCESSED_TEMPLATE: TaskDraftTemplateStep[] = [
+  { processType: 'portion', equipmentType: 'prepTable', baseMinutes: 4, minutesPerKg: 1, staffRole: '助手',
+    label: '解凍分裝', guidance: '冷凍品提前移冷藏解凍；依出餐量分裝備用' },
+];
 
-const VEGETABLE_KEYWORDS = ['蔬', '菜', '葉'];
-const MEAT_SEAFOOD_KEYWORDS = ['肉', '雞', '豬', '牛', '魚', '海鮮'];
-const DRY_GOODS_KEYWORDS = ['乾貨', '調味', '米', '麵'];
+/** 水果類：清洗 → 切分。 */
+export const FRUIT_TEMPLATE: TaskDraftTemplateStep[] = [
+  { processType: 'wash', equipmentType: 'sink', baseMinutes: 3, minutesPerKg: 2, staffRole: '助手',
+    label: '清洗', guidance: '流動水清洗、去蒂頭' },
+  { processType: 'cut', cutType: 'chunk', equipmentType: 'cuttingStation', baseMinutes: 4, minutesPerKg: 3, staffRole: '助手',
+    label: '切分', guidance: '依供餐份量切分' },
+];
+
+/** 飲品類：分裝。 */
+export const BEVERAGE_TEMPLATE: TaskDraftTemplateStep[] = [
+  { processType: 'portion', equipmentType: 'prepTable', baseMinutes: 3, minutesPerKg: 1, staffRole: '助手',
+    label: '分裝', guidance: '依出餐量分裝' },
+];
+
+/** Unknown/missing category → 通用清洗切割鏈（同葉菜）。 */
+export const FALLBACK_TEMPLATE: TaskDraftTemplateStep[] = LEAFY_TEMPLATE;
+
+/** 向後相容別名（既有測試/引用）。 */
+export const VEGETABLE_TEMPLATE = LEAFY_TEMPLATE;
+export const MEAT_SEAFOOD_TEMPLATE = MEAT_TEMPLATE;
+
+/** Keyword → template，先長詞後短詞避免誤判（蛋豆 before 豆菜 before 菜）。 */
+const TEMPLATE_MATCHERS: { keywords: string[]; steps: TaskDraftTemplateStep[] }[] = [
+  { keywords: ['蛋豆'], steps: EGG_TOFU_TEMPLATE },
+  { keywords: ['豆菜'], steps: BEAN_VEG_TEMPLATE },
+  { keywords: ['辛香'], steps: AROMATICS_TEMPLATE },
+  { keywords: ['菇', '蕈'], steps: MUSHROOM_TEMPLATE },
+  { keywords: ['水果'], steps: FRUIT_TEMPLATE },
+  { keywords: ['水產', '海鮮', '魚', '蝦', '蛤'], steps: SEAFOOD_TEMPLATE },
+  { keywords: ['加工', '冷凍'], steps: PROCESSED_TEMPLATE },
+  { keywords: ['根莖', '瓜果'], steps: ROOT_GOURD_TEMPLATE },
+  { keywords: ['肉', '雞', '豬', '牛', '鴨'], steps: MEAT_TEMPLATE },
+  { keywords: ['乾貨', '調味', '米', '麵'], steps: DRY_GOODS_TEMPLATE },
+  { keywords: ['飲'], steps: BEVERAGE_TEMPLATE },
+  { keywords: ['葉', '蔬', '菜'], steps: LEAFY_TEMPLATE },
+];
 
 const PROCESS_STEP_LABELS: Partial<Record<ProcessType, string>> = {
   wash: '清洗',
+  peel: '削皮',
   cut: '切割',
   marinate: '醃製',
+  blanch: '汆燙',
+  preCook: '預熟',
+  cool: '冷卻',
   portion: '分裝',
+  cook: '烹調',
+  hold: '保溫',
+  clean: '清潔',
+};
+
+const CUT_LABELS: Partial<Record<CutType, string>> = {
+  julienne: '切絲',
+  slice: '切片',
+  dice: '切丁',
+  chunk: '切塊',
+  rollCut: '滾刀塊',
+  mince: '切末',
+  section: '切段',
+  diagonal: '斜切',
+  shred: '刨絲',
 };
 
 function matchTemplate(category: string | undefined): { steps: TaskDraftTemplateStep[]; matched: boolean } {
   const cat = category ?? '';
-  if (VEGETABLE_KEYWORDS.some((k) => cat.includes(k))) return { steps: VEGETABLE_TEMPLATE, matched: true };
-  if (MEAT_SEAFOOD_KEYWORDS.some((k) => cat.includes(k))) return { steps: MEAT_SEAFOOD_TEMPLATE, matched: true };
-  if (DRY_GOODS_KEYWORDS.some((k) => cat.includes(k))) return { steps: DRY_GOODS_TEMPLATE, matched: true };
+  for (const { keywords, steps } of TEMPLATE_MATCHERS) {
+    if (keywords.some((k) => cat.includes(k))) return { steps, matched: true };
+  }
   return { steps: FALLBACK_TEMPLATE, matched: false };
 }
 
 function stepTaskName(ingredientName: string, step: TaskDraftTemplateStep): string {
+  if (step.label) return `${ingredientName}：${step.label}`;
   const label = PROCESS_STEP_LABELS[step.processType] ?? step.processType;
   if (step.cutType && step.cutType !== 'none') {
-    const cutLabel = step.cutType === 'slice' ? '切片' : step.cutType;
+    const cutLabel = CUT_LABELS[step.cutType] ?? step.cutType;
     return `${ingredientName}：${label}（${cutLabel}）`;
   }
   return `${ingredientName}：${label}`;
@@ -194,7 +314,7 @@ export function generateTaskDraftsFromPrepPlan(
         sequence: seq,
         dependsOnTaskIds: prevStepId ? [prevStepId] : [],
         canRunInParallel: true,
-        notes: '自動產生草稿，請人工確認',
+        notes: step.guidance ?? '自動產生草稿，請人工確認',
       };
       tasks.push(task);
       prevStepId = id;
@@ -223,6 +343,23 @@ export function generateTaskDraftsFromPrepPlan(
 
   if (recipeIds.length > 0) {
     notes.push('所有烹調任務之烹調方式／設備為系統預設值（炒／炒鍋），請依實際製程調整。');
+
+    // Feature 051: 開火前的風味組合預調——一張全場共用的任務。
+    seq += 1;
+    tasks.push({
+      id: nextId(),
+      taskStatus: 'active',
+      taskName: '調味汁預混與芡水調配',
+      processType: 'portion',
+      equipmentType: 'prepTable',
+      estimatedMinutes: Math.max(10, 5 + 2 * recipeIds.length),
+      staffRole: '廚師',
+      staffCount: 1,
+      sequence: seq,
+      dependsOnTaskIds: [],
+      canRunInParallel: true,
+      notes: '碗汁：醬油/糖/醋/高湯/太白粉依菜式比例預混，出菜風味一致並縮短收汁；太白粉水（芡水）預調備用，使用前攪拌',
+    });
   }
 
   for (const recipeId of recipeIds) {

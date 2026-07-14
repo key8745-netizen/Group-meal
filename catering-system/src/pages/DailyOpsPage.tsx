@@ -17,7 +17,13 @@ import {
   XCircle,
   MinusCircle,
   ArrowRight,
+  ChevronLeft,
+  ChevronRight,
+  Soup,
+  PackageCheck,
+  TrendingUp,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { db } from '@/lib/firebase';
 import { loadDailyOpsOverview, type OpsStepKey, type OpsStepStatus } from '@/services/dailyOpsService';
 import type { DailyOpsOverview } from '@/services/dailyOpsService';
@@ -61,9 +67,22 @@ const STATUS_LABEL: Record<OpsStepStatus, string> = {
   na: '不適用',
 };
 
+function addDaysIso(dateIso: string, days: number): string {
+  const [y, m, d] = dateIso.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + days);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+}
+
 export default function DailyOpsPage() {
-  const [searchParams] = useSearchParams();
-  const [date, setDate] = useState(searchParams.get('date') || todayLocalIsoDate());
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [date, setDateState] = useState(searchParams.get('date') || todayLocalIsoDate());
+
+  /** 換日期同步回網址，重新整理/分享連結不會跳回今天。 */
+  function setDate(next: string) {
+    setDateState(next);
+    setSearchParams(next === todayLocalIsoDate() ? {} : { date: next }, { replace: true });
+  }
   const [overview, setOverview] = useState<DailyOpsOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -102,18 +121,51 @@ export default function DailyOpsPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="outline" size="sm" onClick={() => setDate(addDaysIso(date, -1))} aria-label="前一天">
+          <ChevronLeft size={15} />
+        </Button>
         <Input
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="max-w-[180px]"
+          className="max-w-[170px]"
         />
+        <Button variant="outline" size="sm" onClick={() => setDate(addDaysIso(date, 1))} aria-label="後一天">
+          <ChevronRight size={15} />
+        </Button>
+        {date !== todayLocalIsoDate() && (
+          <Button variant="outline" size="sm" onClick={() => setDate(todayLocalIsoDate())}>
+            今天
+          </Button>
+        )}
         {overview && !loading && (
           <span className="text-sm text-muted-foreground">
             {doneCount}/{applicableSteps.length} 步驟完成
           </span>
         )}
+      </div>
+
+      {/* Feature 056: 當日常用動作——看完狀態不再是死路 */}
+      <div className="flex flex-wrap gap-2">
+        <Link
+          to="/prep-plans"
+          className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+        >
+          <Soup size={13} /> 出餐扣料（備料快照）
+        </Link>
+        <Link
+          to="/purchase"
+          className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+        >
+          <PackageCheck size={13} /> 收貨入庫（採購管理）
+        </Link>
+        <Link
+          to="/market-prices"
+          className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+        >
+          <TrendingUp size={13} /> 更新今日市價
+        </Link>
       </div>
 
       {error && (

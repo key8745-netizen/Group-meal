@@ -100,8 +100,8 @@ export function RecipeDraftRecalcDialog({ recipes, onClose, onUpdated }: Props) 
       aria-modal="true"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
     >
-      <div className="flex w-full max-w-2xl max-h-[85vh] flex-col gap-4 rounded-lg bg-white p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-gray-900">草稿份量重算</h2>
+      <div className="flex w-full max-w-2xl max-h-[85vh] flex-col gap-4 rounded-lg bg-background p-6 shadow-xl">
+        <h2 className="text-lg font-semibold text-foreground">草稿份量重算</h2>
 
         {phase === 'preview' && (
           <>
@@ -109,7 +109,7 @@ export function RecipeDraftRecalcDialog({ recipes, onClose, onUpdated }: Props) 
               <p className="text-sm text-muted-foreground">載入食材主檔中…</p>
             ) : (
               <>
-                <p className="text-sm text-gray-700">
+                <p className="text-sm text-foreground">
                   份量有差異 <span className="font-semibold">{plan.toUpdate.length}</span> 道・
                   已是最新 <span className="font-semibold">{plan.unchangedCount}</span> 道・
                   非草稿不處理 <span className="font-semibold">{plan.nonDraftCount}</span> 道
@@ -134,7 +134,7 @@ export function RecipeDraftRecalcDialog({ recipes, onClose, onUpdated }: Props) 
                                 checked={checked.has(item.recipeId)}
                                 onChange={() => toggle(item.recipeId)}
                               />
-                              <span className="font-medium text-gray-900">{item.recipeName}</span>
+                              <span className="font-medium text-foreground">{item.recipeName}</span>
                             </span>
                             <Badge variant={item.source === 'template' ? 'default' : 'secondary'}>
                               {item.source === 'template' ? `範本：${item.matchedTemplateName}` : '菜名推定'}
@@ -189,7 +189,7 @@ export function RecipeDraftRecalcDialog({ recipes, onClose, onUpdated }: Props) 
 
         {phase === 'running' && (
           <div className="flex flex-col items-center gap-3 py-10">
-            <p className="text-sm text-gray-700">
+            <p className="text-sm text-foreground">
               更新中… {progress.done}/{progress.total}
             </p>
             <div className="h-2 w-full max-w-sm overflow-hidden rounded-full bg-muted">
@@ -205,7 +205,7 @@ export function RecipeDraftRecalcDialog({ recipes, onClose, onUpdated }: Props) 
 
         {phase === 'result' && result && (
           <>
-            <p className="text-sm text-gray-700">
+            <p className="text-sm text-foreground">
               成功更新 <span className="font-semibold">{result.updatedCount}</span> 道・
               失敗 <span className="font-semibold">{result.failed.length}</span> 道
             </p>

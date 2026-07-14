@@ -75,7 +75,6 @@ const advancedItems: NavItem[] = [
   { to: '/production-workflows', label: '製程規劃', icon: ClipboardCheck },
   { to: '/production-schedules', label: '生產排程', icon: CalendarClock },
   { to: '/analytics', label: '報表分析', icon: BarChart2 },
-  { to: '/master-data-dry-run-report', label: '基礎資料 Dry-Run 報告', icon: ClipboardCheck },
 ];
 
 const navItems = [...navGroups.flatMap((g) => g.items), ...advancedItems];

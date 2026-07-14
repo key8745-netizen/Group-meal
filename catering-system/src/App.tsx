@@ -21,6 +21,7 @@ import MenuImportPage from '@/pages/MenuImportPage';
 import MarketPricePage from '@/pages/MarketPricePage';
 import DailyOpsPage from '@/pages/DailyOpsPage';
 import WeekPlanPage from '@/pages/WeekPlanPage';
+import KitchenSettingsPage from '@/pages/KitchenSettingsPage';
 import Analytics from '@/pages/Analytics';
 import ShareOrderPage from '@/pages/share/ShareOrderPage';
 import Login from '@/pages/Login';
@@ -74,6 +75,7 @@ export default function App() {
           <Route path="market-prices" element={<MarketPricePage />} />
           <Route path="daily-ops" element={<DailyOpsPage />} />
           <Route path="week-plan" element={<WeekPlanPage />} />
+          <Route path="kitchen-settings" element={<KitchenSettingsPage />} />
           <Route path="analytics" element={<Analytics />} />
         </Route>
       </Routes>

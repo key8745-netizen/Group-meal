@@ -824,6 +824,34 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── kitchenSettings（Feature 049: 我的廚房設定）──────────────────────────
+    // 單一文件 kitchenSettings/default：排程預設參數（出餐時間/工時窗/緩衝/
+    // 人力/設備）。已登入可讀；寫入需採購人員，且欄位受驗證。
+    function validKitchenSettings() {
+      return request.resource.data.keys().hasOnly([
+          'serviceTime', 'capacityWindowMinutes', 'bufferMinutes',
+          'availableStaff', 'availableEquipment', 'updatedAt', 'updatedBy'
+        ])
+        && request.resource.data.serviceTime is string
+        && request.resource.data.serviceTime.matches('([01][0-9]|2[0-3]):[0-5][0-9]')
+        && request.resource.data.capacityWindowMinutes is number
+        && request.resource.data.capacityWindowMinutes > 0
+        && request.resource.data.bufferMinutes is number
+        && request.resource.data.bufferMinutes >= 0
+        && request.resource.data.availableStaff is list
+        && request.resource.data.availableStaff.size() > 0
+        && request.resource.data.availableEquipment is list
+        && request.resource.data.availableEquipment.size() > 0
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.updatedBy is string;
+    }
+
+    match /kitchenSettings/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isPurchasingStaff() && docId == 'default' && validKitchenSettings();
+      allow delete: if false;
+    }
+
     // ── 其他所有路徑：預設拒絕 ────────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

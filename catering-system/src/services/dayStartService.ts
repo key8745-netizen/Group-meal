@@ -19,10 +19,17 @@
  * user can finish manually from the advanced pages.
  */
 
-import type { Firestore } from 'firebase/firestore';
+import { collection, getDocs, type Firestore } from 'firebase/firestore';
+import { normalizeIngredientName } from '@/utils/normalizeIngredientName';
 import { createMenu } from './recipeMenuService';
 import { createPrepPlanFromRecipeMenu, getPrepPlan } from './prepPlanService';
-import { createDraftFromPrepPlan } from './purchaseDemandDraftService';
+import {
+  createDraftFromPrepPlan,
+  getPurchaseDemandDraft,
+  updateDraft,
+} from './purchaseDemandDraftService';
+import { listBatches, listItems } from './menuImportService';
+import type { InventoryDoc, Recipe } from './types';
 import {
   createProductionWorkflowPlanFromPrepPlan,
   updateProductionWorkflowPlan,
@@ -104,6 +111,176 @@ export function defaultScheduleInput(date: string): ProductionScheduleInput {
     availableStaff: DEFAULT_STAFF,
     availableEquipment: DEFAULT_EQUIPMENT,
   };
+}
+
+// ─── 照月菜單帶入（Feature 045）──────────────────────────────────────────────
+
+export interface MonthlyMenuDayPick {
+  recipeId: string;
+  recipeName: string;
+  /** Original rawDishName from the import batch. */
+  dishName: string;
+}
+
+export interface MonthlyMenuDayResult {
+  /** Dishes on the imported monthly menu for `date` that resolve to a recipe. */
+  matched: MonthlyMenuDayPick[];
+  /** Dish names with no matching recipe (create drafts via 配方管理 first). */
+  unmatchedDishNames: string[];
+  /** servingBaseline of the first contributing batch, when > 0. */
+  headCountHint: number | null;
+  /** True when at least one batch covers the date's month. */
+  monthCovered: boolean;
+}
+
+/**
+ * Looks up what the imported monthly menu says should be served on `date`,
+ * and resolves each dish against existing recipes — `matchedRecipeId` first
+ * (set during menu-import review), then exact normalized-name match.
+ * Read-only; duplicate dish names across batches are collapsed.
+ */
+export async function loadMonthlyMenuDay(
+  db: Firestore,
+  date: string,
+  recipes: Recipe[],
+): Promise<MonthlyMenuDayResult> {
+  const recipeById = new Map(recipes.map((r) => [r.id, r]));
+  const recipeByNorm = new Map<string, Recipe>();
+  for (const r of recipes) {
+    const norm = normalizeIngredientName(r.name);
+    if (!recipeByNorm.has(norm)) recipeByNorm.set(norm, r);
+  }
+
+  const yearMonth = date.slice(0, 7);
+  const batches = (await listBatches(db)).filter((b) => b.yearMonth === yearMonth);
+
+  const matched: MonthlyMenuDayPick[] = [];
+  const matchedRecipeIds = new Set<string>();
+  const unmatchedDishNames: string[] = [];
+  const seenDish = new Set<string>();
+  let headCountHint: number | null = null;
+
+  for (const batch of batches) {
+    if (headCountHint === null && batch.servingBaseline > 0) {
+      headCountHint = batch.servingBaseline;
+    }
+    const items = await listItems(db, batch.id);
+    for (const item of items) {
+      if (item.date !== date) continue;
+      const dishName = item.rawDishName?.trim();
+      if (!dishName) continue;
+      const norm = normalizeIngredientName(dishName);
+      if (seenDish.has(norm)) continue;
+      seenDish.add(norm);
+
+      const recipe =
+        (item.matchedRecipeId ? recipeById.get(item.matchedRecipeId) : undefined) ??
+        recipeByNorm.get(norm);
+      if (recipe && recipe.isActive !== false) {
+        if (!matchedRecipeIds.has(recipe.id)) {
+          matchedRecipeIds.add(recipe.id);
+          matched.push({ recipeId: recipe.id, recipeName: recipe.name, dishName });
+        }
+      } else {
+        unmatchedDishNames.push(dishName);
+      }
+    }
+  }
+
+  return { matched, unmatchedDishNames, headCountHint, monthCovered: batches.length > 0 };
+}
+
+// ─── 採購需求扣庫存（Feature 046）────────────────────────────────────────────
+
+export interface NetAgainstStockItemInput {
+  ingredientId: string;
+  baseUnit: 'g' | 'ml' | 'pcs';
+  demandQuantity: number;
+  notes?: string;
+}
+
+export interface NetAgainstStockResult {
+  items: NetAgainstStockItemInput[];
+  /** Items whose demand was compared against a positive stock figure. */
+  nettedCount: number;
+  /** Netted items whose demand dropped to 0 (stock fully covers需求). */
+  coveredCount: number;
+}
+
+/**
+ * Pure netting: demandQuantity becomes max(0, 需求 − 庫存), with a per-item
+ * note showing the arithmetic. Inventory stock is in kg; g/ml demands are
+ * compared via ×1000 (1 ml ≈ 1 g repo-wide); pcs items and items with no
+ * positive stock are passed through untouched.
+ */
+export function netItemsAgainstStock(
+  items: NetAgainstStockItemInput[],
+  stockKgByIngredientId: Map<string, number>,
+): NetAgainstStockResult {
+  let nettedCount = 0;
+  let coveredCount = 0;
+  const out = items.map((item) => {
+    if (item.baseUnit === 'pcs') return { ...item };
+    const stockKg = stockKgByIngredientId.get(item.ingredientId) ?? 0;
+    const stockBase = Math.max(0, stockKg * 1000);
+    if (!(stockBase > 0)) return { ...item };
+    const net = Math.max(0, Math.round(item.demandQuantity - stockBase));
+    nettedCount++;
+    if (net === 0) coveredCount++;
+    return {
+      ingredientId: item.ingredientId,
+      baseUnit: item.baseUnit,
+      demandQuantity: net,
+      notes: `需求 ${Math.round(item.demandQuantity)}${item.baseUnit} − 庫存 ${Math.round(stockBase)}${item.baseUnit} → 淨採購 ${net}${item.baseUnit}`,
+    };
+  });
+  return { items: out, nettedCount, coveredCount };
+}
+
+/**
+ * Nets a freshly created purchase-demand draft against current inventory
+ * via `netItemsAgainstStock`, persisting through the existing `updateDraft`
+ * path (same validation as a manual edit). Returns a short zh-TW summary
+ * line for the step detail.
+ */
+async function netDraftAgainstInventory(
+  db: Firestore,
+  draftId: string,
+  uid: string,
+): Promise<string> {
+  const [draft, inventorySnap] = await Promise.all([
+    getPurchaseDemandDraft(db, draftId),
+    getDocs(collection(db, 'inventory')),
+  ]);
+  const stockKgById = new Map<string, number>();
+  inventorySnap.docs.forEach((d) => {
+    const inv = d.data() as InventoryDoc;
+    if (typeof inv.currentStock === 'number') stockKgById.set(d.id, inv.currentStock);
+  });
+
+  const { items, nettedCount, coveredCount } = netItemsAgainstStock(
+    draft.items.map((i) => ({
+      ingredientId: i.ingredientId,
+      baseUnit: i.baseUnit,
+      demandQuantity: i.demandQuantity,
+      notes: i.notes,
+    })),
+    stockKgById,
+  );
+
+  if (nettedCount > 0) {
+    await updateDraft(
+      db,
+      draftId,
+      { draftName: draft.draftName, notes: draft.notes ?? '', items },
+      uid,
+    );
+  }
+
+  const parts = [`${draft.items.length} 項食材`];
+  if (nettedCount > 0) parts.push(`${nettedCount} 項已扣庫存`);
+  if (coveredCount > 0) parts.push(`${coveredCount} 項庫存足夠免採購`);
+  return `${parts.join('，')}（可於採購需求草稿頁調整後送出）`;
 }
 
 // ─── Orchestrator ───────────────────────────────────────────────────────────
@@ -200,18 +377,18 @@ export async function runDayStart(
   });
   if (!okPrep) return result;
 
-  // 3. 採購需求草稿
+  // 3. 採購需求草稿（建立後立即扣庫存 → 淨採購量）
   const okDraft = await runStep('purchaseDraft', async () => {
     result.purchaseDraftId = await createDraftFromPrepPlan(
       db,
       {
         draftName: `${input.date} 採購需求`,
         sourcePrepPlanId: result.prepPlanId!,
-        notes: '由一日開工精靈建立',
+        notes: '由一日開工精靈建立（數量已扣除現有庫存）',
       },
       uid,
     );
-    return '草稿已建立，可於採購需求草稿頁調整數量後送出';
+    return await netDraftAgainstInventory(db, result.purchaseDraftId, uid);
   });
   if (!okDraft) return result;
 

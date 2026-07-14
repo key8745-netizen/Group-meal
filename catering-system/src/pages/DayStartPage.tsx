@@ -14,7 +14,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Rocket, Sparkles, CheckCircle2, XCircle, Circle, Loader2, MinusCircle, ListChecks } from 'lucide-react';
+import { Rocket, Sparkles, CheckCircle2, XCircle, Circle, Loader2, MinusCircle, ListChecks, CalendarDays } from 'lucide-react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import type { Recipe, InventoryDoc, CostAwareRecipeAssessmentItem } from '@/services/types';
@@ -23,7 +23,7 @@ import { listMenus } from '@/services/recipeMenuService';
 import { listIngredients } from '@/services/ingredientMasterService';
 import { getMarketPriceSnapshot } from '@/services/marketPriceService';
 import { calculateCostAwareMenuSuggestion } from '@/services/costAwareMenuSuggestionService';
-import { runDayStart, type DayStartStep, type DayStartResult } from '@/services/dayStartService';
+import { runDayStart, loadMonthlyMenuDay, type DayStartStep, type DayStartResult } from '@/services/dayStartService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -64,6 +64,9 @@ export default function DayStartPage() {
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [existingMenuCount, setExistingMenuCount] = useState(0);
 
+  const [loadingMonthly, setLoadingMonthly] = useState(false);
+  const [monthlyUnmatched, setMonthlyUnmatched] = useState<string[]>([]);
+
   const [recommending, setRecommending] = useState(false);
   const [assessmentByRecipeId, setAssessmentByRecipeId] = useState<Map<string, CostAwareRecipeAssessmentItem> | null>(null);
   const [rankedIds, setRankedIds] = useState<string[] | null>(null);
@@ -83,6 +86,34 @@ export default function DayStartPage() {
       .then((menus) => setExistingMenuCount(menus.filter((m) => m.date === date).length))
       .catch(() => setExistingMenuCount(0));
   }, [date]);
+
+  async function handleLoadMonthlyMenu() {
+    setLoadingMonthly(true);
+    try {
+      const res = await loadMonthlyMenuDay(db, date, recipes);
+      if (!res.monthCovered) {
+        toast({ title: '找不到月菜單', description: `尚未匯入 ${date.slice(0, 7)} 的月菜單（可至「月菜單匯入」建立）。` });
+        return;
+      }
+      if (res.matched.length === 0 && res.unmatchedDishNames.length === 0) {
+        toast({ title: '這天沒有排菜', description: '月菜單中這個日期沒有菜色（假日或未填）。' });
+        return;
+      }
+      setPicked(new Set(res.matched.map((m) => m.recipeId)));
+      setMonthlyUnmatched(res.unmatchedDishNames);
+      if (res.headCountHint) setHeadCount(res.headCountHint);
+      toast({
+        title: `已帶入 ${res.matched.length} 道菜`,
+        description: res.unmatchedDishNames.length > 0
+          ? `另有 ${res.unmatchedDishNames.length} 道找不到配方（見下方提示）`
+          : res.headCountHint ? `人數帶入月菜單基準 ${res.headCountHint} 人` : undefined,
+      });
+    } catch (err) {
+      toast({ variant: 'destructive', title: '帶入失敗', description: err instanceof Error ? err.message : '' });
+    } finally {
+      setLoadingMonthly(false);
+    }
+  }
 
   async function handleRecommend() {
     setRecommending(true);
@@ -225,6 +256,16 @@ export default function DayStartPage() {
                 <Button
                   variant="outline"
                   size="sm"
+                  onClick={handleLoadMonthlyMenu}
+                  disabled={loadingMonthly || recipes.length === 0}
+                  className="gap-1.5"
+                >
+                  <CalendarDays size={13} />
+                  {loadingMonthly ? '載入中…' : '帶入月菜單'}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={handleRecommend}
                   disabled={recommending || recipes.length === 0}
                   className="gap-1.5"
@@ -234,6 +275,15 @@ export default function DayStartPage() {
                 </Button>
               </div>
             </div>
+
+            {monthlyUnmatched.length > 0 && (
+              <div className="mb-3 rounded-md bg-amber-50 p-3 text-xs text-amber-700">
+                月菜單中這 {monthlyUnmatched.length} 道找不到配方，未帶入：{monthlyUnmatched.join('、')}
+                <span className="block pt-1">
+                  可至「配方管理 → 從月菜單產生配方草稿」建立後再回來帶入。
+                </span>
+              </div>
+            )}
 
             {loadingRecipes ? (
               <p className="py-6 text-center text-sm text-muted-foreground">載入配方中…</p>
@@ -279,7 +329,8 @@ export default function DayStartPage() {
           <section className="rounded-lg border p-4">
             <h2 className="mb-3 text-sm font-semibold text-muted-foreground">3️⃣ 一鍵開工</h2>
             <p className="mb-3 text-xs text-muted-foreground">
-              系統會依序建立：當日菜單 → 備料需求 → 採購需求草稿 → 製程任務 → 人力排程建議。
+              系統會依序建立：當日菜單 → 備料需求 → 採購需求草稿（自動扣除現有庫存，
+              只列實際要買的量）→ 製程任務 → 人力排程建議。
               全部都是草稿，之後可在各頁面調整；採購不會自動送出。
             </p>
             <Button

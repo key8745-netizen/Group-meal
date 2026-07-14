@@ -234,12 +234,18 @@ service cloud.firestore {
 
     function validPrepPlanUpdate() {
       return validPrepPlanCommon(request.resource.data)
-        && request.resource.data.keys().hasOnly(['name', 'sourceRecipeMenuId', 'sourceRecipeMenuNameSnapshot', 'date', 'prepItems', 'isActive', 'notes', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && request.resource.data.keys().hasOnly(['name', 'sourceRecipeMenuId', 'sourceRecipeMenuNameSnapshot', 'date', 'prepItems', 'isActive', 'notes', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy', 'stockDeductedAt', 'stockDeductedBy'])
         && request.resource.data.updatedAt is timestamp && request.resource.data.updatedBy is string
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.createdBy == resource.data.createdBy
         && request.resource.data.sourceRecipeMenuId == resource.data.sourceRecipeMenuId
-        && request.resource.data.prepItems == resource.data.prepItems;
+        && request.resource.data.prepItems == resource.data.prepItems
+        // Feature 048 出餐扣料 marker: optional, set-once, both fields together.
+        && (!('stockDeductedAt' in request.resource.data.keys())
+            || (request.resource.data.stockDeductedAt is timestamp
+                && request.resource.data.stockDeductedBy is string))
+        && (!('stockDeductedAt' in resource.data)
+            || request.resource.data.stockDeductedAt == resource.data.stockDeductedAt);
     }
 
     match /prepPlans/{prepPlanId} {

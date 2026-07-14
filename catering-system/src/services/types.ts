@@ -283,6 +283,9 @@ export interface PrepPlan {
   createdBy: string;
   updatedAt?: Timestamp;
   updatedBy: string;
+  /** Feature 048: set once when 出餐扣料 has deducted this plan's stock. */
+  stockDeductedAt?: Timestamp;
+  stockDeductedBy?: string;
 }
 
 // ─── Purchase Demand Drafts (Feature 014: 採購需求草稿) ────────────────────────

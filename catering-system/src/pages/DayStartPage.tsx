@@ -24,6 +24,7 @@ import { listIngredients } from '@/services/ingredientMasterService';
 import { getMarketPriceSnapshot } from '@/services/marketPriceService';
 import { calculateCostAwareMenuSuggestion, estimateRecipeCostPerServing, type RecipeCostEstimate } from '@/services/costAwareMenuSuggestionService';
 import { runDayStart, loadMonthlyMenuDay, type DayStartStep, type DayStartResult } from '@/services/dayStartService';
+import { getKitchenSettings } from '@/services/kitchenSettingsService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -69,6 +70,7 @@ export default function DayStartPage() {
 
   const [costIngredients, setCostIngredients] = useState<IngredientMaster[]>([]);
   const [costSnapshot, setCostSnapshot] = useState<MarketPriceSnapshot | null>(null);
+  const [targetCostPerServing, setTargetCostPerServing] = useState(0);
 
   const [recommending, setRecommending] = useState(false);
   const [assessmentByRecipeId, setAssessmentByRecipeId] = useState<Map<string, CostAwareRecipeAssessmentItem> | null>(null);
@@ -85,6 +87,8 @@ export default function DayStartPage() {
     // Feature 053: 挑菜即時成本（市價優先、基準價備援）——失敗僅不顯示成本。
     listIngredients(db).then(setCostIngredients).catch(() => setCostIngredients([]));
     getMarketPriceSnapshot(db, today()).then(setCostSnapshot).catch(() => setCostSnapshot(null));
+    // Feature 055: 每人成本目標（廚房設定；0 = 未設定）。
+    getKitchenSettings(db).then((s) => setTargetCostPerServing(s.targetCostPerServing));
   }, []);
 
   const costEstimateByRecipeId = useMemo(() => {
@@ -373,6 +377,18 @@ export default function DayStartPage() {
                 ・{headCount} 人共約 <span className="font-semibold">NT$ {Math.round(pickedCost.perPerson * headCount).toLocaleString('zh-TW')}</span>
                 {pickedCost.incompleteCount > 0 && (
                   <span className="text-xs text-amber-700">（{pickedCost.incompleteCount} 道成本不完整，實際會略高）</span>
+                )}
+                {targetCostPerServing > 0 && (
+                  pickedCost.perPerson <= targetCostPerServing ? (
+                    <span className="block pt-1 text-xs font-medium text-green-700">
+                      ✅ 低於目標 ${targetCostPerServing}/人（還有 ${(targetCostPerServing - pickedCost.perPerson).toFixed(1)} 空間）
+                    </span>
+                  ) : (
+                    <span className="block pt-1 text-xs font-medium text-red-600">
+                      ⚠️ 超出目標 ${targetCostPerServing}/人（+${(pickedCost.perPerson - targetCostPerServing).toFixed(1)}/人，
+                      {headCount} 人多 NT$ {Math.round((pickedCost.perPerson - targetCostPerServing) * headCount).toLocaleString('zh-TW')}）
+                    </span>
+                  )
                 )}
                 <span className="block pt-1 text-xs text-muted-foreground">
                   {costSnapshot ? '以今日市價優先、無市價項用基準價估算' : '今日無市價快取，以基準價估算（可先到市場行情更新）'}

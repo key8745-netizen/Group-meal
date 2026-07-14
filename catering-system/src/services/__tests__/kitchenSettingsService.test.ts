@@ -92,6 +92,17 @@ console.log('\n── kitchenSettingsService: buildScheduleInput ─────
   check('staff copied not referenced', input.availableStaff === DEFAULT_KITCHEN_SETTINGS.availableStaff, false);
 }
 
+// ── targetCostPerServing (Feature 055) ─────────────────────────────────────
+{
+  check('target default 0（未設定）', mergeKitchenSettings(null).targetCostPerServing, 0);
+  check('target valid value kept (rounded 1dp)',
+    mergeKitchenSettings({ targetCostPerServing: 35.55 }).targetCostPerServing, 35.6);
+  check('target negative falls back to 0',
+    mergeKitchenSettings({ targetCostPerServing: -5 }).targetCostPerServing, 0);
+  check('target non-number falls back to 0',
+    mergeKitchenSettings({ targetCostPerServing: '35' }).targetCostPerServing, 0);
+}
+
 // ── every default equipment type has a label ──────────────────────────────
 {
   const missing = DEFAULT_KITCHEN_SETTINGS.availableEquipment

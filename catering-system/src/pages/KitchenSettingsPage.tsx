@@ -110,6 +110,19 @@ export default function KitchenSettingsPage() {
               className="w-28"
             />
           </div>
+          <div>
+            <label htmlFor="targetCost" className="mb-1 block text-xs text-muted-foreground">每人食材成本目標（NT$）</label>
+            <Input
+              id="targetCost"
+              type="number"
+              min={0}
+              step={0.5}
+              value={settings.targetCostPerServing}
+              onChange={(e) => update('targetCostPerServing', Math.max(0, Number(e.target.value) || 0))}
+              className="w-28"
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">0 = 不設目標。設了之後首頁挑菜會顯示超標/達標。</p>
+          </div>
         </div>
       </section>
 

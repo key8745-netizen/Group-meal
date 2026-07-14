@@ -835,8 +835,12 @@ service cloud.firestore {
     function validKitchenSettings() {
       return request.resource.data.keys().hasOnly([
           'serviceTime', 'capacityWindowMinutes', 'bufferMinutes',
-          'availableStaff', 'availableEquipment', 'updatedAt', 'updatedBy'
+          'availableStaff', 'availableEquipment', 'targetCostPerServing',
+          'updatedAt', 'updatedBy'
         ])
+        && (!('targetCostPerServing' in request.resource.data.keys())
+            || (request.resource.data.targetCostPerServing is number
+                && request.resource.data.targetCostPerServing >= 0))
         && request.resource.data.serviceTime is string
         && request.resource.data.serviceTime.matches('([01][0-9]|2[0-3]):[0-5][0-9]')
         && request.resource.data.capacityWindowMinutes is number

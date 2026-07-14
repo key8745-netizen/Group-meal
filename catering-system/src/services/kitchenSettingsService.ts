@@ -29,6 +29,8 @@ export interface KitchenSettings {
   bufferMinutes: number;
   availableStaff: AvailableStaffInput[];
   availableEquipment: AvailableEquipmentInput[];
+  /** Feature 055: 每人食材成本目標（NT$/人）；0 = 未設定（不顯示比較）。 */
+  targetCostPerServing: number;
 }
 
 /** zh-TW labels for the schedule equipment vocabulary. */
@@ -71,6 +73,7 @@ export const DEFAULT_KITCHEN_SETTINGS: KitchenSettings = {
     { type: 'deepFryer', count: 1 },
     { type: 'steamer', count: 1 },
   ],
+  targetCostPerServing: 0,
 };
 
 function sanitizeTime(value: unknown): string {
@@ -118,6 +121,12 @@ export function mergeKitchenSettings(raw: unknown): KitchenSettings {
       data.bufferMinutes, DEFAULT_KITCHEN_SETTINGS.bufferMinutes),
     availableStaff: sanitizeStaff(data.availableStaff),
     availableEquipment: sanitizeEquipment(data.availableEquipment),
+    targetCostPerServing:
+      typeof data.targetCostPerServing === 'number'
+        && Number.isFinite(data.targetCostPerServing)
+        && data.targetCostPerServing >= 0
+        ? Math.round(data.targetCostPerServing * 10) / 10
+        : 0,
   };
 }
 

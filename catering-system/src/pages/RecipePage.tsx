@@ -4,7 +4,7 @@
  * new `/recipes/{id}` collection.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Plus, BookOpen, Eye, EyeOff, Sparkles, RefreshCw } from 'lucide-react';
 import { db, auth } from '@/lib/firebase';
 import type { Recipe } from '@/services/types';
@@ -25,6 +25,11 @@ import { RecipeForm, type RecipeFormValues } from '@/components/recipes/RecipeFo
 import { RecipeDraftImportDialog } from '@/components/recipes/RecipeDraftImportDialog';
 import { RecipeDraftRecalcDialog } from '@/components/recipes/RecipeDraftRecalcDialog';
 import { DRAFT_NOTE_MARKER } from '@/services/recipeDraftService';
+import { listIngredients } from '@/services/ingredientMasterService';
+import { getMarketPriceSnapshot, todayLocalIsoDate } from '@/services/marketPriceService';
+import { estimateRecipeCostPerServing } from '@/services/costAwareMenuSuggestionService';
+import type { IngredientMaster, MarketPriceSnapshot } from '@/services/types';
+import type { RecipeCostCell } from '@/components/recipes/RecipeList';
 
 type EditingState =
   | { mode: 'create' }
@@ -53,6 +58,8 @@ export default function RecipePage() {
   const [showInactive, setShowInactive] = useState(false);
   const [showDraftImport, setShowDraftImport] = useState(false);
   const [showDraftRecalc, setShowDraftRecalc] = useState(false);
+  const [ingredients, setIngredients] = useState<IngredientMaster[]>([]);
+  const [snapshot, setSnapshot] = useState<MarketPriceSnapshot | null>(null);
 
   async function reload() {
     setLoading(true);
@@ -68,7 +75,21 @@ export default function RecipePage() {
 
   useEffect(() => {
     reload();
+    // Feature 053: 每份成本欄（市價優先、基準價備援）——載入失敗僅不顯示成本。
+    listIngredients(db).then(setIngredients).catch(() => setIngredients([]));
+    getMarketPriceSnapshot(db, todayLocalIsoDate()).then(setSnapshot).catch(() => setSnapshot(null));
   }, []);
+
+  const costByRecipeId = useMemo(() => {
+    if (ingredients.length === 0) return undefined;
+    const ingredientById = new Map(ingredients.map((i) => [i.id, i]));
+    const map = new Map<string, RecipeCostCell>();
+    for (const recipe of recipes) {
+      const est = estimateRecipeCostPerServing(recipe, ingredientById, snapshot);
+      map.set(recipe.id, { costPerServing: est.costPerServing, complete: est.complete });
+    }
+    return map;
+  }, [recipes, ingredients, snapshot]);
 
   async function handleSave(input: RecipeInput) {
     const uid = auth.currentUser?.uid ?? '';
@@ -196,6 +217,7 @@ export default function RecipePage() {
             recipes={filtered}
             onEdit={(recipe) => setEditing({ mode: 'edit', recipe })}
             onToggleActive={handleToggleActive}
+            costByRecipeId={costByRecipeId}
           />
         </>
       )}

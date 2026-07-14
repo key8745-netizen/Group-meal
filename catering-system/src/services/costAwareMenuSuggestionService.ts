@@ -103,6 +103,49 @@ export function resolveIngredientPrice(
   return { pricePerBaseUnit: null, pricePerKg: null, source: 'none' };
 }
 
+// ─── Feature 053: 單配方成本速估（挑菜時即時顯示）───────────────────────────
+
+export interface RecipeCostEstimate {
+  /**
+   * 每份食材成本（僅加總「有價」的行，2 位小數）；全部無價時為 null。
+   * 與 `CostAwareRecipeAssessmentItem.estimatedCostPerServing`（任一行無價
+   * 即 null 的嚴格版）不同——這是給 UI 即時顯示用的寬鬆版，搭配
+   * `complete` 標示是否完整。
+   */
+  costPerServing: number | null;
+  pricedLineCount: number;
+  totalLineCount: number;
+  /** true = 每一行都有價，估算完整。 */
+  complete: boolean;
+}
+
+/** Pure 單配方每份成本速估——市價優先、基準價備援（同 resolveIngredientPrice）。 */
+export function estimateRecipeCostPerServing(
+  recipe: Recipe,
+  ingredientById: Map<string, IngredientMaster>,
+  snapshot: MarketPriceSnapshot | null,
+): RecipeCostEstimate {
+  const lines = recipe.recipeIngredients ?? [];
+  let costTotal = 0;
+  let pricedLineCount = 0;
+  for (const line of lines) {
+    const ing = ingredientById.get(line.ingredientId);
+    const resolution = ing
+      ? resolveIngredientPrice(ing, snapshot)
+      : { pricePerBaseUnit: null };
+    if (resolution.pricePerBaseUnit != null) {
+      costTotal += line.baseQuantity * resolution.pricePerBaseUnit;
+      pricedLineCount++;
+    }
+  }
+  return {
+    costPerServing: pricedLineCount > 0 ? round2(costTotal) : null,
+    pricedLineCount,
+    totalLineCount: lines.length,
+    complete: lines.length > 0 && pricedLineCount === lines.length,
+  };
+}
+
 export interface CostAwareSuggestionInput {
   targetServingCount: number;
 }

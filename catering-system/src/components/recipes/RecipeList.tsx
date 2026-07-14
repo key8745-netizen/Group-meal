@@ -15,14 +15,22 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { Recipe } from '@/services/types';
 
+export interface RecipeCostCell {
+  costPerServing: number | null;
+  complete: boolean;
+}
+
 export function RecipeList({
   recipes,
   onEdit,
   onToggleActive,
+  costByRecipeId,
 }: {
   recipes: Recipe[];
   onEdit: (recipe: Recipe) => void;
   onToggleActive: (recipe: Recipe) => void;
+  /** Feature 053: 每份食材成本（市價優先、基準價備援）；缺省不顯示欄位。 */
+  costByRecipeId?: Map<string, RecipeCostCell>;
 }) {
   if (recipes.length === 0) {
     return (
@@ -39,6 +47,7 @@ export function RecipeList({
           <TableRow>
             <TableHead>名稱</TableHead>
             <TableHead className="text-right">食材數量</TableHead>
+            {costByRecipeId && <TableHead className="text-right">每份成本</TableHead>}
             <TableHead>狀態</TableHead>
             <TableHead className="text-right">操作</TableHead>
           </TableRow>
@@ -54,6 +63,20 @@ export function RecipeList({
               <TableCell className="text-right tabular-nums">
                 {recipe.recipeIngredients?.length ?? 0}
               </TableCell>
+              {costByRecipeId && (
+                <TableCell className="text-right tabular-nums">
+                  {(() => {
+                    const cost = costByRecipeId.get(recipe.id);
+                    if (!cost || cost.costPerServing == null) return <span className="text-muted-foreground">—</span>;
+                    return (
+                      <span title={cost.complete ? '所有食材皆有價' : '部分食材無價，成本偏低'}>
+                        ${cost.costPerServing.toFixed(1)}
+                        {!cost.complete && <span className="text-amber-600">*</span>}
+                      </span>
+                    );
+                  })()}
+                </TableCell>
+              )}
               <TableCell>
                 <Badge variant={recipe.isActive ? 'default' : 'outline'}>
                   {recipe.isActive ? '啟用' : '停用'}

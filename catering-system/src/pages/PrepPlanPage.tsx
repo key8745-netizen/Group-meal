@@ -21,6 +21,7 @@ import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
 import { PrepPlanList } from '@/components/prepPlans/PrepPlanList';
 import { PrepPlanForm, type PrepPlanFormValues } from '@/components/prepPlans/PrepPlanForm';
+import { PrepPlanDeductDialog } from '@/components/prepPlans/PrepPlanDeductDialog';
 
 type EditingState =
   | { mode: 'create' }
@@ -42,6 +43,7 @@ export default function PrepPlanPage() {
   const [editing, setEditing] = useState<EditingState>(null);
   const [search, setSearch] = useState('');
   const [showInactive, setShowInactive] = useState(false);
+  const [deducting, setDeducting] = useState<PrepPlan | null>(null);
 
   async function reload() {
     setLoading(true);
@@ -161,7 +163,15 @@ export default function PrepPlanPage() {
             prepPlans={filtered}
             onEdit={(prepPlan) => setEditing({ mode: 'edit', prepPlan })}
             onToggleActive={handleToggleActive}
+            onDeductStock={(prepPlan) => setDeducting(prepPlan)}
           />
+          {deducting && (
+            <PrepPlanDeductDialog
+              prepPlan={deducting}
+              onClose={() => setDeducting(null)}
+              onDeducted={reload}
+            />
+          )}
         </>
       )}
 

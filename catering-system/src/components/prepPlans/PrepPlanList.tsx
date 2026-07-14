@@ -19,10 +19,12 @@ export function PrepPlanList({
   prepPlans,
   onEdit,
   onToggleActive,
+  onDeductStock,
 }: {
   prepPlans: PrepPlan[];
   onEdit: (prepPlan: PrepPlan) => void;
   onToggleActive: (prepPlan: PrepPlan) => void;
+  onDeductStock?: (prepPlan: PrepPlan) => void;
 }) {
   if (prepPlans.length === 0) {
     return (
@@ -64,16 +66,34 @@ export function PrepPlanList({
                 </Badge>
               </TableCell>
               <TableCell className="text-right">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleActive(plan);
-                  }}
-                >
-                  {plan.isActive ? '停用' : '啟用'}
-                </Button>
+                <div className="flex justify-end gap-2">
+                  {onDeductStock && (
+                    plan.stockDeductedAt ? (
+                      <Badge variant="outline">已扣料</Badge>
+                    ) : (
+                      <Button
+                        size="sm"
+                        disabled={!plan.isActive}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeductStock(plan);
+                        }}
+                      >
+                        出餐扣料
+                      </Button>
+                    )
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleActive(plan);
+                    }}
+                  >
+                    {plan.isActive ? '停用' : '啟用'}
+                  </Button>
+                </div>
               </TableCell>
             </TableRow>
           ))}

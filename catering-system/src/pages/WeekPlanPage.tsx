@@ -209,7 +209,7 @@ export default function WeekPlanPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4 p-6 max-w-5xl mx-auto">
+    <div className="flex flex-col gap-4 p-4 sm:p-6 max-w-5xl mx-auto">
       <div className="flex items-center gap-2">
         <CalendarDays size={20} className="text-muted-foreground" />
         <div>

@@ -17,12 +17,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Rocket, Sparkles, CheckCircle2, XCircle, Circle, Loader2, MinusCircle, ListChecks, CalendarDays } from 'lucide-react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
-import type { Recipe, InventoryDoc, CostAwareRecipeAssessmentItem } from '@/services/types';
+import type { Recipe, InventoryDoc, IngredientMaster, MarketPriceSnapshot, CostAwareRecipeAssessmentItem } from '@/services/types';
 import { listRecipes } from '@/services/recipeService';
 import { listMenus } from '@/services/recipeMenuService';
 import { listIngredients } from '@/services/ingredientMasterService';
 import { getMarketPriceSnapshot } from '@/services/marketPriceService';
-import { calculateCostAwareMenuSuggestion } from '@/services/costAwareMenuSuggestionService';
+import { calculateCostAwareMenuSuggestion, estimateRecipeCostPerServing, type RecipeCostEstimate } from '@/services/costAwareMenuSuggestionService';
 import { runDayStart, loadMonthlyMenuDay, type DayStartStep, type DayStartResult } from '@/services/dayStartService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,6 +67,9 @@ export default function DayStartPage() {
   const [loadingMonthly, setLoadingMonthly] = useState(false);
   const [monthlyUnmatched, setMonthlyUnmatched] = useState<string[]>([]);
 
+  const [costIngredients, setCostIngredients] = useState<IngredientMaster[]>([]);
+  const [costSnapshot, setCostSnapshot] = useState<MarketPriceSnapshot | null>(null);
+
   const [recommending, setRecommending] = useState(false);
   const [assessmentByRecipeId, setAssessmentByRecipeId] = useState<Map<string, CostAwareRecipeAssessmentItem> | null>(null);
   const [rankedIds, setRankedIds] = useState<string[] | null>(null);
@@ -79,7 +82,34 @@ export default function DayStartPage() {
       .then(setRecipes)
       .catch(() => toast({ variant: 'destructive', title: '無法載入配方' }))
       .finally(() => setLoadingRecipes(false));
+    // Feature 053: 挑菜即時成本（市價優先、基準價備援）——失敗僅不顯示成本。
+    listIngredients(db).then(setCostIngredients).catch(() => setCostIngredients([]));
+    getMarketPriceSnapshot(db, today()).then(setCostSnapshot).catch(() => setCostSnapshot(null));
   }, []);
+
+  const costEstimateByRecipeId = useMemo(() => {
+    if (costIngredients.length === 0) return new Map<string, RecipeCostEstimate>();
+    const ingredientById = new Map(costIngredients.map((i) => [i.id, i]));
+    const map = new Map<string, RecipeCostEstimate>();
+    for (const recipe of recipes) {
+      map.set(recipe.id, estimateRecipeCostPerServing(recipe, ingredientById, costSnapshot));
+    }
+    return map;
+  }, [recipes, costIngredients, costSnapshot]);
+
+  const pickedCost = useMemo(() => {
+    let perPerson = 0;
+    let incompleteCount = 0;
+    let pricedDishCount = 0;
+    for (const id of picked) {
+      const est = costEstimateByRecipeId.get(id);
+      if (!est || est.costPerServing == null) { incompleteCount++; continue; }
+      perPerson += est.costPerServing;
+      pricedDishCount++;
+      if (!est.complete) incompleteCount++;
+    }
+    return { perPerson, incompleteCount, pricedDishCount };
+  }, [picked, costEstimateByRecipeId]);
 
   useEffect(() => {
     listMenus(db)
@@ -295,6 +325,7 @@ export default function DayStartPage() {
               <ul className="max-h-96 divide-y overflow-y-auto rounded-md border">
                 {displayedRecipes.map((recipe) => {
                   const assessment = assessmentByRecipeId?.get(recipe.id);
+                  const estimate = costEstimateByRecipeId.get(recipe.id);
                   const rank = rankedIds ? rankedIds.indexOf(recipe.id) : -1;
                   return (
                     <li key={recipe.id}>
@@ -308,7 +339,7 @@ export default function DayStartPage() {
                         {rank >= 0 && rank < RECOMMEND_PRECHECK_COUNT && (
                           <Badge variant="default">推薦 #{rank + 1}</Badge>
                         )}
-                        {assessment && (
+                        {assessment ? (
                           <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
                             {assessment.estimatedCostPerServing != null
                               ? `$${assessment.estimatedCostPerServing.toFixed(1)}/份`
@@ -316,7 +347,15 @@ export default function DayStartPage() {
                             {assessment.maxServingsFromStock != null &&
                               `・庫存可做 ${assessment.maxServingsFromStock} 份`}
                           </span>
-                        )}
+                        ) : estimate && estimate.costPerServing != null ? (
+                          <span
+                            className="whitespace-nowrap text-xs tabular-nums text-muted-foreground"
+                            title={estimate.complete ? '所有食材皆有價' : '部分食材無價，成本偏低'}
+                          >
+                            ${estimate.costPerServing.toFixed(1)}/份
+                            {!estimate.complete && <span className="text-amber-600">*</span>}
+                          </span>
+                        ) : null}
                       </label>
                     </li>
                   );
@@ -328,6 +367,18 @@ export default function DayStartPage() {
           {/* ── 3. 開工 ── */}
           <section className="rounded-lg border p-4">
             <h2 className="mb-3 text-sm font-semibold text-muted-foreground">3️⃣ 一鍵開工</h2>
+            {picked.size > 0 && pickedCost.pricedDishCount > 0 && (
+              <p className="mb-3 rounded-md bg-muted/30 p-3 text-sm tabular-nums">
+                💰 預估食材成本：每人約 <span className="font-semibold">${pickedCost.perPerson.toFixed(1)}</span>
+                ・{headCount} 人共約 <span className="font-semibold">NT$ {Math.round(pickedCost.perPerson * headCount).toLocaleString('zh-TW')}</span>
+                {pickedCost.incompleteCount > 0 && (
+                  <span className="text-xs text-amber-700">（{pickedCost.incompleteCount} 道成本不完整，實際會略高）</span>
+                )}
+                <span className="block pt-1 text-xs text-muted-foreground">
+                  {costSnapshot ? '以今日市價優先、無市價項用基準價估算' : '今日無市價快取，以基準價估算（可先到市場行情更新）'}
+                </span>
+              </p>
+            )}
             <p className="mb-3 text-xs text-muted-foreground">
               系統會依序建立：當日菜單 → 備料需求 → 採購需求草稿（自動扣除現有庫存，
               只列實際要買的量）→ 製程任務 → 人力排程建議。

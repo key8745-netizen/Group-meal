@@ -10,6 +10,7 @@
 import {
   resolveIngredientPrice,
   calculateCostAwareMenuSuggestion,
+  estimateRecipeCostPerServing,
 } from '../costAwareMenuSuggestionService';
 import type {
   IngredientMaster,
@@ -343,6 +344,57 @@ try {
   threw = true;
 }
 checkTrue('targetServingCount must be >= 1 (throws otherwise)', threw);
+
+
+// ── estimateRecipeCostPerServing (Feature 053: 單配方成本速估) ──────────────
+
+console.log('\n(estimate) 單配方成本速估');
+{
+  // 全部有價（基準價 100/kg → 0.1/g；100g + 50g = $15）
+  const ings = [ingredient({ id: 'a', name: 'A' }), ingredient({ id: 'b', name: 'B' })];
+  const byId = new Map(ings.map((i) => [i.id, i]));
+  const r = recipe({ recipeIngredients: [
+    line({ ingredientId: 'a', baseQuantity: 100 }),
+    line({ ingredientId: 'b', baseQuantity: 50 }),
+  ] });
+  const est = estimateRecipeCostPerServing(r, byId, null);
+  check('estimate complete: cost 15', est.costPerServing, 15);
+  check('estimate complete: complete=true', est.complete, true);
+  check('estimate complete: priced 2/2', [est.pricedLineCount, est.totalLineCount], [2, 2]);
+}
+{
+  // 部分無價 → 只加總有價行，complete=false
+  const ings = [ingredient({ id: 'a', name: 'A' })];
+  const byId = new Map(ings.map((i) => [i.id, i]));
+  const r = recipe({ recipeIngredients: [
+    line({ ingredientId: 'a', baseQuantity: 100 }),
+    line({ ingredientId: 'ghost', ingredientNameSnapshot: '無主檔' }),
+  ] });
+  const est = estimateRecipeCostPerServing(r, byId, null);
+  check('estimate partial: cost = priced lines only (10)', est.costPerServing, 10);
+  check('estimate partial: complete=false', est.complete, false);
+}
+{
+  // 全部無價 → null
+  const est = estimateRecipeCostPerServing(recipe({ recipeIngredients: [line({ ingredientId: 'ghost' })] }), new Map(), null);
+  check('estimate none: null cost', est.costPerServing, null);
+  check('estimate none: priced 0', est.pricedLineCount, 0);
+}
+{
+  // 市價優先於基準價（市價 200/kg → 0.2/g；100g = $20）
+  const ing = ingredient({ id: 'a', name: 'A', marketCropName: '測試作物' });
+  const snapshot: MarketPriceSnapshot = {
+    id: '2026-07-14', date: '2026-07-14', rocDate: '115.07.14',
+    entries: [marketEntry({ cropName: '測試作物', avgPrice: 200 })],
+    warnings: [], fetchedBy: 'tester',
+  } as MarketPriceSnapshot;
+  const est = estimateRecipeCostPerServing(
+    recipe({ recipeIngredients: [line({ ingredientId: 'a', baseQuantity: 100 })] }),
+    new Map([['a', ing]]),
+    snapshot,
+  );
+  check('estimate market-first: cost 20', est.costPerServing, 20);
+}
 
 console.log(`\n${passed} passed, ${failed} failed\n`);
 if (failed > 0) throw new Error(`${failed} test(s) failed`);

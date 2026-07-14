@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Plus, BookOpen, Eye, EyeOff, Sparkles } from 'lucide-react';
+import { Plus, BookOpen, Eye, EyeOff, Sparkles, RefreshCw } from 'lucide-react';
 import { db, auth } from '@/lib/firebase';
 import type { Recipe } from '@/services/types';
 import {
@@ -23,6 +23,8 @@ import { Toaster } from '@/components/ui/toaster';
 import { RecipeList } from '@/components/recipes/RecipeList';
 import { RecipeForm, type RecipeFormValues } from '@/components/recipes/RecipeForm';
 import { RecipeDraftImportDialog } from '@/components/recipes/RecipeDraftImportDialog';
+import { RecipeDraftRecalcDialog } from '@/components/recipes/RecipeDraftRecalcDialog';
+import { DRAFT_NOTE_MARKER } from '@/services/recipeDraftService';
 
 type EditingState =
   | { mode: 'create' }
@@ -50,6 +52,7 @@ export default function RecipePage() {
   const [search, setSearch] = useState('');
   const [showInactive, setShowInactive] = useState(false);
   const [showDraftImport, setShowDraftImport] = useState(false);
+  const [showDraftRecalc, setShowDraftRecalc] = useState(false);
 
   async function reload() {
     setLoading(true);
@@ -109,6 +112,15 @@ export default function RecipePage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {recipes.some((r) => (r.notes ?? '').includes(DRAFT_NOTE_MARKER)) && (
+            <Button
+              variant="outline"
+              onClick={() => setShowDraftRecalc(true)}
+              className="gap-1.5"
+            >
+              <RefreshCw size={14} /> 草稿份量重算
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={() => setShowDraftImport(true)}
@@ -127,6 +139,14 @@ export default function RecipePage() {
           existingRecipes={recipes}
           onClose={() => setShowDraftImport(false)}
           onImported={reload}
+        />
+      )}
+
+      {showDraftRecalc && (
+        <RecipeDraftRecalcDialog
+          recipes={recipes}
+          onClose={() => setShowDraftRecalc(false)}
+          onUpdated={reload}
         />
       )}
 

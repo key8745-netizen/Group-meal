@@ -7,7 +7,7 @@
  * Run with: npx tsx src/services/__tests__/recipeDraftService.test.ts
  */
 
-import { planRecipeDrafts } from '../recipeDraftService';
+import { planRecipeDrafts, planDraftRecalc, DRAFT_NOTE_MARKER } from '../recipeDraftService';
 import { normalizeIngredientName } from '../../utils/normalizeIngredientName';
 import {
   RECIPE_SEED_TEMPLATES,
@@ -222,6 +222,98 @@ console.log('\n── recipeDraftService: deterministic order (template first, t
   const plan = planRecipeDrafts(['紅蘿蔔炒蛋', '白飯', '雞胸肉炒豬絞肉'], ingredients, []);
   check('order: template item(s) first', plan.toCreate.map((i) => i.dishName), ['白飯', '紅蘿蔔炒蛋', '雞胸肉炒豬絞肉']);
   check('order: sources grouped', plan.toCreate.map((i) => i.source), ['template', 'inferred', 'inferred']);
+}
+
+// ─── planDraftRecalc (Feature 043: 草稿份量重算) ────────────────────────────
+
+console.log('\n── recipeDraftService: planDraftRecalc — draft recalibration ──────────');
+
+function makeDraftRecipe(
+  name: string,
+  lines: [ingredientId: string, grams: number][],
+  notes = `${DRAFT_NOTE_MARKER}（菜名推定），請人工確認食材與份量`,
+): Recipe {
+  return {
+    id: `recipe_${name}`,
+    name,
+    recipeIngredients: lines.map(([ingredientId, grams]) => ({
+      ingredientId,
+      ingredientNameSnapshot: ingredientId,
+      quantity: grams,
+      unit: 'g',
+      baseQuantity: grams,
+      baseUnit: 'g',
+    })),
+    isActive: true,
+    notes,
+    createdBy: 'u',
+    updatedBy: 'u',
+  } as Recipe;
+}
+
+{
+  // Inferred draft created with the old 70g first-meat default → 90g now.
+  const ingredients = makeFullIngredientMaster();
+  const draft = makeDraftRecipe('雞胸肉炒豬絞肉', [['雞胸肉', 70], ['豬絞肉', 40]]);
+  const plan = planDraftRecalc([draft], ingredients);
+  check('recalc: 1 item to update', plan.toUpdate.length, 1);
+  check('recalc: source is inferred', plan.toUpdate[0].source, 'inferred');
+  check('recalc: change is first-meat 70→90 only', plan.toUpdate[0].changes, [
+    { ingredientName: '雞胸肉', oldGrams: 70, newGrams: 90 },
+  ]);
+  check('recalc: newBom carries new grams', plan.toUpdate[0].newBom.map((l) => l.grams), [90, 40]);
+  check('recalc: isActive preserved on plan item', plan.toUpdate[0].isActive, true);
+  checkTrue('recalc: notes preserved with marker', plan.toUpdate[0].notes.includes(DRAFT_NOTE_MARKER));
+}
+
+{
+  // Template draft created before the 宮保雞丁 70→85 bump.
+  const ingredients = makeFullIngredientMaster();
+  const draft = makeDraftRecipe('宮保雞丁', [['雞胸肉', 70], ['辣椒', 3], ['青蔥', 5], ['蒜頭', 2]]);
+  const plan = planDraftRecalc([draft], ingredients);
+  check('recalc template: source', plan.toUpdate[0]?.source, 'template');
+  check('recalc template: matchedTemplateName', plan.toUpdate[0]?.matchedTemplateName, '宮保雞丁');
+  check('recalc template: change 70→85', plan.toUpdate[0]?.changes, [
+    { ingredientName: '雞胸肉', oldGrams: 70, newGrams: 85 },
+  ]);
+}
+
+{
+  // A draft already matching current values → unchangedCount, not updated.
+  const ingredients = makeFullIngredientMaster();
+  const draft = makeDraftRecipe('雞胸肉炒豬絞肉', [['雞胸肉', 90], ['豬絞肉', 40]]);
+  const plan = planDraftRecalc([draft], ingredients);
+  check('recalc unchanged: nothing to update', plan.toUpdate.length, 0);
+  check('recalc unchanged: counted', plan.unchangedCount, 1);
+}
+
+{
+  // A confirmed recipe (marker removed from notes) is never touched even if grams differ.
+  const ingredients = makeFullIngredientMaster();
+  const confirmed = makeDraftRecipe('雞胸肉炒豬絞肉', [['雞胸肉', 70], ['豬絞肉', 40]], '老闆已確認');
+  const plan = planDraftRecalc([confirmed], ingredients);
+  check('recalc non-draft: nothing to update', plan.toUpdate.length, 0);
+  check('recalc non-draft: counted as nonDraft', plan.nonDraftCount, 1);
+}
+
+{
+  // Added / removed lines are reported as ＋/－ changes.
+  const ingredients = makeFullIngredientMaster();
+  const draft = makeDraftRecipe('番茄炒蛋', [['大番茄', 60], ['雞蛋', 50], ['豆干', 30]]);
+  const plan = planDraftRecalc([draft], ingredients);
+  check('recalc add/remove: changes', plan.toUpdate[0]?.changes, [
+    { ingredientName: '青蔥', oldGrams: null, newGrams: 3 },
+    { ingredientName: '豆干', oldGrams: 30, newGrams: null },
+  ]);
+}
+
+{
+  // A draft whose name no longer resolves is listed as unresolved, untouched.
+  const ingredients = makeFullIngredientMaster();
+  const draft = makeDraftRecipe('特製神秘拼盤組合', [['雞蛋', 50]]);
+  const plan = planDraftRecalc([draft], ingredients);
+  check('recalc unresolved: nothing to update', plan.toUpdate.length, 0);
+  check('recalc unresolved: listed', plan.unresolvedDrafts, ['特製神秘拼盤組合']);
 }
 
 // ─── dataset sanity: RECIPE_SEED_TEMPLATES vs INGREDIENT_SEED_TEMPLATES ────

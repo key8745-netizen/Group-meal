@@ -5,15 +5,20 @@ service cloud.firestore {
 
     // ── 共用函式 ──────────────────────────────────────────────────────────────
 
-    // 是否已登入
+    // 授權使用者 email 名單——Firebase API key 是公開的，任何人都能「登入」，
+    // 所以單純 request.auth != null 不夠；要加人請把 email 加進這個清單。
     function isAuthenticated() {
-      return request.auth != null;
+      return request.auth != null
+        && request.auth.token.email in [
+          'key8745@gmail.com'
+        ];
     }
 
-    // 是否為採購人員（透過 Firebase Auth Custom Claims 設定）
-    // 設定方式：Admin SDK → auth.setCustomUserClaims(uid, { role: 'purchasing' })
+    // 採購人員：單人使用時 = 名單內帳號。之後若要區分角色（例如員工只能
+    // 讀不能寫），改回 custom claims：
+    //   return isAuthenticated() && request.auth.token.role == 'purchasing';
     function isPurchasingStaff() {
-      return isAuthenticated() && request.auth.token.role == 'purchasing';
+      return isAuthenticated();
     }
 
     // ── ingredients 共用驗證 ─────────────────────────────────────────────────
@@ -851,6 +856,44 @@ service cloud.firestore {
       allow create, update: if isPurchasingStaff() && docId == 'default' && validKitchenSettings();
       allow delete: if false;
     }
+
+    // ── 營運與舊系統 collection（名單帳號可用）──────────────────────────────
+    // 這些由既有服務層維護（purchaseOrderService / configService /
+    // performanceService / mealPlanService），欄位驗證在服務層完成。
+
+    // 正式採購單：DRAFT → PENDING → RECEIVED / CANCELLED（收貨自動入庫）
+    match /purchaseOrders/{orderId} {
+      allow read, create, update: if isAuthenticated();
+      allow delete: if false;
+    }
+
+    // 系統設定（configService，doc id = tenantId）
+    match /settings/{tenantId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // 採購履約績效紀錄（收貨時 fire-and-forget 寫入）
+    match /performanceLogs/{logId} {
+      allow read, create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+
+    // 每日菜單排程（mealPlanService，doc id = YYYY-MM-DD）
+    match /mealPlans/{date} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ── AI 稽核鏈與冪等鎖（名單帳號可用；多為 create-only 審計紀錄）────────
+    match /ai_suggestions/{document=**} { allow read, write: if isAuthenticated(); }
+    match /ai_suggestion_feedback/{document=**} { allow read, write: if isAuthenticated(); }
+    match /ai_suggestion_human_approved/{document=**} { allow read, write: if isAuthenticated(); }
+    match /ai_suggestion_human_submitted/{document=**} { allow read, write: if isAuthenticated(); }
+    match /ai_context_snapshots/{document=**} { allow read, write: if isAuthenticated(); }
+    match /ai_performance_metrics/{document=**} { allow read, write: if isAuthenticated(); }
+    match /ai_audit_trails/{document=**} { allow read, write: if isAuthenticated(); }
+    match /ai_agent/{document=**} { allow read, write: if isAuthenticated(); }
+    match /receiving_locks/{document=**} { allow read, write: if isAuthenticated(); }
+    match /modelConfigIdempotencyLocks/{document=**} { allow read, write: if isAuthenticated(); }
 
     // ── 其他所有路徑：預設拒絕 ────────────────────────────────────────────────
     match /{document=**} {

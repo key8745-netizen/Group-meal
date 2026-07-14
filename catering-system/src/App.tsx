@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import AppLayout from '@/components/layout/AppLayout';
+import DayStartPage from '@/pages/DayStartPage';
 import Dashboard from '@/pages/Dashboard';
 import InventoryStatus from '@/pages/InventoryStatus';
 import PurchasePage from '@/pages/PurchasePage';
@@ -53,7 +54,8 @@ export default function App() {
 
         {/* Auth-protected */}
         <Route element={<AuthGuard><AppLayout /></AuthGuard>}>
-          <Route index element={<Dashboard />} />
+          <Route index element={<DayStartPage />} />
+          <Route path="dashboard" element={<Dashboard />} />
           <Route path="inventory" element={<InventoryStatus />} />
           <Route path="purchase" element={<PurchasePage />} />
           <Route path="ingredients-master" element={<IngredientMasterPage />} />

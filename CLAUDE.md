@@ -131,18 +131,24 @@ requiredKg = (qtyPerServingKg × headCount) × (1 + wasteFactor)
 
 ## Routing
 
-`App.tsx` — `BrowserRouter` with two zones:
+`App.tsx` — `BrowserRouter`. `/share/:orderId` is public (`ShareOrderPage`);
+everything else is auth-protected inside `AppLayout`.
 
-| Path | Auth | Component |
-|---|---|---|
-| `/share/:orderId` | Public | `ShareOrderPage` |
-| `/` | Protected | `Dashboard` |
-| `/orders` | Protected | `OrderEntry` |
-| `/menus` | Protected | `MenusPage` (4 tabs: 今日備料 / 每月計畫 / 菜色管理 / 匯入菜單) |
-| `/plan` | Protected | `PlanPage` → `ProductionPlanner` |
-| `/inventory` | Protected | `InventoryStatus` (tabs: 庫存總覽 / 庫存盤點) |
-| `/purchase` | Protected | `PurchasePage` (tabs: 採購建議 / 手動建單 / 採購單管理) |
-| `/analytics` | Protected | `Analytics` |
+The home page `/` is `DayStartPage` (Feature 044「今日開工」) — a wizard that
+picks dishes (manual or cost/inventory-ranked via
+`calculateCostAwareMenuSuggestion`) and runs `dayStartService.runDayStart()`,
+which sequences the whole chain through the existing create functions:
+菜單(`/recipe-menus`) → 備料快照(`/prep-plans`) → 採購需求草稿
+(`/purchase-demand-drafts`) → 製程規劃+任務草稿(`/production-workflows`) →
+排程建議(`/production-schedules`).
+
+Sidebar (AppLayout) shows three primary groups — 每天用這裡（`/`、
+`/daily-ops`、`/week-plan`）、菜與食材（`/recipes`、`/ingredients-master`、
+`/menu-import`）、買與存（`/purchase`、`/inventory`、`/market-prices`）—
+plus a collapsed 進階功能 group holding the chain detail pages
+(`/dashboard`, `/recipe-menus`, `/menu-drafts`, `/menu-suggestions`,
+`/prep-plans`, `/purchase-demand-drafts`, `/production-workflows`,
+`/production-schedules`, `/analytics`, `/master-data-dry-run-report`).
 
 ## Netlify Functions
 

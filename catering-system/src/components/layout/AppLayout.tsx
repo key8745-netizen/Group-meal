@@ -7,6 +7,7 @@ import {
   BarChart2,
   ChefHat,
   ChevronRight,
+  ChevronDown,
   LogOut,
   Package,
   NotebookText,
@@ -17,6 +18,7 @@ import {
   CalendarClock,
   ListChecks,
   CalendarDays,
+  Rocket,
 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -30,61 +32,46 @@ type NavItem = {
 
 const navGroups: { section: string; items: NavItem[] }[] = [
   {
-    section: '總覽',
+    section: '每天用這裡',
     items: [
-      { to: '/', label: '儀表板', icon: LayoutDashboard, end: true },
-    ],
-  },
-  {
-    section: '日常作業',
-    items: [
+      { to: '/', label: '今日開工', icon: Rocket, end: true },
       { to: '/daily-ops', label: '每日工作總覽', icon: ListChecks },
       { to: '/week-plan', label: '週間規劃', icon: CalendarDays },
     ],
   },
   {
-    section: '基礎資料',
-    items: [
-      { to: '/ingredients-master', label: '食材主檔', icon: Package },
-      { to: '/master-data-dry-run-report', label: '基礎資料 Dry-Run 報告', icon: ClipboardCheck },
-    ],
-  },
-  {
-    section: '菜單與配方',
+    section: '菜與食材',
     items: [
       { to: '/recipes', label: '配方管理', icon: NotebookText },
-      { to: '/recipe-menus', label: '菜單配方', icon: CalendarRange },
-    ],
-  },
-  {
-    section: '作業規劃',
-    items: [
-      { to: '/prep-plans', label: '備料快照', icon: ClipboardCheck },
-      { to: '/purchase-demand-drafts', label: '採購需求草稿', icon: ClipboardList },
-      { to: '/production-workflows', label: '製程規劃', icon: ClipboardCheck },
-      { to: '/production-schedules', label: '生產排程', icon: CalendarClock },
-      { to: '/menu-suggestions', label: '菜單建議', icon: ChefHat },
-      { to: '/menu-drafts', label: '草稿菜單', icon: ClipboardCheck },
+      { to: '/ingredients-master', label: '食材主檔', icon: Package },
       { to: '/menu-import', label: '月菜單匯入', icon: FileUp },
-      { to: '/market-prices', label: '市場行情', icon: TrendingUp },
     ],
   },
   {
-    section: '營運管理',
+    section: '買與存',
     items: [
-      { to: '/inventory', label: '庫存管理', icon: PackageSearch },
       { to: '/purchase', label: '採購管理', icon: ShoppingCart },
-    ],
-  },
-  {
-    section: '分析',
-    items: [
-      { to: '/analytics', label: '報表分析', icon: BarChart2 },
+      { to: '/inventory', label: '庫存管理', icon: PackageSearch },
+      { to: '/market-prices', label: '市場行情', icon: TrendingUp },
     ],
   },
 ];
 
-const navItems = navGroups.flatMap((g) => g.items);
+/** Detail pages behind the one-click flow — collapsed by default. */
+const advancedItems: NavItem[] = [
+  { to: '/dashboard', label: '儀表板', icon: LayoutDashboard },
+  { to: '/recipe-menus', label: '菜單配方', icon: CalendarRange },
+  { to: '/menu-drafts', label: '草稿菜單', icon: ClipboardCheck },
+  { to: '/menu-suggestions', label: '菜單建議', icon: ChefHat },
+  { to: '/prep-plans', label: '備料快照', icon: ClipboardCheck },
+  { to: '/purchase-demand-drafts', label: '採購需求草稿', icon: ClipboardList },
+  { to: '/production-workflows', label: '製程規劃', icon: ClipboardCheck },
+  { to: '/production-schedules', label: '生產排程', icon: CalendarClock },
+  { to: '/analytics', label: '報表分析', icon: BarChart2 },
+  { to: '/master-data-dry-run-report', label: '基礎資料 Dry-Run 報告', icon: ClipboardCheck },
+];
+
+const navItems = [...navGroups.flatMap((g) => g.items), ...advancedItems];
 
 export default function AppLayout() {
   const { pathname } = useLocation();
@@ -109,7 +96,7 @@ export default function AppLayout() {
         </div>
 
         {/* Nav links */}
-        <nav className="flex-1 space-y-0.5 p-2 pt-3">
+        <nav className="flex-1 space-y-0.5 overflow-y-auto p-2 pt-3">
           {navGroups.map(({ section, items }) => (
             <div key={section}>
               <div className="px-3 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground/60">
@@ -135,6 +122,31 @@ export default function AppLayout() {
               ))}
             </div>
           ))}
+
+          {/* 進階：一鍵流程背後的細部頁面，預設收合 */}
+          <details open={advancedItems.some(({ to }) => pathname.startsWith(to))} className="group">
+            <summary className="flex cursor-pointer list-none items-center gap-1 px-3 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground/60 [&::-webkit-details-marker]:hidden">
+              <ChevronDown size={12} className="-rotate-90 transition-transform group-open:rotate-0" />
+              進階功能
+            </summary>
+            {advancedItems.map(({ to, label, icon: Icon }) => (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) =>
+                  [
+                    'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                    isActive
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                  ].join(' ')
+                }
+              >
+                <Icon size={16} />
+                {label}
+              </NavLink>
+            ))}
+          </details>
         </nav>
 
         {/* User + footer */}

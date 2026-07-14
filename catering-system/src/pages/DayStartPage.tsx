@@ -67,6 +67,11 @@ export default function DayStartPage() {
 
   const [loadingMonthly, setLoadingMonthly] = useState(false);
   const [monthlyUnmatched, setMonthlyUnmatched] = useState<string[]>([]);
+  /** Feature 056: 已排好日期的狀態卡；使用者按「再排一份」後隱藏。 */
+  const [showPlannerAnyway, setShowPlannerAnyway] = useState(false);
+  /** 自動帶入月菜單的提示（每個日期只自動帶一次）。 */
+  const [autoLoadedNote, setAutoLoadedNote] = useState('');
+  const [autoLoadedDate, setAutoLoadedDate] = useState('');
 
   const [costIngredients, setCostIngredients] = useState<IngredientMaster[]>([]);
   const [costSnapshot, setCostSnapshot] = useState<MarketPriceSnapshot | null>(null);
@@ -116,10 +121,32 @@ export default function DayStartPage() {
   }, [picked, costEstimateByRecipeId]);
 
   useEffect(() => {
+    setShowPlannerAnyway(false);
+    setAutoLoadedNote('');
     listMenus(db)
       .then((menus) => setExistingMenuCount(menus.filter((m) => m.date === date).length))
       .catch(() => setExistingMenuCount(0));
   }, [date]);
+
+  // Feature 056: 這天還沒排 → 自動帶入月菜單（每個日期只嘗試一次，安靜失敗）。
+  useEffect(() => {
+    if (recipes.length === 0 || existingMenuCount > 0 || autoLoadedDate === date || phase !== 'pick') return;
+    setAutoLoadedDate(date);
+    loadMonthlyMenuDay(db, date, recipes)
+      .then((res) => {
+        if (res.matched.length === 0) return;
+        setPicked(new Set(res.matched.map((m) => m.recipeId)));
+        setMonthlyUnmatched(res.unmatchedDishNames);
+        if (res.headCountHint) setHeadCount(res.headCountHint);
+        setAutoLoadedNote(
+          `已自動帶入月菜單 ${res.matched.length} 道菜`
+          + (res.headCountHint ? `・${res.headCountHint} 人份` : '')
+          + '，可自行增減',
+        );
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, recipes, existingMenuCount, autoLoadedDate, phase]);
 
   async function handleLoadMonthlyMenu() {
     setLoadingMonthly(true);
@@ -238,7 +265,39 @@ export default function DayStartPage() {
         </div>
       </div>
 
-      {phase === 'pick' && (
+      {/* ── Feature 056: 這天已排好 → 狀態卡（不再逼使用者看空白挑菜畫面）── */}
+      {phase === 'pick' && existingMenuCount > 0 && !showPlannerAnyway && (
+        <section className="rounded-lg border border-green-200 bg-green-50 p-5">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 size={22} className="mt-0.5 shrink-0 text-green-600" />
+            <div className="min-w-0 flex-1">
+              <h2 className="font-semibold text-green-900">
+                {date === today() ? '今天已排好' : `${date} 已排好`}（{existingMenuCount} 份菜單）
+              </h2>
+              <p className="mt-0.5 text-sm text-green-800">
+                備料、採購、排程的狀態到每日工作總覽看；出餐後記得到備料快照按「出餐扣料」。
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <Button size="sm" className="gap-1.5" onClick={() => navigate(`/daily-ops?date=${date}`)}>
+                  <ListChecks size={14} /> 查看每日工作總覽
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setShowPlannerAnyway(true)}>
+                  我要再排一份
+                </Button>
+                <Input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="h-9 w-40"
+                  aria-label="切換日期"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {phase === 'pick' && (existingMenuCount === 0 || showPlannerAnyway) && (
         <>
           {/* ── 1. 日期與人數 ── */}
           <section className="rounded-lg border p-4">
@@ -310,6 +369,12 @@ export default function DayStartPage() {
               </div>
             </div>
 
+            {autoLoadedNote && (
+              <div className="mb-3 rounded-md bg-green-50 p-3 text-xs text-green-800">
+                📋 {autoLoadedNote}
+              </div>
+            )}
+
             {monthlyUnmatched.length > 0 && (
               <div className="mb-3 rounded-md bg-amber-50 p-3 text-xs text-amber-700">
                 月菜單中這 {monthlyUnmatched.length} 道找不到配方，未帶入：{monthlyUnmatched.join('、')}
@@ -339,7 +404,7 @@ export default function DayStartPage() {
                           checked={picked.has(recipe.id)}
                           onChange={() => togglePick(recipe.id)}
                         />
-                        <span className="flex-1 font-medium text-gray-900">{recipe.name}</span>
+                        <span className="flex-1 font-medium text-foreground">{recipe.name}</span>
                         {rank >= 0 && rank < RECOMMEND_PRECHECK_COUNT && (
                           <Badge variant="default">推薦 #{rank + 1}</Badge>
                         )}

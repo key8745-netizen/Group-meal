@@ -65,9 +65,9 @@ export function PrepPlanDeductDialog({ prepPlan, onClose, onDeducted }: Props) {
       aria-modal="true"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
     >
-      <div className="flex w-full max-w-lg max-h-[85vh] flex-col gap-4 rounded-lg bg-white p-6 shadow-xl">
+      <div className="flex w-full max-w-lg max-h-[85vh] flex-col gap-4 rounded-lg bg-background p-6 shadow-xl">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">出餐扣料</h2>
+          <h2 className="text-lg font-semibold text-foreground">出餐扣料</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
             「{prepPlan.name}」——預設為備料量，可逐項改成實際用量（設 0 表示該項不扣）。
           </p>
@@ -77,7 +77,7 @@ export function PrepPlanDeductDialog({ prepPlan, onClose, onDeducted }: Props) {
           <ul className="divide-y">
             {lines.map((line) => (
               <li key={line.ingredientId} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
-                <span className="font-medium text-gray-900">{line.ingredientName}</span>
+                <span className="font-medium text-foreground">{line.ingredientName}</span>
                 <span className="flex items-center gap-1.5">
                   <input
                     type="number"

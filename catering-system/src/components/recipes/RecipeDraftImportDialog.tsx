@@ -104,8 +104,8 @@ export function RecipeDraftImportDialog({ existingRecipes, onClose, onImported }
       aria-modal="true"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
     >
-      <div className="flex w-full max-w-2xl max-h-[85vh] flex-col gap-4 rounded-lg bg-white p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-gray-900">從月菜單產生配方草稿</h2>
+      <div className="flex w-full max-w-2xl max-h-[85vh] flex-col gap-4 rounded-lg bg-background p-6 shadow-xl">
+        <h2 className="text-lg font-semibold text-foreground">從月菜單產生配方草稿</h2>
 
         {phase === 'select' && (
           <>
@@ -115,7 +115,7 @@ export function RecipeDraftImportDialog({ existingRecipes, onClose, onImported }
               <p className="text-sm text-muted-foreground">尚無匯入批次，請先至「月菜單匯入」建立批次。</p>
             ) : (
               <div className="space-y-2">
-                <label className="text-sm text-gray-700">選擇月菜單匯入批次</label>
+                <label className="text-sm text-foreground">選擇月菜單匯入批次</label>
                 <select
                   className="w-full rounded-md border px-3 py-2 text-sm"
                   value={batchId}
@@ -150,7 +150,7 @@ export function RecipeDraftImportDialog({ existingRecipes, onClose, onImported }
 
         {phase === 'preview' && plan && (
           <>
-            <p className="text-sm text-gray-700">
+            <p className="text-sm text-foreground">
               範本命中 <span className="font-semibold">{templateHits.length}</span> 道・
               菜名推定 <span className="font-semibold">{inferredHits.length}</span> 道・
               已有配方略過 <span className="font-semibold">{plan.skippedExisting.length}</span> 道・
@@ -163,7 +163,7 @@ export function RecipeDraftImportDialog({ existingRecipes, onClose, onImported }
                   {plan.toCreate.map((item) => (
                     <li key={item.dishName} className="px-3 py-2 text-sm">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-medium text-gray-900">{item.dishName}</span>
+                        <span className="font-medium text-foreground">{item.dishName}</span>
                         <Badge variant={item.source === 'template' ? 'default' : 'secondary'}>
                           {item.source === 'template' ? `範本：${item.matchedTemplateName}` : '菜名推定'}
                         </Badge>
@@ -219,7 +219,7 @@ export function RecipeDraftImportDialog({ existingRecipes, onClose, onImported }
 
         {phase === 'running' && (
           <div className="flex flex-col items-center gap-3 py-10">
-            <p className="text-sm text-gray-700">
+            <p className="text-sm text-foreground">
               建立中… {progress.done}/{progress.total}
             </p>
             <div className="h-2 w-full max-w-sm overflow-hidden rounded-full bg-muted">
@@ -235,7 +235,7 @@ export function RecipeDraftImportDialog({ existingRecipes, onClose, onImported }
 
         {phase === 'result' && result && plan && (
           <>
-            <p className="text-sm text-gray-700">
+            <p className="text-sm text-foreground">
               成功 <span className="font-semibold">{result.createdCount}</span>・
               略過 <span className="font-semibold">{result.skippedCount}</span>・
               無法推定 <span className="font-semibold">{result.unmatchedCount}</span>・

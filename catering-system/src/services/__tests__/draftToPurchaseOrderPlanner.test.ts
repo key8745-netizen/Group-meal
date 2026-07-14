@@ -5,7 +5,7 @@
  * Run with: npx tsx src/services/__tests__/draftToPurchaseOrderPlanner.test.ts
  */
 
-import { planDraftConversion } from '../draftToPurchaseOrderPlanner';
+import { planDraftConversion, planRangeOrder } from '../draftToPurchaseOrderPlanner';
 import type { PurchaseDemandDraftItem } from '../types';
 
 let passed = 0;
@@ -80,6 +80,50 @@ console.log('\n── draftToPurchaseOrderPlanner: planDraftConversion ───
 {
   const plan = planDraftConversion({ items: [] });
   check('empty: no lines, no skips', { l: plan.lines.length, s: plan.skipped.length }, { l: 0, s: 0 });
+}
+
+console.log('\n── draftToPurchaseOrderPlanner: planRangeOrder（Feature 052）──────────');
+
+function rangeLine(name: string, totalBaseQuantity: number, baseUnit = 'g') {
+  return { ingredientId: name, ingredientName: name, baseUnit, totalBaseQuantity };
+}
+
+// ── nets stock then converts to kg lines ───────────────────────────────────
+{
+  const stock = new Map([['高麗菜', 3]]); // 3 kg
+  const plan = planRangeOrder([rangeLine('高麗菜', 11000), rangeLine('豬絞肉', 7000)], stock);
+  check('range: 高麗菜 net 11−3=8kg', plan.lines.find((l) => l.name === '高麗菜')?.purchaseQtyKg, 8);
+  check('range: 豬絞肉 unchanged 7kg', plan.lines.find((l) => l.name === '豬絞肉')?.purchaseQtyKg, 7);
+  check('range: nettedCount', plan.nettedCount, 1);
+  check('range: coveredCount', plan.coveredCount, 0);
+}
+
+// ── stock fully covers → skipped with reason ───────────────────────────────
+{
+  const stock = new Map([['雞蛋', 99]]);
+  const plan = planRangeOrder([rangeLine('雞蛋', 5000)], stock);
+  check('range covered: no lines', plan.lines, []);
+  check('range covered: coveredCount', plan.coveredCount, 1);
+  check('range covered: skip reason', plan.skipped[0]?.reason, '淨需求為 0（庫存足夠）');
+}
+
+// ── pcs and unknown units skipped ──────────────────────────────────────────
+{
+  const plan = planRangeOrder(
+    [rangeLine('雞蛋', 200, 'pcs'), rangeLine('神秘', 100, '箱')],
+    new Map(),
+  );
+  check('range pcs/unknown: no lines', plan.lines, []);
+  check('range pcs: reason', plan.skipped.find((s) => s.ingredientName === '雞蛋')?.reason,
+    '以個數計量，採購單以公斤計，請手動建單');
+  check('range unknown unit: reason', plan.skipped.find((s) => s.ingredientName === '神秘')?.reason,
+    '未知單位「箱」，請手動建單');
+}
+
+// ── taijin computed on netted kg ───────────────────────────────────────────
+{
+  const plan = planRangeOrder([rangeLine('冬瓜', 6000)], new Map());
+  check('range taijin: 6kg → 10 台斤', plan.lines[0].purchaseTaijin, 10);
 }
 
 console.log(`\n${'─'.repeat(60)}`);

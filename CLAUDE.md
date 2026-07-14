@@ -148,7 +148,8 @@ Sidebar (AppLayout) shows three primary groups — 每天用這裡（`/`、
 plus a collapsed 進階功能 group holding the chain detail pages
 (`/dashboard`, `/recipe-menus`, `/menu-drafts`, `/menu-suggestions`,
 `/prep-plans`, `/purchase-demand-drafts`, `/production-workflows`,
-`/production-schedules`, `/analytics`, `/master-data-dry-run-report`).
+`/production-schedules`, `/analytics`)，另有 `/kitchen-settings`
+（設定群組，Feature 049 排程參數）。
 
 ## Netlify Functions
 

@@ -8,7 +8,6 @@ import Dashboard from '@/pages/Dashboard';
 import InventoryStatus from '@/pages/InventoryStatus';
 import PurchasePage from '@/pages/PurchasePage';
 import IngredientMasterPage from '@/pages/IngredientMasterPage';
-import MasterDataDryRunReportPage from '@/pages/MasterDataDryRunReportPage';
 import RecipePage from '@/pages/RecipePage';
 import RecipeMenuPage from '@/pages/RecipeMenuPage';
 import PrepPlanPage from '@/pages/PrepPlanPage';
@@ -60,7 +59,6 @@ export default function App() {
           <Route path="inventory" element={<InventoryStatus />} />
           <Route path="purchase" element={<PurchasePage />} />
           <Route path="ingredients-master" element={<IngredientMasterPage />} />
-          <Route path="master-data-dry-run-report" element={<MasterDataDryRunReportPage />} />
           <Route path="recipes" element={<RecipePage />} />
           <Route path="recipe-menus" element={<RecipeMenuPage />} />
           <Route path="prep-plans" element={<PrepPlanPage />} />

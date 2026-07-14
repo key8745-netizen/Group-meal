@@ -11,7 +11,8 @@ import {
 } from 'recharts';
 import { BarChart2, TrendingDown, TrendingUp, Trash2 } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import type { Ingredient, InventoryTransaction } from '@/services/types';
+import type { Ingredient, IngredientMaster, InventoryTransaction } from '@/services/types';
+import { resolveIngredientPrice } from '@/services/costAwareMenuSuggestionService';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -82,6 +83,7 @@ export default function Analytics() {
 
   const [loading, setLoading] = useState(true);
   const [allRecords, setAllRecords] = useState<TxRecord[]>([]);
+  const [unpricedNames, setUnpricedNames] = useState<string[]>([]);
 
   // ── Fetch all transactions once; filter in memory ──────────────────────────
 
@@ -96,6 +98,7 @@ export default function Analytics() {
       const ingMap = new Map<string, Ingredient>();
       ingredientSnap.docs.forEach(d => ingMap.set(d.id, { id: d.id, ...d.data() } as Ingredient));
 
+      const unpriced = new Set<string>();
       const txArrays = await Promise.all(
         inventorySnap.docs.map(async invDoc => {
           const txSnap = await getDocs(
@@ -103,9 +106,15 @@ export default function Analytics() {
           );
           const ing = ingMap.get(invDoc.id);
           const ingredientName = (invDoc.data().ingredientName as string) ?? invDoc.id;
-          const unitCost = ing?.unitCost ?? 0;
+          // 單價來源優先序：舊欄位 unitCost（NT$/kg）→ 食材主檔 defaultPrice
+          // 換算成每公斤（resolveIngredientPrice，Feature 041 之後的主要來源）→ 0。
+          const legacyUnitCost = typeof ing?.unitCost === 'number' && ing.unitCost > 0 ? ing.unitCost : null;
+          const resolvedPerKg = ing
+            ? resolveIngredientPrice(ing as unknown as IngredientMaster, null).pricePerKg
+            : null;
+          const unitCost = legacyUnitCost ?? resolvedPerKg ?? 0;
 
-          return txSnap.docs.flatMap(txDoc => {
+          const records = txSnap.docs.flatMap(txDoc => {
             const tx = txDoc.data() as InventoryTransaction;
             if (!tx.timestamp) return [];
             return [{
@@ -116,10 +125,13 @@ export default function Analytics() {
               costAmount: Math.abs(tx.quantity) * unitCost,
             } satisfies TxRecord];
           });
+          if (unitCost === 0 && records.length > 0) unpriced.add(ingredientName);
+          return records;
         }),
       );
 
       setAllRecords(txArrays.flat());
+      setUnpricedNames([...unpriced].sort((a, b) => a.localeCompare(b, 'zh-TW')));
     } catch {
       // best-effort
     } finally {
@@ -248,6 +260,15 @@ export default function Analytics() {
     () => wasteRecords.reduce((s, tx) => s + tx.costAmount, 0),
     [wasteRecords],
   );
+  // 進貨支出：收貨入庫（restock）× 單價——Feature 047 之後由「收貨」自動寫入。
+  const restockRecords = useMemo(
+    () => rangeRecords.filter(tx => tx.type === 'restock'),
+    [rangeRecords],
+  );
+  const totalRestockCost = useMemo(
+    () => restockRecords.reduce((s, tx) => s + tx.costAmount, 0),
+    [restockRecords],
+  );
 
   // ─── Render ───────────────────────────────────────────────────────────────────
 
@@ -291,10 +312,19 @@ export default function Analytics() {
         </div>
       </div>
 
+      {unpricedNames.length > 0 && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
+          以下 {unpricedNames.length} 項食材沒有單價（成本以 0 計，數字會偏低）：
+          {unpricedNames.slice(0, 10).join('、')}
+          {unpricedNames.length > 10 && ` …等 ${unpricedNames.length} 項`}
+          。請至「食材主檔」補上預設價格。
+        </div>
+      )}
+
       {/* ── KPI Cards ── */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {loading
-          ? Array.from({ length: 4 }).map((_, i) => (
+          ? Array.from({ length: 5 }).map((_, i) => (
               <Card key={i}>
                 <CardHeader className="pb-2"><Skeleton className="h-4 w-24" /></CardHeader>
                 <CardContent><Skeleton className="h-8 w-32" /><Skeleton className="mt-1 h-3 w-20" /></CardContent>
@@ -341,6 +371,19 @@ export default function Analytics() {
                 <CardContent>
                   <div className="text-2xl font-bold tabular-nums">{fmtCurrency(totalRangeCost)}</div>
                   <p className="mt-1 text-xs text-muted-foreground">{rangeStart} ~ {rangeEnd}</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">進貨支出</CardTitle>
+                  <TrendingUp size={16} className="text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold tabular-nums">{fmtCurrency(totalRestockCost)}</div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {restockRecords.length > 0 ? `${restockRecords.length} 筆收貨入庫` : '區間內無收貨'}
+                  </p>
                 </CardContent>
               </Card>
 

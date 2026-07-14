@@ -51,6 +51,9 @@ function toFormValues(ingredient: IngredientMaster): IngredientMasterInput {
     supplierId: ingredient.supplierId ?? null,
     notes: ingredient.notes ?? '',
     marketCropName: ingredient.marketCropName ?? '',
+    minStockLevel: typeof ingredient.minStockLevel === 'number' && ingredient.minStockLevel >= 0
+      ? ingredient.minStockLevel
+      : 0,
   };
 }
 

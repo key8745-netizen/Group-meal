@@ -25,6 +25,8 @@ import { getMarketPriceSnapshot } from '@/services/marketPriceService';
 import { calculateCostAwareMenuSuggestion, estimateRecipeCostPerServing, type RecipeCostEstimate } from '@/services/costAwareMenuSuggestionService';
 import { runDayStart, loadMonthlyMenuDay, type DayStartStep, type DayStartResult } from '@/services/dayStartService';
 import { getKitchenSettings } from '@/services/kitchenSettingsService';
+import { computeLowStock, planSafetyRestock } from '@/services/stockAlertService';
+import { purchaseOrderService } from '@/services/purchaseOrderService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -76,6 +78,9 @@ export default function DayStartPage() {
   const [costIngredients, setCostIngredients] = useState<IngredientMaster[]>([]);
   const [costSnapshot, setCostSnapshot] = useState<MarketPriceSnapshot | null>(null);
   const [targetCostPerServing, setTargetCostPerServing] = useState(0);
+  const [stockKgById, setStockKgById] = useState<Map<string, number>>(new Map());
+  const [creatingRestock, setCreatingRestock] = useState(false);
+  const [restockDone, setRestockDone] = useState(false);
 
   const [recommending, setRecommending] = useState(false);
   const [assessmentByRecipeId, setAssessmentByRecipeId] = useState<Map<string, CostAwareRecipeAssessmentItem> | null>(null);
@@ -94,7 +99,42 @@ export default function DayStartPage() {
     getMarketPriceSnapshot(db, today()).then(setCostSnapshot).catch(() => setCostSnapshot(null));
     // Feature 055: 每人成本目標（廚房設定；0 = 未設定）。
     getKitchenSettings(db).then((s) => setTargetCostPerServing(s.targetCostPerServing));
+    // Feature 057: 低庫存警示——讀取現有庫存（失敗僅不顯示警示）。
+    getDocs(collection(db, 'inventory'))
+      .then((snap) => {
+        const map = new Map<string, number>();
+        snap.docs.forEach((d) => {
+          const inv = d.data() as InventoryDoc;
+          if (typeof inv.currentStock === 'number') map.set(d.id, inv.currentStock);
+        });
+        setStockKgById(map);
+      })
+      .catch(() => setStockKgById(new Map()));
   }, []);
+
+  const lowStock = useMemo(
+    () => computeLowStock(costIngredients, stockKgById),
+    [costIngredients, stockKgById],
+  );
+
+  async function handleSafetyRestock() {
+    const lines = planSafetyRestock(lowStock);
+    if (lines.length === 0) return;
+    const proceed = window.confirm(
+      `將建立「補到安全量」採購單（待採購）：${lines.length} 項食材。\n${lines.map((l) => `${l.name} ${l.purchaseQtyKg}kg`).join('、')}`,
+    );
+    if (!proceed) return;
+    setCreatingRestock(true);
+    try {
+      await purchaseOrderService.createOrder(lines);
+      setRestockDone(true);
+      toast({ title: '已建立補貨採購單', description: `${lines.length} 項食材已轉入採購管理（待採購）；收貨時自動入庫。` });
+    } catch (err) {
+      toast({ variant: 'destructive', title: '建立採購單失敗', description: err instanceof Error ? err.message : '' });
+    } finally {
+      setCreatingRestock(false);
+    }
+  }
 
   const costEstimateByRecipeId = useMemo(() => {
     if (costIngredients.length === 0) return new Map<string, RecipeCostEstimate>();
@@ -264,6 +304,27 @@ export default function DayStartPage() {
           </p>
         </div>
       </div>
+
+      {/* ── Feature 057: 低庫存警示（有追蹤安全量的食材才會出現）── */}
+      {phase === 'pick' && lowStock.length > 0 && !restockDone && (
+        <section className="rounded-lg border border-amber-300 bg-amber-50 p-4">
+          <p className="text-sm font-medium text-amber-900">
+            ⚠️ {lowStock.length} 項食材低於安全庫存
+          </p>
+          <p className="mt-1 text-xs text-amber-800">
+            {lowStock.slice(0, 6).map((i) => `${i.ingredientName}（${i.currentKg}/${i.safetyKg}kg）`).join('、')}
+            {lowStock.length > 6 && ` …等 ${lowStock.length} 項`}
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" className="border-amber-400" onClick={handleSafetyRestock} disabled={creatingRestock}>
+              {creatingRestock ? '建立中…' : '補到安全量建採購單'}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => navigate('/inventory')}>
+              查看庫存
+            </Button>
+          </div>
+        </section>
+      )}
 
       {/* ── Feature 056: 這天已排好 → 狀態卡（不再逼使用者看空白挑菜畫面）── */}
       {phase === 'pick' && existingMenuCount > 0 && !showPlannerAnyway && (

@@ -36,7 +36,7 @@ import {
   DISH_NAME_INGREDIENT_ALIASES,
   type RecipeSeedTemplate,
 } from '@/constants/recipeSeedTemplates';
-import { createRecipe, type RecipeInput } from './recipeService';
+import { createRecipe, updateRecipe, type RecipeInput } from './recipeService';
 import { listBatches, listItems } from './menuImportService';
 import type { IngredientMaster, Recipe } from './types';
 
@@ -200,6 +200,34 @@ function inferBom(dishName: string, candidates: InferenceCandidate[]): RecipeDra
   });
 }
 
+/**
+ * Runs the full matching pipeline (template → inference) for one dish name.
+ * Returns null when neither path yields any BOM line (i.e. unmatched).
+ */
+function planDish(
+  dishName: string,
+  norm: string,
+  ingredientLookup: Map<string, IngredientMaster>,
+  templateLookup: Map<string, RecipeSeedTemplate>,
+  candidates: InferenceCandidate[],
+): Pick<RecipeDraftPlanItem, 'source' | 'matchedTemplateName' | 'bom' | 'notes'> | null {
+  const template = templateLookup.get(norm);
+  if (template) {
+    const { bom, notes } = resolveTemplateBom(template, ingredientLookup);
+    if (bom.length > 0) {
+      return { source: 'template', matchedTemplateName: template.dishName, bom, notes };
+    }
+    const inferred = inferBom(dishName, candidates);
+    if (inferred.length > 0) {
+      return { source: 'inferred', bom: inferred, notes: ['範本食材皆無法對應，已改用菜名推定'] };
+    }
+    return null;
+  }
+  const inferred = inferBom(dishName, candidates);
+  if (inferred.length > 0) return { source: 'inferred', bom: inferred, notes: [] };
+  return null;
+}
+
 /** Resolves a template's BOM against the ingredient master; drops unresolvable lines with a note. */
 function resolveTemplateBom(
   template: RecipeSeedTemplate,
@@ -270,32 +298,13 @@ export function planRecipeDrafts(
       continue;
     }
 
-    const template = templateLookup.get(norm);
-    if (template) {
-      const { bom, notes } = resolveTemplateBom(template, ingredientLookup);
-      if (bom.length > 0) {
-        templateItems.push({ dishName, source: 'template', matchedTemplateName: template.dishName, bom, notes });
-        continue;
-      }
-      const inferred = inferBom(dishName, candidates);
-      if (inferred.length > 0) {
-        inferredItems.push({
-          dishName,
-          source: 'inferred',
-          bom: inferred,
-          notes: ['範本食材皆無法對應，已改用菜名推定'],
-        });
-      } else {
-        unmatched.push(dishName);
-      }
-      continue;
-    }
-
-    const inferred = inferBom(dishName, candidates);
-    if (inferred.length > 0) {
-      inferredItems.push({ dishName, source: 'inferred', bom: inferred, notes: [] });
-    } else {
+    const outcome = planDish(dishName, norm, ingredientLookup, templateLookup, candidates);
+    if (!outcome) {
       unmatched.push(dishName);
+    } else if (outcome.source === 'template') {
+      templateItems.push({ dishName, ...outcome });
+    } else {
+      inferredItems.push({ dishName, ...outcome });
     }
   }
 
@@ -333,7 +342,7 @@ export async function runRecipeDraftImport(
       const input: RecipeInput = {
         name: item.dishName,
         isActive: true,
-        notes: `自動產生配方草稿（${item.source === 'template' ? '範本' : '菜名推定'}），請人工確認食材與份量`,
+        notes: `${DRAFT_NOTE_MARKER}（${item.source === 'template' ? '範本' : '菜名推定'}），請人工確認食材與份量`,
         recipeIngredients: item.bom.map((line) => ({
           ingredientId: line.ingredientId,
           quantity: line.grams,
@@ -354,6 +363,174 @@ export async function runRecipeDraftImport(
     unmatchedCount: plan.unmatched.length,
     failed,
   };
+}
+
+// ─── Draft recalibration (Feature 043: 草稿份量重算) ────────────────────────
+
+/**
+ * Substring that marks a recipe as an auto-generated, not-yet-confirmed
+ * draft. Written by `runRecipeDraftImport` into `notes`; once the owner
+ * edits the notes (removing the marker), the recipe is treated as confirmed
+ * and recalibration will never touch it.
+ */
+export const DRAFT_NOTE_MARKER = '自動產生配方草稿';
+
+/** One BOM-line difference between a stored draft and its recomputed plan. */
+export interface DraftRecalcChange {
+  ingredientName: string;
+  /** null = line newly added by the recompute. */
+  oldGrams: number | null;
+  /** null = line removed by the recompute. */
+  newGrams: number | null;
+}
+
+export interface DraftRecalcPlanItem {
+  recipeId: string;
+  recipeName: string;
+  /** Preserved verbatim on update. */
+  isActive: boolean;
+  /** Preserved verbatim on update (still carries the draft marker). */
+  notes: string;
+  source: DraftSource;
+  matchedTemplateName?: string;
+  newBom: RecipeDraftBomLine[];
+  changes: DraftRecalcChange[];
+}
+
+export interface DraftRecalcPlan {
+  /** Drafts whose recomputed BOM differs from what is stored. */
+  toUpdate: DraftRecalcPlanItem[];
+  /** Drafts already matching the current templates/inference — nothing to do. */
+  unchangedCount: number;
+  /** Recipes without the draft marker in notes — never touched. */
+  nonDraftCount: number;
+  /** Drafts whose name no longer resolves to any BOM (left as-is). */
+  unresolvedDrafts: string[];
+}
+
+/**
+ * Pure planning for the draft-recalibration tool: re-runs the current
+ * template/inference pipeline for every recipe still marked as a draft
+ * (`DRAFT_NOTE_MARKER` in notes) and diffs the result against the stored
+ * BOM. Recipes the owner has confirmed (marker removed from notes) and
+ * drafts with no differences are reported in counts but never updated.
+ */
+export function planDraftRecalc(
+  recipes: Recipe[],
+  ingredients: IngredientMaster[],
+): DraftRecalcPlan {
+  const ingredientLookup = buildIngredientLookup(ingredients);
+  const templateLookup = buildTemplateLookup(RECIPE_SEED_TEMPLATES);
+  const candidates = buildInferenceCandidates(ingredientLookup);
+
+  const toUpdate: DraftRecalcPlanItem[] = [];
+  let unchangedCount = 0;
+  let nonDraftCount = 0;
+  const unresolvedDrafts: string[] = [];
+
+  for (const recipe of recipes) {
+    if (!(recipe.notes ?? '').includes(DRAFT_NOTE_MARKER)) {
+      nonDraftCount++;
+      continue;
+    }
+
+    const outcome = planDish(
+      recipe.name,
+      normalizeIngredientName(recipe.name),
+      ingredientLookup,
+      templateLookup,
+      candidates,
+    );
+    if (!outcome) {
+      unresolvedDrafts.push(recipe.name);
+      continue;
+    }
+
+    const oldLines = recipe.recipeIngredients ?? [];
+    const oldById = new Map(oldLines.map((l) => [l.ingredientId, l]));
+    const newIds = new Set(outcome.bom.map((l) => l.ingredientId));
+
+    const changes: DraftRecalcChange[] = [];
+    for (const line of outcome.bom) {
+      const old = oldById.get(line.ingredientId);
+      if (!old) {
+        changes.push({ ingredientName: line.ingredientName, oldGrams: null, newGrams: line.grams });
+      } else if (old.quantity !== line.grams) {
+        changes.push({ ingredientName: line.ingredientName, oldGrams: old.quantity, newGrams: line.grams });
+      }
+    }
+    for (const old of oldLines) {
+      if (!newIds.has(old.ingredientId)) {
+        changes.push({ ingredientName: old.ingredientNameSnapshot, oldGrams: old.quantity, newGrams: null });
+      }
+    }
+
+    if (changes.length === 0) {
+      unchangedCount++;
+      continue;
+    }
+
+    toUpdate.push({
+      recipeId: recipe.id,
+      recipeName: recipe.name,
+      isActive: recipe.isActive,
+      notes: recipe.notes ?? '',
+      source: outcome.source,
+      ...(outcome.matchedTemplateName ? { matchedTemplateName: outcome.matchedTemplateName } : {}),
+      newBom: outcome.bom,
+      changes,
+    });
+  }
+
+  return { toUpdate, unchangedCount, nonDraftCount, unresolvedDrafts };
+}
+
+export interface DraftRecalcResult {
+  updatedCount: number;
+  failed: { recipeName: string; error: string }[];
+}
+
+/**
+ * Executes recalibration for the given (user-selected) plan items,
+ * sequentially through `recipeService.updateRecipe()` — same validation
+ * path as a manual edit. Name / isActive / notes are preserved verbatim;
+ * only `recipeIngredients` is replaced with the recomputed BOM.
+ */
+export async function runDraftRecalc(
+  db: Firestore,
+  items: DraftRecalcPlanItem[],
+  uid: string,
+  onProgress?: (done: number, total: number) => void,
+): Promise<DraftRecalcResult> {
+  let updatedCount = 0;
+  const failed: DraftRecalcResult['failed'] = [];
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    try {
+      await updateRecipe(
+        db,
+        item.recipeId,
+        {
+          name: item.recipeName,
+          isActive: item.isActive,
+          notes: item.notes,
+          recipeIngredients: item.newBom.map((line) => ({
+            ingredientId: line.ingredientId,
+            quantity: line.grams,
+            unit: line.baseUnit ?? 'g',
+          })),
+        },
+        uid,
+      );
+      updatedCount++;
+    } catch (err) {
+      failed.push({ recipeName: item.recipeName, error: err instanceof Error ? err.message : String(err) });
+    }
+    onProgress?.(i + 1, items.length);
+  }
+
+  return { updatedCount, failed };
 }
 
 // ─── Read helpers (menu-import staging, read-only) ─────────────────────────

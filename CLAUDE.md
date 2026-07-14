@@ -2,6 +2,28 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Engineering Constitution
+
+**All work in this repo follows `docs/CLAUDE_Engineering_Constitution_v1.0.md`.**
+Key operating rules distilled from it:
+
+- Read first, infer second, modify last — never assume structure/APIs/schemas;
+  read the real code before changing it. Stop and ask when assumptions would
+  determine correctness.
+- Minimal correct change; one logical unit at a time; prefer existing patterns
+  (this repo's two service patterns, per-collection create functions, pure
+  planner + thin executor split) over inventing new ones.
+- Before non-trivial features, state plan / scope / risks / validation.
+- Security by design: Firestore access is email-allowlisted (see
+  firestore.rules `isAuthenticated()`); never trust client-provided identity
+  or workflow state; keep audit-trail collections create-only.
+- Verify functionality + no regression (`npm run typecheck` + the affected
+  `src/services/__tests__/*.test.ts` suites); state explicitly when
+  verification could not be performed.
+- When architecture / API / schema / rules change, update this file and
+  remind the owner to redeploy `firestore.rules` to Firebase Console.
+- Communicate in Traditional Chinese; separate facts, inferences, assumptions.
+
 ## Repository Layout
 
 ```

@@ -29,6 +29,7 @@ import {
   type PurchaseDemandDraftFormValues,
 } from '@/components/purchaseDemandDrafts/PurchaseDemandDraftForm';
 import { draftToCsv, downloadCsv, sanitizeFilename } from '@/utils/purchaseDemandDraftExport';
+import { planDraftConversion, convertDraftToPurchaseOrder } from '@/services/draftToPurchaseOrderService';
 
 type EditingState =
   | { mode: 'create' }
@@ -118,6 +119,30 @@ export default function PurchaseDemandDraftPage() {
     }, 0);
   }
 
+  async function handleConvertToOrder(draft: PurchaseDemandDraft) {
+    const uid = auth.currentUser?.uid ?? '';
+    const plan = planDraftConversion(draft);
+    if (plan.lines.length === 0) {
+      toast({ title: '沒有可轉換的品項', description: '淨需求皆為 0（庫存足夠），或皆為個數單位。' });
+      return;
+    }
+    const skippedNote = plan.skipped.length > 0 ? `\n（略過 ${plan.skipped.length} 項：${plan.skipped.map((s) => s.ingredientName).join('、')}）` : '';
+    const proceed = window.confirm(
+      `將建立正式採購單（待採購）：共 ${plan.lines.length} 項食材。${skippedNote}\n確認後草稿會標記為「已送採購」。`,
+    );
+    if (!proceed) return;
+    try {
+      const result = await convertDraftToPurchaseOrder(db, draft.id, uid);
+      toast({
+        title: '已建立採購單',
+        description: `${result.lineCount} 項食材已轉入採購管理（待採購）；收貨時會自動入庫。`,
+      });
+      await reload();
+    } catch (err) {
+      toast({ variant: 'destructive', title: '轉採購單失敗', description: err instanceof Error ? err.message : '' });
+    }
+  }
+
   async function handleWorkflowStatusChange(draft: PurchaseDemandDraft, workflowStatus: PurchaseDemandDraftWorkflowStatus) {
     const uid = auth.currentUser?.uid ?? '';
     try {
@@ -200,6 +225,7 @@ export default function PurchaseDemandDraftPage() {
             onExportCsv={handleExportCsv}
             onPrint={handlePrint}
             onWorkflowStatusChange={handleWorkflowStatusChange}
+            onConvertToOrder={handleConvertToOrder}
           />
         </>
       )}

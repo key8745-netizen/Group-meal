@@ -33,6 +33,7 @@ export function PurchaseDemandDraftList({
   onExportCsv,
   onPrint,
   onWorkflowStatusChange,
+  onConvertToOrder,
 }: {
   drafts: PurchaseDemandDraft[];
   onEdit: (draft: PurchaseDemandDraft) => void;
@@ -40,6 +41,7 @@ export function PurchaseDemandDraftList({
   onExportCsv?: (draft: PurchaseDemandDraft) => void;
   onPrint?: (draft: PurchaseDemandDraft) => void;
   onWorkflowStatusChange?: (draft: PurchaseDemandDraft, workflowStatus: PurchaseDemandDraftWorkflowStatus) => void;
+  onConvertToOrder?: (draft: PurchaseDemandDraft) => void;
 }) {
   if (drafts.length === 0) {
     return (
@@ -106,6 +108,23 @@ export function PurchaseDemandDraftList({
                 <TableCell>{updatedAt ? updatedAt.toLocaleString('zh-TW') : '—'}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
+                    {onConvertToOrder && (
+                      <Button
+                        size="sm"
+                        disabled={
+                          isArchived ||
+                          draft.workflowStatus === 'sent' ||
+                          draft.workflowStatus === 'completed' ||
+                          draft.workflowStatus === 'cancelled'
+                        }
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onConvertToOrder(draft);
+                        }}
+                      >
+                        轉採購單
+                      </Button>
+                    )}
                     {onExportCsv && (
                       <Button
                         variant="outline"

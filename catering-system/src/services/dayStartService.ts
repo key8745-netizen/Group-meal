@@ -29,6 +29,11 @@ import {
   updateDraft,
 } from './purchaseDemandDraftService';
 import { listBatches, listItems } from './menuImportService';
+import {
+  getKitchenSettings,
+  buildScheduleInput,
+  DEFAULT_KITCHEN_SETTINGS,
+} from './kitchenSettingsService';
 import type { InventoryDoc, Recipe } from './types';
 import {
   createProductionWorkflowPlanFromPrepPlan,
@@ -79,38 +84,14 @@ export interface DayStartResult {
   completed: boolean;
 }
 
-// ─── Defaults for the first-pass schedule ───────────────────────────────────
-// Editable afterwards in 生產排程 — these just make the one-click run yield a
-// usable draft instead of stopping to ask 10 questions.
+// ─── Schedule parameters ────────────────────────────────────────────────────
+// Feature 049: all schedule parameters come from 我的廚房設定
+// (`kitchenSettingsService`) — falling back to its defaults when the owner
+// hasn't saved any. Nothing is hard-coded here anymore.
 
-/** Service time on the target date (24h) used for the schedule suggestion. */
-const DEFAULT_SERVICE_HOUR = 11;
-const DEFAULT_CAPACITY_WINDOW_MINUTES = 240;
-const DEFAULT_BUFFER_MINUTES = 30;
-/** Matches the staffRole vocabulary emitted by workflowTaskDraftService templates. */
-const DEFAULT_STAFF = [
-  { role: '廚師', count: 2 },
-  { role: '助手', count: 2 },
-];
-const DEFAULT_EQUIPMENT: ProductionScheduleInput['availableEquipment'] = [
-  { type: 'sink', count: 1 },
-  { type: 'cuttingStation', count: 2 },
-  { type: 'prepTable', count: 2 },
-  { type: 'wok', count: 2 },
-  { type: 'stoveBurner', count: 2 },
-  { type: 'stockPot', count: 1 },
-  { type: 'deepFryer', count: 1 },
-  { type: 'steamer', count: 1 },
-];
-
+/** Kept for API compatibility: schedule input for `date` using stock defaults. */
 export function defaultScheduleInput(date: string): ProductionScheduleInput {
-  return {
-    targetServiceDateTime: new Date(`${date}T${String(DEFAULT_SERVICE_HOUR).padStart(2, '0')}:00:00`),
-    capacityWindowMinutes: DEFAULT_CAPACITY_WINDOW_MINUTES,
-    bufferMinutes: DEFAULT_BUFFER_MINUTES,
-    availableStaff: DEFAULT_STAFF,
-    availableEquipment: DEFAULT_EQUIPMENT,
-  };
+  return buildScheduleInput(date, DEFAULT_KITCHEN_SETTINGS);
 }
 
 // ─── 照月菜單帶入（Feature 045）──────────────────────────────────────────────
@@ -426,18 +407,20 @@ export async function runDayStart(
   });
   if (!okWorkflow) return result;
 
-  // 5. 排程建議
+  // 5. 排程建議（參數來自「我的廚房設定」，未設定時用系統預設）
   const okSchedule = await runStep('schedule', async () => {
+    const settings = await getKitchenSettings(db);
     const suggestion = await createProductionScheduleSuggestion(
       db,
       result.workflowPlanId!,
-      defaultScheduleInput(input.date),
+      buildScheduleInput(input.date, settings),
       uid,
     );
     result.scheduleId = suggestion.id;
     const statusLabel =
       suggestion.scheduleStatus === 'fits' ? '可行' : suggestion.scheduleStatus === 'overrun' ? '超時' : '不可行';
-    return `${statusLabel}，總工時 ${suggestion.makespanMinutes} 分鐘（預設人力：廚師×2、助手×2，可至生產排程調整）`;
+    const staffLabel = settings.availableStaff.map((s) => `${s.role}×${s.count}`).join('、');
+    return `${statusLabel}，總工時 ${suggestion.makespanMinutes} 分鐘（人力：${staffLabel}，出餐 ${settings.serviceTime}——可至廚房設定調整）`;
   });
   if (!okSchedule) return result;
 

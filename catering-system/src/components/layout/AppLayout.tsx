@@ -19,6 +19,7 @@ import {
   ListChecks,
   CalendarDays,
   Rocket,
+  Settings2,
 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -53,6 +54,12 @@ const navGroups: { section: string; items: NavItem[] }[] = [
       { to: '/purchase', label: '採購管理', icon: ShoppingCart },
       { to: '/inventory', label: '庫存管理', icon: PackageSearch },
       { to: '/market-prices', label: '市場行情', icon: TrendingUp },
+    ],
+  },
+  {
+    section: '設定',
+    items: [
+      { to: '/kitchen-settings', label: '我的廚房設定', icon: Settings2 },
     ],
   },
 ];

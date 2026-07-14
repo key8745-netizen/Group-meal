@@ -5,6 +5,7 @@ import type { ProductionWorkflowPlan, EquipmentType, AvailableStaffInput, Availa
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { ProductionScheduleInput } from '@/services/productionScheduleService';
+import { getKitchenSettings } from '@/services/kitchenSettingsService';
 
 const EQUIPMENT_TYPE_OPTIONS: EquipmentType[] = [
   'sink', 'cuttingStation', 'prepTable', 'wok', 'stoveBurner',
@@ -47,6 +48,14 @@ export function ProductionScheduleForm({ onSubmit, submitting }: Props) {
 
   useEffect(() => {
     listProductionWorkflowPlans(db, { includeInactive: false }).then(setPlans).catch(() => {});
+    // Feature 049: 預設參數改由「我的廚房設定」帶入（載入失敗時維持原預設）。
+    getKitchenSettings(db).then((s) => {
+      setCapacityWindowMinutes(s.capacityWindowMinutes);
+      setBufferMinutes(s.bufferMinutes);
+      setAvailableStaff(s.availableStaff);
+      setAvailableEquipment(s.availableEquipment);
+      setTargetServiceDateTime((prev) => `${prev.slice(0, 11)}${s.serviceTime}`);
+    });
   }, []);
 
   function addStaffRow() {

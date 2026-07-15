@@ -28,6 +28,7 @@ import { getKitchenSettings } from '@/services/kitchenSettingsService';
 import { computeLowStock, planSafetyRestock } from '@/services/stockAlertService';
 import { purchaseOrderService } from '@/services/purchaseOrderService';
 import { Button } from '@/components/ui/button';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
@@ -57,6 +58,7 @@ function StepIcon({ status }: { status: DayStartStep['status'] }) {
 }
 
 export default function DayStartPage() {
+  const { confirm, confirmDialog } = useConfirm();
   const navigate = useNavigate();
   const [phase, setPhase] = useState<Phase>('pick');
   const [date, setDate] = useState(today());
@@ -120,9 +122,11 @@ export default function DayStartPage() {
   async function handleSafetyRestock() {
     const lines = planSafetyRestock(lowStock);
     if (lines.length === 0) return;
-    const proceed = window.confirm(
-      `將建立「補到安全量」採購單（待採購）：${lines.length} 項食材。\n${lines.map((l) => `${l.name} ${l.purchaseQtyKg}kg`).join('、')}`,
-    );
+    const proceed = await confirm({
+      title: '一鍵補貨到安全量',
+      description: `將建立「補到安全量」採購單（待採購）：${lines.length} 項食材。\n${lines.map((l) => `${l.name} ${l.purchaseQtyKg}kg`).join('、')}`,
+      confirmLabel: '建立補貨單',
+    });
     if (!proceed) return;
     setCreatingRestock(true);
     try {
@@ -592,6 +596,7 @@ export default function DayStartPage() {
       )}
 
       <Toaster />
+      {confirmDialog}
     </div>
   );
 }

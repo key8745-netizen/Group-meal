@@ -38,6 +38,7 @@ import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
 import { downloadCsv } from '@/utils/purchaseDemandDraftExport';
 import { Button } from '@/components/ui/button';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -68,6 +69,7 @@ function addDaysIso(dateIso: string, days: number): string {
 }
 
 export default function WeekPlanPage() {
+  const { confirm, confirmDialog } = useConfirm();
   const [monday, setMonday] = useState(() => mondayOf(todayLocalIsoDate()));
   const [data, setData] = useState<WeekPlanData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -144,9 +146,11 @@ export default function WeekPlanPage() {
 
   async function handleWeekStart() {
     const uid = auth.currentUser?.uid ?? '';
-    const proceed = window.confirm(
-      `將依月菜單為本週（${weekLabel}）每一天自動建立：菜單 → 備料 → 採購需求（扣庫存）→ 製程 → 排程。\n已有菜單或月菜單沒排菜的日子會略過。`,
-    );
+    const proceed = await confirm({
+      title: `整週一鍵開工（${weekLabel}）`,
+      description: '將依月菜單為本週每一天自動建立：菜單 → 備料 → 採購需求（扣庫存）→ 製程 → 排程。\n已有菜單或月菜單沒排菜的日子會略過。',
+      confirmLabel: '開始開工',
+    });
     if (!proceed) return;
     setWeekStarting(true);
     setWeekStartResults(dates.map((date) => ({ date, status: 'pending', detail: '' })));
@@ -180,11 +184,13 @@ export default function WeekPlanPage() {
       const skippedNote = preview.skipped.length > 0
         ? `\n略過 ${preview.skipped.length} 項：${preview.skipped.map((s) => s.ingredientName).join('、')}`
         : '';
-      const proceed = window.confirm(
-        `將建立正式採購單（待採購）：${preview.lines.length} 項食材`
-        + (preview.nettedCount > 0 ? `（${preview.nettedCount} 項已扣庫存，${preview.coveredCount} 項庫存足夠免採購）` : '')
-        + `。${skippedNote}`,
-      );
+      const proceed = await confirm({
+        title: '彙總建立採購單',
+        description: `將建立正式採購單（待採購）：${preview.lines.length} 項食材`
+          + (preview.nettedCount > 0 ? `（${preview.nettedCount} 項已扣庫存，${preview.coveredCount} 項庫存足夠免採購）` : '')
+          + `。${skippedNote}`,
+        confirmLabel: '建立採購單',
+      });
       if (!proceed) return;
       const result = await createOrderFromRangeDemand(db, demandSummary, uid);
       toast({
@@ -416,6 +422,7 @@ export default function WeekPlanPage() {
       </Card>
 
       <Toaster />
+      {confirmDialog}
     </div>
   );
 }

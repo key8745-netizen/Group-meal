@@ -18,6 +18,7 @@ import {
   updateDraftWorkflowStatus,
 } from '@/services/purchaseDemandDraftService';
 import { Button } from '@/components/ui/button';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/hooks/use-toast';
@@ -46,6 +47,7 @@ function toFormValues(draft: PurchaseDemandDraft): PurchaseDemandDraftFormValues
 }
 
 export default function PurchaseDemandDraftPage() {
+  const { confirm, confirmDialog } = useConfirm();
   const [drafts, setDrafts] = useState<PurchaseDemandDraft[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<EditingState>(null);
@@ -127,9 +129,11 @@ export default function PurchaseDemandDraftPage() {
       return;
     }
     const skippedNote = plan.skipped.length > 0 ? `\n（略過 ${plan.skipped.length} 項：${plan.skipped.map((s) => s.ingredientName).join('、')}）` : '';
-    const proceed = window.confirm(
-      `將建立正式採購單（待採購）：共 ${plan.lines.length} 項食材。${skippedNote}\n確認後草稿會標記為「已送採購」。`,
-    );
+    const proceed = await confirm({
+      title: '轉為正式採購單',
+      description: `將建立正式採購單（待採購）：共 ${plan.lines.length} 項食材。${skippedNote}\n確認後草稿會標記為「已送採購」。`,
+      confirmLabel: '轉採購單',
+    });
     if (!proceed) return;
     try {
       const result = await convertDraftToPurchaseOrder(db, draft.id, uid);
@@ -238,6 +242,7 @@ export default function PurchaseDemandDraftPage() {
         <PurchaseDemandDraftPrintView draft={printDraft} />
       </div>
     )}
+    {confirmDialog}
     </>
   );
 }

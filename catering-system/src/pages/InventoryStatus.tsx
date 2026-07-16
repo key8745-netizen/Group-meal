@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { PackageSearch, RefreshCw } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import type { IngredientMaster, InventoryDoc } from '@/services/types';
-import { pricePerKgFromDefault } from '@/services/marketPriceService';
+import type { IngredientMaster, InventoryDoc, InventoryBatch, FreshnessState } from '@/services/types';
+import { pricePerKgFromDefault, todayLocalIsoDate } from '@/services/marketPriceService';
+import { listAllBatches } from '@/services/inventoryBatchService';
+import { batchState } from '@/services/freshnessService';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -23,6 +25,38 @@ interface InventoryRow {
   /** 每 kg 單價（基準價換算；未設定為 0）。 */
   pricePerKg: number;
   lastUpdated?: string;
+  /** Feature 071: 該食材有剩餘的批次數。 */
+  batchCount: number;
+  /** Feature 071: 最急批次的保鮮狀態（null = 無批次資料）。 */
+  worstFreshness: FreshnessState | null;
+}
+
+// Feature 071: 保鮮狀態顯示設定與「最急」排序（愈前愈急）。
+const FRESHNESS_RANK: Record<FreshnessState, number> = {
+  EXPIRED: 0, CRITICAL: 1, USE_FIRST: 2, FRESH: 3, DEPLETED: 4,
+};
+const FRESHNESS_CONFIG: Record<FreshnessState, { label: string; cls: string }> = {
+  EXPIRED:   { label: '已過期',   cls: 'bg-red-100 text-red-700 border-red-200' },
+  CRITICAL:  { label: '臨界',     cls: 'bg-orange-100 text-orange-700 border-orange-200' },
+  USE_FIRST: { label: '優先用',   cls: 'border-amber-400 text-amber-700' },
+  FRESH:     { label: '新鮮',     cls: 'bg-green-100 text-green-700 border-green-200' },
+  DEPLETED:  { label: '已用罄',   cls: 'text-muted-foreground' },
+};
+
+/** 取一組批次中「最急」的保鮮狀態；忽略已用罄；無有效批次回 null。 */
+function worstBatchFreshness(
+  batches: InventoryBatch[],
+  ing: IngredientMaster | undefined,
+  todayIso: string,
+): FreshnessState | null {
+  let worst: FreshnessState | null = null;
+  for (const b of batches) {
+    if (!(b.qtyRemainingKg > 0)) continue;
+    const st = batchState(b, ing ?? {}, todayIso);
+    if (st === 'DEPLETED') continue;
+    if (worst === null || FRESHNESS_RANK[st] < FRESHNESS_RANK[worst]) worst = st;
+  }
+  return worst;
 }
 
 type StockStatus = 'ok' | 'low' | 'critical' | 'unknown';
@@ -69,15 +103,25 @@ export default function InventoryStatus() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [inventorySnap, ingredientSnap] = await Promise.all([
+      const [inventorySnap, ingredientSnap, allBatches] = await Promise.all([
         getDocs(collection(db, 'inventory')),
         getDocs(collection(db, 'ingredients')),
+        // Feature 071: 批次為並存期附加資料，讀取失敗不影響庫存總覽。
+        listAllBatches(db).catch(() => [] as InventoryBatch[]),
       ]);
 
       const ingredientMap = new Map<string, IngredientMaster>();
       ingredientSnap.docs.forEach(doc => {
         ingredientMap.set(doc.id, { id: doc.id, ...doc.data() } as IngredientMaster);
       });
+
+      const batchesByIngredient = new Map<string, InventoryBatch[]>();
+      for (const b of allBatches) {
+        const arr = batchesByIngredient.get(b.ingredientId) ?? [];
+        arr.push(b);
+        batchesByIngredient.set(b.ingredientId, arr);
+      }
+      const todayIso = todayLocalIsoDate();
 
       const data: InventoryRow[] = inventorySnap.docs.map(doc => {
         const inv = doc.data() as InventoryDoc;
@@ -87,6 +131,7 @@ export default function InventoryStatus() {
         // 與首頁／儀表板的 computeLowStock 一致；不再依賴 legacy ing.unit 轉換，
         // 避免同一食材在不同頁面出現不同的安全水位。
         const safetyLevelKg = ing && typeof ing.minStockLevel === 'number' ? ing.minStockLevel : 0;
+        const batches = (batchesByIngredient.get(inv.ingredientId) ?? []).filter((b) => b.qtyRemainingKg > 0);
         return {
           ingredientId: inv.ingredientId,
           ingredientName: inv.ingredientName,
@@ -99,6 +144,8 @@ export default function InventoryStatus() {
           lastUpdated: inv.lastUpdated
             ? inv.lastUpdated.toDate().toLocaleDateString('zh-TW')
             : undefined,
+          batchCount: batches.length,
+          worstFreshness: worstBatchFreshness(batches, ing, todayIso),
         };
       });
 
@@ -217,6 +264,7 @@ export default function InventoryStatus() {
                     <TableHead className="text-right">目前庫存</TableHead>
                     <TableHead className="text-right">安全水位</TableHead>
                     <TableHead className="text-right">單價 / kg</TableHead>
+                    <TableHead>批次 / 保鮮</TableHead>
                     <TableHead>更新日期</TableHead>
                     <TableHead>狀態</TableHead>
                   </TableRow>
@@ -243,6 +291,20 @@ export default function InventoryStatus() {
                         </TableCell>
                         <TableCell className="text-right tabular-nums text-muted-foreground">
                           {row.pricePerKg > 0 ? `NT$ ${row.pricePerKg.toLocaleString()}` : '—'}
+                        </TableCell>
+                        <TableCell>
+                          {row.batchCount === 0 ? (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          ) : (
+                            <span className="flex items-center gap-1.5 text-xs">
+                              <span className="tabular-nums text-muted-foreground">{row.batchCount} 批</span>
+                              {row.worstFreshness && (
+                                <Badge variant="outline" className={FRESHNESS_CONFIG[row.worstFreshness].cls}>
+                                  {FRESHNESS_CONFIG[row.worstFreshness].label}
+                                </Badge>
+                              )}
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {row.lastUpdated ?? '—'}

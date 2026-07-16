@@ -98,6 +98,21 @@ service cloud.firestore {
         allow update: if false;
         allow delete: if false;
       }
+
+      // Feature 071: 進貨批次子集合。已登入可讀；建立/更新（扣料改 remaining）需
+      // 已登入；禁止刪除（批次改為 DEPLETED 而非刪除，保留稽核）。
+      match /batches/{batchId} {
+        allow read:   if isAuthenticated();
+        allow create: if isAuthenticated();
+        allow update: if isAuthenticated();
+        allow delete: if false;
+      }
+    }
+
+    // Feature 071: 授權 batches 的 collectionGroup 查詢（庫存頁一次載入所有批次
+    // 計算保鮮狀態）。nested match 不會自動涵蓋 collection group 查詢，需獨立宣告。
+    match /{path=**}/batches/{batchId} {
+      allow read: if isAuthenticated();
     }
 
     // ── purchases ─────────────────────────────────────────────────────────────

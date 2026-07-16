@@ -45,10 +45,13 @@ export function validateIngredientMasterForm(
 
 export function IngredientMasterForm({
   initial,
+  currentStockKg,
   onSave,
   onCancel,
 }: {
   initial?: Partial<IngredientMasterFormValues>;
+  /** Feature 060: 編輯時帶入目前庫存（kg），顯示於安全庫存欄位提示。 */
+  currentStockKg?: number;
   onSave: (form: IngredientMasterFormValues) => Promise<void>;
   onCancel: () => void;
 }) {
@@ -152,7 +155,12 @@ export function IngredientMasterForm({
             value={form.minStockLevel ?? 0}
             onChange={(e) => setForm((f) => ({ ...f, minStockLevel: Math.max(0, parseFloat(e.target.value) || 0) }))}
           />
-          <p className="text-[11px] text-muted-foreground">庫存低於此值時首頁會提醒補貨</p>
+          <p className="text-[11px] text-muted-foreground">
+            庫存低於此值時首頁會提醒補貨
+            {typeof currentStockKg === 'number' && (
+              <span className="ml-1">（目前庫存 {currentStockKg.toFixed(2)} kg）</span>
+            )}
+          </p>
         </div>
 
         <div className="flex flex-col gap-1">

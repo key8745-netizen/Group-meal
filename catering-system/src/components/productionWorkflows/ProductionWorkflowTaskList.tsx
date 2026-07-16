@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { Plus, Sparkles } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Plus, Sparkles, Clock, Users } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { getPrepPlan } from '@/services/prepPlanService';
 import { listIngredients } from '@/services/ingredientMasterService';
 import { generateTaskDraftsFromPrepPlan } from '@/services/workflowTaskDraftService';
+import { summarizeLabor, estimateCompletionMinutes } from '@/services/laborSummaryService';
 import { Button } from '@/components/ui/button';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
@@ -83,6 +84,14 @@ export function ProductionWorkflowTaskList({
   const [generatingDraft, setGeneratingDraft] = useState(false);
   const [draftNotes, setDraftNotes] = useState<string[] | null>(null);
   const [draftTaskIds, setDraftTaskIds] = useState<Set<string>>(new Set());
+  // Feature 065: 現場同時作業人數（可手動調整的規劃參數，預設 2）
+  const [staffCount, setStaffCount] = useState(2);
+
+  // Feature 065: 進行中任務的人力彙總（人·分）＋依人數粗估完成時間
+  const labor = useMemo(
+    () => summarizeLabor(pendingTasks.filter((t) => t.taskStatus === 'active')),
+    [pendingTasks],
+  );
 
   const visible = pendingTasks
     .filter((t) => showArchived || t.taskStatus === 'active')
@@ -158,6 +167,43 @@ export function ProductionWorkflowTaskList({
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Feature 065: 人力工時彙總 */}
+      {labor.taskCount > 0 && (
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border bg-muted/20 px-4 py-3 text-sm">
+          <span className="flex items-center gap-1.5">
+            <Clock size={15} className="text-muted-foreground" />
+            <span className="text-muted-foreground">總人力</span>
+            <span className="font-semibold tabular-nums">{labor.totalMinutes} 人·分</span>
+          </span>
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            {labor.byRole.map((r) => (
+              <span key={r.role}>
+                {r.role} <span className="tabular-nums text-foreground">{r.minutes} 分</span>
+              </span>
+            ))}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Users size={15} className="text-muted-foreground" />
+            <span className="text-muted-foreground">人數</span>
+            <input
+              type="number"
+              min={1}
+              step={1}
+              value={staffCount}
+              onChange={(e) => setStaffCount(Math.max(1, Math.floor(Number(e.target.value) || 1)))}
+              className="w-14 rounded-md border px-2 py-0.5 text-right text-sm tabular-nums"
+            />
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">粗估完成</span>
+            <span className="font-semibold tabular-nums">
+              約 {estimateCompletionMinutes(labor.totalMinutes, staffCount)} 分
+            </span>
+            <span className="text-xs text-muted-foreground">（忽略相依/角色，僅供規劃參考）</span>
+          </span>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-3">
         <select
           className="rounded-md border bg-background px-2 py-1 text-xs"

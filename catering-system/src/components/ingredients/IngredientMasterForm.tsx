@@ -288,10 +288,23 @@ export function IngredientMasterForm({
                   onChange={(e) => setForm((f) => ({ ...f, criticalThresholdDays: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
                 />
               </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] text-muted-foreground">加工延壽良率</label>
+                <Input
+                  type="number" min={0} max={2} step="any"
+                  value={form.processedYieldRatio ?? ''}
+                  onChange={(e) => {
+                    const v = parseFloat(e.target.value);
+                    setForm((f) => ({ ...f, processedYieldRatio: Number.isFinite(v) && v > 0 ? v : undefined }));
+                  }}
+                  placeholder="如 0.75"
+                />
+              </div>
             </div>
           )}
           <p className="text-[11px] text-muted-foreground">
             保存天數用於收貨時自動推算批次效期；乾貨/罐頭可取消勾選「易腐」以跳過保鮮追蹤。
+            加工延壽良率＝煮熟後產出／原料（如 0.75 代表煮過剩 75%），加工時可逐次覆蓋。
           </p>
         </div>
 

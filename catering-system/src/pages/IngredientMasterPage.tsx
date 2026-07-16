@@ -65,6 +65,8 @@ function toFormValues(ingredient: IngredientMaster): IngredientMasterInput {
     shelfLifeDaysAmbient: ingredient.shelfLifeDaysAmbient,
     warnThresholdDays: typeof ingredient.warnThresholdDays === 'number' ? ingredient.warnThresholdDays : 2,
     criticalThresholdDays: typeof ingredient.criticalThresholdDays === 'number' ? ingredient.criticalThresholdDays : 1,
+    // Feature 079: 加工延壽預設良率（未設定則留空）。
+    processedYieldRatio: typeof ingredient.processedYieldRatio === 'number' ? ingredient.processedYieldRatio : undefined,
   };
 }
 

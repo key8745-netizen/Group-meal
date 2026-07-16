@@ -44,6 +44,10 @@ service cloud.firestore {
         'defaultPrice', 'defaultPriceUnit', 'supplierId',
         'isActive', 'notes', 'wasteFactor', 'isOcr', 'verified',
         'marketCropName',
+        // Feature 071: 保鮮參數
+        'isPerishable', 'defaultStorageType',
+        'shelfLifeDaysChilled', 'shelfLifeDaysFrozen', 'shelfLifeDaysAmbient',
+        'warnThresholdDays', 'criticalThresholdDays', 'openedShelfLifeHours',
         'createdAt', 'updatedAt', 'createdBy', 'updatedBy',
       ];
     }

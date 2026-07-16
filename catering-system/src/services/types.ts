@@ -151,6 +151,16 @@ export interface IngredientMaster {
   updatedAt?: Timestamp;
   createdBy?: string;
   updatedBy?: string;
+
+  // Feature 071: 保鮮參數（選填；見 IngredientFreshnessParams）。
+  isPerishable?: boolean;
+  defaultStorageType?: StorageType;
+  shelfLifeDaysChilled?: number;
+  shelfLifeDaysFrozen?: number;
+  shelfLifeDaysAmbient?: number;
+  warnThresholdDays?: number;
+  criticalThresholdDays?: number;
+  openedShelfLifeHours?: number;
 }
 
 // ─── Recipes (Feature 011: 配方引用食材主檔) ──────────────────────────────────

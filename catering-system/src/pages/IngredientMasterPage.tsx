@@ -57,6 +57,14 @@ function toFormValues(ingredient: IngredientMaster): IngredientMasterInput {
     minStockLevel: typeof ingredient.minStockLevel === 'number' && ingredient.minStockLevel >= 0
       ? ingredient.minStockLevel
       : 0,
+    // Feature 071: 保鮮參數（未設定給預設，讓表單可直接編輯儲存）。
+    isPerishable: ingredient.isPerishable !== false,
+    defaultStorageType: ingredient.defaultStorageType ?? 'chilled',
+    shelfLifeDaysChilled: ingredient.shelfLifeDaysChilled,
+    shelfLifeDaysFrozen: ingredient.shelfLifeDaysFrozen,
+    shelfLifeDaysAmbient: ingredient.shelfLifeDaysAmbient,
+    warnThresholdDays: typeof ingredient.warnThresholdDays === 'number' ? ingredient.warnThresholdDays : 2,
+    criticalThresholdDays: typeof ingredient.criticalThresholdDays === 'number' ? ingredient.criticalThresholdDays : 1,
   };
 }
 

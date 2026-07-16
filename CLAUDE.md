@@ -69,6 +69,8 @@ Scripts (require Firebase env vars — see `.env`):
 npx tsx scripts/seedIngredients.ts          # Seed 10 core ingredients (idempotent)
 npx tsx scripts/generateAutomatedOrder.ts   # Auto-detect shortages → DRAFT purchase order
 npx tsx scripts/generateAutomatedOrder.ts <recipeId> <headCount>
+npx tsx scripts/seedPreservationYields.ts             # Feature 082: 加工延壽良率種子（dry-run 預設）
+npx tsx scripts/seedPreservationYields.ts --execute   # 寫入（merge-only、不臆測、乾貨略過）
 ```
 
 Correctness gates (also run in CI — see `.github/workflows/ci.yml`):

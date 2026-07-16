@@ -13,11 +13,12 @@ import {
   collectionGroup,
   doc,
   getDocs,
+  runTransaction,
   setDoc,
   type Firestore,
 } from 'firebase/firestore';
 import type { IngredientMaster, InventoryBatch, StorageType } from './types';
-import { deriveExpirationDate, nextBatchId } from './inventoryBatchPlanner';
+import { deriveExpirationDate, nextBatchId, planFefoDeduction } from './inventoryBatchPlanner';
 import { isoAddDays } from './freshnessService';
 import { todayLocalIsoDate } from './marketPriceService';
 
@@ -73,4 +74,38 @@ export async function createReceiptBatch(
   };
   await setDoc(doc(db, 'inventory', ingredient.id, 'batches', id), data);
   return id;
+}
+
+/**
+ * Feature 083: Best-effort 讓批次剩餘量反映出餐扣料（FEFO：先到期先扣）。
+ *
+ * currentStock 仍由 inventoryService.deductStock 權威扣除；本函式「額外」把同量
+ * 依效期扣到各批次的 qtyRemainingKg，讓保鮮警示不再顯示其實已用掉的幽靈批次。
+ * 屬並存期附加資料——無批次時無動作；呼叫端應以 try/catch 包起，失敗不影響扣料。
+ * 只降不升、不低於 0，且在單一交易內更新受影響批次。
+ */
+export async function applyFefoBatchDeduction(
+  db: Firestore,
+  ingredientId: string,
+  needKg: number,
+): Promise<{ deductedKg: number; shortfallKg: number }> {
+  if (!(needKg > 0)) return { deductedKg: 0, shortfallKg: 0 };
+
+  const batches = await listBatchesForIngredient(db, ingredientId);
+  const plan = planFefoDeduction(batches, needKg);
+  if (plan.deductions.length === 0) return { deductedKg: 0, shortfallKg: plan.shortfallKg };
+
+  const refs = plan.deductions.map((d) => doc(db, 'inventory', ingredientId, 'batches', d.batchId));
+  await runTransaction(db, async (t) => {
+    const snaps = await Promise.all(refs.map((r) => t.get(r)));
+    snaps.forEach((snap, i) => {
+      if (!snap.exists()) return;
+      const cur = (snap.data() as Omit<InventoryBatch, 'id'>).qtyRemainingKg ?? 0;
+      const next = round3(Math.max(0, cur - plan.deductions[i].deductKg));
+      t.update(refs[i], { qtyRemainingKg: next });
+    });
+  });
+
+  const deductedKg = round3(plan.deductions.reduce((s, d) => s + d.deductKg, 0));
+  return { deductedKg, shortfallKg: plan.shortfallKg };
 }

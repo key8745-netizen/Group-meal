@@ -30,6 +30,7 @@ import {
 } from 'firebase/firestore';
 import { getPrepPlan } from './prepPlanService';
 import { deductStock } from './inventoryService';
+import { applyFefoBatchDeduction } from './inventoryBatchService';
 import type { PrepPlan, RequirementItem } from './types';
 
 export interface DeductionSkip {
@@ -139,6 +140,12 @@ export async function deductPrepPlanStock(
   }
 
   await deductStock(db, requirements, prepPlanId, uid);
+
+  // Feature 083: currentStock 已權威扣除；best-effort 讓批次剩餘量同步（FEFO），
+  // 保鮮警示才不會顯示其實已用掉的幽靈批次。批次為附加資料，任何失敗都不影響扣料。
+  for (const [ingredientId, req] of requirements) {
+    await applyFefoBatchDeduction(db, ingredientId, req.totalQuantityKg).catch(() => {});
+  }
 
   await updateDoc(doc(db, 'prepPlans', prepPlanId), {
     stockDeductedAt: serverTimestamp(),

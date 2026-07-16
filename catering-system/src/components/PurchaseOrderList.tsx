@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/table';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
+import { ReceiveOrderDialog } from '@/components/purchase/ReceiveOrderDialog';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -76,7 +77,7 @@ function ShareButton({ orderId }: { orderId: string }) {
 function OrderCard({ order, onApprove, onComplete }: {
   order: PurchaseOrder;
   onApprove: (id: string) => void;
-  onComplete: (id: string) => void;
+  onComplete: (order: PurchaseOrder) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -120,7 +121,7 @@ function OrderCard({ order, onApprove, onComplete }: {
             <Button
               size="sm"
               className="gap-1.5 text-xs"
-              onClick={() => onComplete(order.id!)}
+              onClick={() => onComplete(order)}
             >
               <CheckCircle size={13} />
               確認入庫
@@ -168,6 +169,8 @@ export function PurchaseOrderList() {
   const [loading,     setLoading]     = useState(true);
   const [activeTab,   setActiveTab]   = useState<PurchaseOrderStatus>('PENDING');
   const [completing,  setCompleting]  = useState<Set<string>>(new Set());
+  // Feature 061: 收貨對話框（逐項可改實收量）
+  const [receivingOrder, setReceivingOrder] = useState<PurchaseOrder | null>(null);
 
   // ── Real-time listener ───────────────────────────────────────────────────
   useEffect(() => {
@@ -201,23 +204,6 @@ export function PurchaseOrderList() {
       toast({
         variant:     'destructive',
         title:       '核准失敗',
-        description: err instanceof Error ? err.message : '請稍後再試。',
-      });
-    } finally {
-      setCompleting((prev) => { const s = new Set(prev); s.delete(orderId); return s; });
-    }
-  }
-
-  // ── Complete PENDING → RECEIVED ───────────────────────────────────────────
-  async function handleComplete(orderId: string) {
-    setCompleting((prev) => new Set(prev).add(orderId));
-    try {
-      await purchaseOrderService.completeOrder(orderId);
-      toast({ title: '入庫成功', description: `採購單 #${orderId.slice(-8)} 已完成入庫。` });
-    } catch (err) {
-      toast({
-        variant:     'destructive',
-        title:       '入庫失敗',
         description: err instanceof Error ? err.message : '請稍後再試。',
       });
     } finally {
@@ -288,10 +274,18 @@ export function PurchaseOrderList() {
               key={order.id}
               order={order}
               onApprove={completing.has(order.id!) ? () => {} : handleApprove}
-              onComplete={completing.has(order.id!) ? () => {} : handleComplete}
+              onComplete={setReceivingOrder}
             />
           ))}
         </div>
+      )}
+
+      {receivingOrder && (
+        <ReceiveOrderDialog
+          order={receivingOrder}
+          onClose={() => setReceivingOrder(null)}
+          onReceived={() => setReceivingOrder(null)}
+        />
       )}
 
       <Toaster />

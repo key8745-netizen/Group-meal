@@ -12,6 +12,7 @@ import { Sparkline } from '@/components/ui/sparkline';
 import type { IngredientBaseUnit, StorageType } from '@/services/types';
 import type { IngredientMasterInput } from '@/services/ingredientMasterService';
 import type { PriceHistory } from '@/services/marketPriceHistoryService';
+import { FlavorKnowledgePanel } from '@/components/ingredients/FlavorKnowledgePanel';
 
 const BASE_UNITS: IngredientBaseUnit[] = ['g', 'ml', 'pcs'];
 const STORAGE_LABELS: Record<StorageType, string> = { ambient: '常溫', chilled: '冷藏', frozen: '冷凍' };
@@ -293,6 +294,9 @@ export function IngredientMasterForm({
             保存天數用於收貨時自動推算批次效期；乾貨/罐頭可取消勾選「易腐」以跳過保鮮追蹤。
           </p>
         </div>
+
+        {/* Feature 074: 依食材名顯示風味搭配與料理技法建議（純唯讀參考） */}
+        <FlavorKnowledgePanel ingredientName={form.name} />
 
         <div className="col-span-2 flex flex-col gap-1">
           <label className="text-xs font-medium">備註</label>

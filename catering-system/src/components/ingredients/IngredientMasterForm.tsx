@@ -9,11 +9,15 @@ import { TrendingDown, TrendingUp, Minus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sparkline } from '@/components/ui/sparkline';
-import type { IngredientBaseUnit } from '@/services/types';
+import type { IngredientBaseUnit, StorageType } from '@/services/types';
 import type { IngredientMasterInput } from '@/services/ingredientMasterService';
 import type { PriceHistory } from '@/services/marketPriceHistoryService';
 
 const BASE_UNITS: IngredientBaseUnit[] = ['g', 'ml', 'pcs'];
+const STORAGE_LABELS: Record<StorageType, string> = { ambient: '常溫', chilled: '冷藏', frozen: '冷凍' };
+const SHELF_LIFE_KEY: Record<StorageType, 'shelfLifeDaysAmbient' | 'shelfLifeDaysChilled' | 'shelfLifeDaysFrozen'> = {
+  ambient: 'shelfLifeDaysAmbient', chilled: 'shelfLifeDaysChilled', frozen: 'shelfLifeDaysFrozen',
+};
 
 export interface IngredientMasterFormValues extends IngredientMasterInput {}
 
@@ -29,6 +33,10 @@ const EMPTY_FORM: IngredientMasterFormValues = {
   notes: '',
   marketCropName: '',
   minStockLevel: 0,
+  isPerishable: true,
+  defaultStorageType: 'chilled',
+  warnThresholdDays: 2,
+  criticalThresholdDays: 1,
 };
 
 export function validateIngredientMasterForm(
@@ -218,6 +226,72 @@ export function IngredientMasterForm({
           {priceHistory && priceHistory.points.length > 0 && (
             <PriceHistoryHint history={priceHistory} />
           )}
+        </div>
+
+        {/* Feature 071: 保鮮設定 */}
+        <div className="col-span-2 flex flex-col gap-2 rounded-md border bg-muted/20 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs font-medium">保鮮設定</span>
+            <label className="flex items-center gap-1.5 text-xs">
+              <input
+                type="checkbox"
+                className="h-3.5 w-3.5"
+                checked={form.isPerishable !== false}
+                onChange={(e) => setForm((f) => ({ ...f, isPerishable: e.target.checked }))}
+              />
+              易腐食材（需追蹤保鮮）
+            </label>
+          </div>
+          {form.isPerishable !== false && (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] text-muted-foreground">預設儲存</label>
+                <select
+                  className="rounded-md border bg-background px-2 py-1.5 text-sm"
+                  value={form.defaultStorageType ?? 'chilled'}
+                  onChange={(e) => setForm((f) => ({ ...f, defaultStorageType: e.target.value as StorageType }))}
+                >
+                  {(['ambient', 'chilled', 'frozen'] as StorageType[]).map((s) => (
+                    <option key={s} value={s}>{STORAGE_LABELS[s]}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] text-muted-foreground">
+                  保存天數（{STORAGE_LABELS[form.defaultStorageType ?? 'chilled']}）
+                </label>
+                <Input
+                  type="number" min={0} step={1}
+                  value={form[SHELF_LIFE_KEY[form.defaultStorageType ?? 'chilled']] ?? ''}
+                  onChange={(e) => {
+                    const st = form.defaultStorageType ?? 'chilled';
+                    const v = Math.max(0, parseInt(e.target.value, 10) || 0);
+                    setForm((f) => ({ ...f, [SHELF_LIFE_KEY[st]]: v }));
+                  }}
+                  placeholder="如 3"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] text-muted-foreground">優先使用門檻（天）</label>
+                <Input
+                  type="number" min={0} step={1}
+                  value={form.warnThresholdDays ?? 2}
+                  onChange={(e) => setForm((f) => ({ ...f, warnThresholdDays: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] text-muted-foreground">臨界門檻（天）</label>
+                <Input
+                  type="number" min={0} step={1}
+                  value={form.criticalThresholdDays ?? 1}
+                  onChange={(e) => setForm((f) => ({ ...f, criticalThresholdDays: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                />
+              </div>
+            </div>
+          )}
+          <p className="text-[11px] text-muted-foreground">
+            保存天數用於收貨時自動推算批次效期；乾貨/罐頭可取消勾選「易腐」以跳過保鮮追蹤。
+          </p>
         </div>
 
         <div className="col-span-2 flex flex-col gap-1">

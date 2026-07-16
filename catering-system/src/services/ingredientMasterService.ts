@@ -18,7 +18,7 @@ import {
   serverTimestamp,
   type Firestore,
 } from 'firebase/firestore';
-import type { IngredientBaseUnit, IngredientMaster } from './types';
+import type { IngredientBaseUnit, IngredientMaster, StorageType } from './types';
 import { normalizeIngredientName } from '@/utils/normalizeIngredientName';
 
 const COLLECTION = 'ingredients';
@@ -38,6 +38,40 @@ export interface IngredientMasterInput {
   marketCropName?: string | null;
   /** Feature 057: 安全庫存（kg）；0 = 不追蹤。 */
   minStockLevel?: number;
+  // Feature 071: 保鮮參數（選填）。
+  isPerishable?: boolean;
+  defaultStorageType?: StorageType;
+  shelfLifeDaysChilled?: number;
+  shelfLifeDaysFrozen?: number;
+  shelfLifeDaysAmbient?: number;
+  warnThresholdDays?: number;
+  criticalThresholdDays?: number;
+}
+
+/**
+ * Feature 071: 組出要寫入的保鮮欄位。Firestore 不接受 undefined——僅包含「有值」的
+ * 欄位（表單優先，未提供則沿用既有值），故 create 傳空的 existing。
+ */
+function freshnessWriteFields(
+  input: IngredientMasterInput,
+  existing: Record<string, unknown> = {},
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  out.isPerishable = typeof input.isPerishable === 'boolean'
+    ? input.isPerishable
+    : (typeof existing.isPerishable === 'boolean' ? existing.isPerishable : true);
+  const st = input.defaultStorageType ?? (existing.defaultStorageType as StorageType | undefined);
+  if (st) out.defaultStorageType = st;
+  const num = (v: number | undefined, key: string) => {
+    if (typeof v === 'number' && Number.isFinite(v)) out[key] = v;
+    else if (typeof existing[key] === 'number') out[key] = existing[key];
+  };
+  num(input.shelfLifeDaysChilled, 'shelfLifeDaysChilled');
+  num(input.shelfLifeDaysFrozen, 'shelfLifeDaysFrozen');
+  num(input.shelfLifeDaysAmbient, 'shelfLifeDaysAmbient');
+  num(input.warnThresholdDays, 'warnThresholdDays');
+  num(input.criticalThresholdDays, 'criticalThresholdDays');
+  return out;
 }
 
 export async function listIngredients(
@@ -68,6 +102,7 @@ export async function createIngredient(
     notes: input.notes ?? '',
     marketCropName: input.marketCropName ?? null,
     minStockLevel: input.minStockLevel ?? 0,
+    ...freshnessWriteFields(input),
     isActive: true,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -128,6 +163,8 @@ export async function updateIngredient(
     marketCropName: input.marketCropName ?? null,
     // Feature 057: 表單值優先；未提供時保留既有值（含舊資料）。單位為 kg。
     minStockLevel: input.minStockLevel ?? (typeof existing.minStockLevel === 'number' ? existing.minStockLevel : 0),
+    // Feature 071: 保鮮參數（表單優先，未提供沿用既有）。
+    ...freshnessWriteFields(input, existing),
     isActive: existing.isActive !== false,
     createdAt: existing.createdAt ?? serverTimestamp(),
     createdBy: existing.createdBy ?? uid,

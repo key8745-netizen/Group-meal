@@ -16,6 +16,8 @@ import { logOrderFulfillment } from './performanceService';
 import { configService } from './configService';
 import { invalidateSnapshotCache } from './aiContextService';
 import { resolveReceivedQuantities } from './receivedQuantityPlanner';
+import { createReceiptBatch } from './inventoryBatchService';
+import type { IngredientMaster } from './types';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -150,6 +152,24 @@ export const purchaseOrderService = {
       status:     'RECEIVED',
       receivedAt: serverTimestamp(),
     });
+
+    // Feature 071 (Phase 2b, 並存): 收貨額外建立批次供保鮮追蹤。best-effort——
+    // 批次建立失敗絕不可影響既有收貨/入庫（currentStock 仍由 restock 維護）。
+    for (const line of resolved) {
+      if (!(line.receivedKg > 0)) continue;
+      try {
+        const ingSnap = await getDoc(doc(db, 'ingredients', line.ingredientId));
+        if (ingSnap.exists()) {
+          await createReceiptBatch(
+            db as Firestore,
+            { id: ingSnap.id, ...ingSnap.data() } as IngredientMaster,
+            line.receivedKg,
+          );
+        }
+      } catch {
+        // 並存期批次為附加資料，靜默略過，不阻斷收貨
+      }
+    }
 
     // Snapshot cache is stale after a RECEIVED — next AI suggestion must re-read
     // purchase history.  tenantId is unavailable here; clear all tenant caches.

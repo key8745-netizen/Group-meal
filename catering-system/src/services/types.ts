@@ -354,6 +354,64 @@ export interface InventoryTransaction {
   timestamp: Timestamp;
 }
 
+// ─── Feature 071: 食材保鮮與生命週期（Shelf-life & Freshness）──────────────────
+
+/** 儲存環境。決定同一食材不同批次的保存天數基準。 */
+export type StorageType = 'ambient' | 'chilled' | 'frozen';
+
+/**
+ * 批次保鮮狀態（衰退狀態機；由保鮮引擎推導，非權威寫入值）。
+ *  FRESH 極佳 · USE_FIRST 需優先使用 · CRITICAL 臨界腐敗（或撐不過下一個開膳日）
+ *  · EXPIRED 已過期 · DEPLETED 已用罄。
+ */
+export type FreshnessState = 'FRESH' | 'USE_FIRST' | 'CRITICAL' | 'EXPIRED' | 'DEPLETED';
+
+/**
+ * 食材主檔的保鮮參數（將以選填欄位掛在 IngredientMaster 上；未填給保守預設）。
+ * 全部選填以維持向後相容——舊食材不填即視為以 defaultStorageType 的天數計算。
+ */
+export interface IngredientFreshnessParams {
+  /** 乾貨／罐頭 = false，跳過保鮮運算（永遠 FRESH）。預設 true。 */
+  isPerishable?: boolean;
+  /** 預設儲存環境。 */
+  defaultStorageType?: StorageType;
+  /** 各環境保存天數（至少填預設環境那一欄）。 */
+  shelfLifeDaysChilled?: number;
+  shelfLifeDaysFrozen?: number;
+  shelfLifeDaysAmbient?: number;
+  /** 剩餘 ≤ 此天數 → USE_FIRST。 */
+  warnThresholdDays?: number;
+  /** 剩餘 ≤ 此天數 → CRITICAL。 */
+  criticalThresholdDays?: number;
+  /** 開封後可用時數（選填）。 */
+  openedShelfLifeHours?: number;
+}
+
+/**
+ * 進貨批次，儲存於 inventory/{ingredientId}/batches/{batchId}。
+ * batchId 建議格式 "YYYYMMDD-NN"（人類可讀，如 "20260716-01"）。
+ * 所有日期為本地 ISO "YYYY-MM-DD"；數量單位一律 kg。
+ */
+export interface InventoryBatch {
+  id: string;
+  ingredientId: string;
+  storageType: StorageType;
+  /** 入庫日 ISO。 */
+  receivedDate: string;
+  /** 效期 ISO（預設 = 入庫日 + 該環境保存天數；可被 manualExpiryOverride 覆寫）。 */
+  expirationDate: string;
+  qtyReceivedKg: number;
+  qtyRemainingKg: number;
+  /** 人工手動覆寫效期（保留稽核，不覆蓋計算來源）。 */
+  manualExpiryOverride?: string | null;
+  /** 開封時間 ISO datetime（選填）。 */
+  openedAt?: string | null;
+  /** 若此批為「加工產出的新品項」，指向來源批次（跨品項溯源）。 */
+  sourceBatchId?: string | null;
+  /** 來源快照（人可讀）：原料品項名＋加工日＋耗用原料量。 */
+  sourceNote?: string | null;
+}
+
 // ─── Meal Plan ────────────────────────────────────────────────────────────────
 
 /** Daily meal plan — which dishes are served on a given date */

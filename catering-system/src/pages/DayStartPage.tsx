@@ -17,12 +17,15 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Rocket, Sparkles, CheckCircle2, XCircle, Circle, Loader2, MinusCircle, ListChecks, CalendarDays } from 'lucide-react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
-import type { Recipe, InventoryDoc, IngredientMaster, MarketPriceSnapshot, CostAwareRecipeAssessmentItem } from '@/services/types';
+import type { Recipe, InventoryDoc, IngredientMaster, MarketPriceSnapshot, CostAwareRecipeAssessmentItem, InventoryBatch, IngredientFreshnessParams } from '@/services/types';
 import { listRecipes } from '@/services/recipeService';
 import { listMenus } from '@/services/recipeMenuService';
 import { listIngredients } from '@/services/ingredientMasterService';
 import { getMarketPriceSnapshot } from '@/services/marketPriceService';
 import { calculateCostAwareMenuSuggestion, estimateRecipeCostPerServing, type RecipeCostEstimate } from '@/services/costAwareMenuSuggestionService';
+import { listAllBatches } from '@/services/inventoryBatchService';
+import { weekendDecayAlerts } from '@/services/freshnessService';
+import { suggestUseItUpRecipes } from '@/services/useItUpPlanner';
 import { runDayStart, loadMonthlyMenuDay, type DayStartStep, type DayStartResult } from '@/services/dayStartService';
 import { getKitchenSettings } from '@/services/kitchenSettingsService';
 import { computeLowStock, planSafetyRestock } from '@/services/stockAlertService';
@@ -83,6 +86,8 @@ export default function DayStartPage() {
   const [stockKgById, setStockKgById] = useState<Map<string, number>>(new Map());
   const [creatingRestock, setCreatingRestock] = useState(false);
   const [restockDone, setRestockDone] = useState(false);
+  // Feature 078: 清庫存推薦用批次（best-effort，讀取失敗僅不顯示）。
+  const [batches, setBatches] = useState<InventoryBatch[]>([]);
 
   const [recommending, setRecommending] = useState(false);
   const [assessmentByRecipeId, setAssessmentByRecipeId] = useState<Map<string, CostAwareRecipeAssessmentItem> | null>(null);
@@ -112,12 +117,28 @@ export default function DayStartPage() {
         setStockKgById(map);
       })
       .catch(() => setStockKgById(new Map()));
+    // Feature 078: 批次（保鮮）——清庫存推薦用；失敗安靜略過。
+    listAllBatches(db).then(setBatches).catch(() => setBatches([]));
   }, []);
 
   const lowStock = useMemo(
     () => computeLowStock(costIngredients, stockKgById),
     [costIngredients, stockKgById],
   );
+
+  // Feature 078: 快到期食材 → 反查「今天可排、能清庫存」的配方（沿用 077 引擎）。
+  const clearStockSuggestions = useMemo(() => {
+    if (batches.length === 0 || costIngredients.length === 0 || recipes.length === 0) return [];
+    const paramsById = new Map<string, IngredientFreshnessParams>(costIngredients.map((i) => [i.id, i]));
+    const namesById = new Map<string, string>(costIngredients.map((i) => [i.id, i.name]));
+    const alerts = weekendDecayAlerts(batches, paramsById, namesById, today());
+    return suggestUseItUpRecipes(
+      alerts.map((a) => ({ ingredientId: a.ingredientId, ingredientName: a.ingredientName, atRiskKg: a.atRiskKg })),
+      recipes
+        .filter((r) => r.isActive !== false)
+        .map((r) => ({ id: r.id, name: r.name, ingredientIds: (r.recipeIngredients ?? []).map((ri) => ri.ingredientId) })),
+    );
+  }, [batches, costIngredients, recipes]);
 
   async function handleSafetyRestock() {
     const lines = planSafetyRestock(lowStock);
@@ -327,6 +348,44 @@ export default function DayStartPage() {
               查看庫存
             </Button>
           </div>
+        </section>
+      )}
+
+      {/* ── Feature 078: 清庫存推薦——今天可排、能用掉快到期食材的配方 ── */}
+      {phase === 'pick' && clearStockSuggestions.length > 0 && (
+        <section className="rounded-lg border border-orange-300 bg-orange-50 p-4 dark:border-orange-900/60 dark:bg-orange-950/20">
+          <p className="text-sm font-medium text-orange-900 dark:text-orange-300">
+            🥬 清庫存推薦：這幾道菜能用掉快到期食材
+          </p>
+          <ul className="mt-2 flex flex-col gap-1.5">
+            {clearStockSuggestions.map((s) => {
+              const isPicked = picked.has(s.recipeId);
+              return (
+                <li key={s.recipeId} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                  <span className="font-medium text-orange-900 dark:text-orange-300">{s.recipeName}</span>
+                  <span className="flex flex-wrap items-center gap-1">
+                    {s.matched.map((m) => (
+                      <Badge key={m.ingredientId} variant="outline" className="border-orange-400 font-normal text-orange-700 dark:text-orange-400">
+                        {m.ingredientName}
+                      </Badge>
+                    ))}
+                  </span>
+                  {s.matchCount >= 2 && (
+                    <span className="text-[11px] text-orange-700 dark:text-orange-400">一次清 {s.matchCount} 種</span>
+                  )}
+                  <Button
+                    size="sm"
+                    variant={isPicked ? 'ghost' : 'outline'}
+                    className="ml-auto h-7 border-orange-400 text-xs"
+                    disabled={isPicked}
+                    onClick={() => setPicked((prev) => new Set(prev).add(s.recipeId))}
+                  >
+                    {isPicked ? '已選' : '加入菜單'}
+                  </Button>
+                </li>
+              );
+            })}
+          </ul>
         </section>
       )}
 

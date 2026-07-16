@@ -43,21 +43,54 @@ export function validateRecipeForm(form: RecipeFormValues): Record<string, strin
   return errors;
 }
 
-/** Feature 064: 每份成本明細——逐食材貢獻與占比長條，找出成本大戶。 */
+/** Feature 068: 依份數把每份用量/單位換算成易讀字串（g→kg、ml→L）。 */
+function formatAmount(qty: number, unit: string): string {
+  const q = Math.round(qty * 100) / 100;
+  if (unit === 'g' && q >= 1000) return `${(q / 1000).toFixed(2)} kg`;
+  if (unit === 'ml' && q >= 1000) return `${(q / 1000).toFixed(2)} L`;
+  return `${q}${unit ? ` ${unit}` : ''}`;
+}
+
+/**
+ * Feature 064/068: 每份成本明細＋批量試算——逐食材貢獻與占比長條，找出成本
+ * 大戶；輸入份數即算出各食材總用量與整批成本（採購/備料一道菜用）。
+ */
 function CostBreakdownPanel({ breakdown }: { breakdown: RecipeCostBreakdown }) {
+  const [servings, setServings] = useState(1);
+  const mult = Math.max(1, Math.floor(servings) || 1);
+  const batchCost = breakdown.costPerServing != null
+    ? Math.round(breakdown.costPerServing * mult * 10) / 10
+    : null;
+
   return (
     <div className="rounded-md border bg-muted/20 p-3">
-      <div className="mb-2 flex items-baseline justify-between">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs font-medium text-foreground">每份成本明細（依已儲存資料）</span>
-        <span className="text-sm font-semibold tabular-nums">
-          {breakdown.costPerServing != null ? `$${breakdown.costPerServing.toFixed(1)}` : '—'}
-          {!breakdown.complete && <span className="ml-1 text-amber-600" title="部分食材無價，成本偏低">*</span>}
+        <span className="flex items-center gap-1.5 text-xs">
+          <span className="text-muted-foreground">份數</span>
+          <input
+            type="number"
+            min={1}
+            step={1}
+            value={servings}
+            onChange={(e) => setServings(Math.max(1, Math.floor(Number(e.target.value) || 1)))}
+            className="w-16 rounded-md border px-2 py-0.5 text-right text-sm tabular-nums"
+          />
+          <span className="ml-1 text-sm font-semibold tabular-nums">
+            {breakdown.costPerServing != null
+              ? (mult > 1 ? `$${breakdown.costPerServing.toFixed(1)}／份 · 共 $${batchCost}` : `$${breakdown.costPerServing.toFixed(1)}／份`)
+              : '—'}
+            {!breakdown.complete && <span className="ml-1 text-amber-600" title="部分食材無價，成本偏低">*</span>}
+          </span>
         </span>
       </div>
       <ul className="flex flex-col gap-1.5">
         {breakdown.lines.map((line) => (
           <li key={line.ingredientId} className="flex items-center gap-2 text-xs">
             <span className="w-20 shrink-0 truncate text-foreground" title={line.name}>{line.name}</span>
+            <span className="w-20 shrink-0 text-right tabular-nums text-muted-foreground">
+              {formatAmount(line.baseQuantity * mult, line.baseUnit)}
+            </span>
             <span className="relative h-3 flex-1 overflow-hidden rounded-sm bg-muted">
               {line.percent != null && (
                 <span
@@ -68,7 +101,7 @@ function CostBreakdownPanel({ breakdown }: { breakdown: RecipeCostBreakdown }) {
             </span>
             <span className="w-24 shrink-0 text-right tabular-nums text-muted-foreground">
               {line.costPerServing != null
-                ? `$${line.costPerServing.toFixed(1)}（${line.percent ?? 0}%）`
+                ? `$${(line.costPerServing * mult).toFixed(1)}（${line.percent ?? 0}%）`
                 : '無價'}
             </span>
           </li>

@@ -49,6 +49,9 @@ console.log('\n── costAwareMenuSuggestionService: breakdownRecipeCost ──
   check('豬肉 cost 20', b.lines[0].costPerServing, 20);
   check('豬肉 percent ~76.9', b.lines[0].percent, 76.9);
   check('complete true', b.complete, true);
+  // Feature 068: 每行帶每份用量與基本單位（供批量試算）
+  check('豬肉 baseQuantity 100', b.lines[0].baseQuantity, 100);
+  check('baseUnit g', b.lines[0].baseUnit, 'g');
 }
 
 // ── unpriced ingredient sorted last, complete=false ────────────────────────

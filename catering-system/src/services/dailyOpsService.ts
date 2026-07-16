@@ -32,6 +32,7 @@ import type {
   ProductionScheduleStatus,
   MarketPriceSnapshot,
 } from './types';
+import { summarizeLabor } from './laborSummaryService';
 import { listMenus } from './recipeMenuService';
 import { listPrepPlans } from './prepPlanService';
 import { listPurchaseDemandDrafts } from './purchaseDemandDraftService';
@@ -64,9 +65,22 @@ export interface OpsStepSummary {
   linkTo: string;
 }
 
+/** Feature 069: 當日概況數字（供每日總覽頂部一眼掌握規模）。 */
+export interface DailyOpsSummary {
+  /** 菜色數（當日各菜單的菜色加總）。 */
+  dishCount: number;
+  /** 出餐份數（各菜色 servings 的最大值；同一餐通常一致）。 */
+  headCount: number;
+  /** 製程總人力（人·分；進行中任務 estimatedMinutes×staffCount 加總）。 */
+  laborMinutes: number;
+  /** 進行中製程任務數。 */
+  activeTaskCount: number;
+}
+
 export interface DailyOpsOverview {
   date: string;
   steps: OpsStepSummary[];
+  summary: DailyOpsSummary;
 }
 
 const LINK_TO: Record<OpsStepKey, string> = {
@@ -289,7 +303,24 @@ export function buildDailyOpsOverview(
     linkTo: LINK_TO.marketPrice,
   });
 
-  return { date, steps };
+  // ── Feature 069: 當日概況數字 ──────────────────────────────────────────
+  let dishCount = 0;
+  let headCount = 0;
+  for (const m of dayMenus) {
+    for (const r of m.menuRecipes ?? []) {
+      dishCount++;
+      if (r.servings > headCount) headCount = r.servings;
+    }
+  }
+  const labor = summarizeLabor(data.workflowPlans.flatMap((p) => p.tasks ?? []));
+  const summary: DailyOpsSummary = {
+    dishCount,
+    headCount,
+    laborMinutes: labor.totalMinutes,
+    activeTaskCount: labor.taskCount,
+  };
+
+  return { date, steps, summary };
 }
 
 // ── Firestore loader ─────────────────────────────────────────────────────────

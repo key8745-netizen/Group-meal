@@ -27,7 +27,11 @@ import { Button } from '@/components/ui/button';
 import { db } from '@/lib/firebase';
 import { loadDailyOpsOverview, type OpsStepKey, type OpsStepStatus } from '@/services/dailyOpsService';
 import type { DailyOpsOverview } from '@/services/dailyOpsService';
-import { todayLocalIsoDate } from '@/services/marketPriceService';
+import { getMarketPriceSnapshot, todayLocalIsoDate } from '@/services/marketPriceService';
+import { listMenus } from '@/services/recipeMenuService';
+import { listRecipes } from '@/services/recipeService';
+import { listIngredients } from '@/services/ingredientMasterService';
+import { estimateMenusCost, type MenusCostEstimate } from '@/services/costAwareMenuSuggestionService';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -84,12 +88,14 @@ export default function DailyOpsPage() {
     setSearchParams(next === todayLocalIsoDate() ? {} : { date: next }, { replace: true });
   }
   const [overview, setOverview] = useState<DailyOpsOverview | null>(null);
+  const [menusCost, setMenusCost] = useState<MenusCostEstimate | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   async function load(targetDate: string) {
     setLoading(true);
     setError(null);
+    setMenusCost(null);
     try {
       const result = await loadDailyOpsOverview(db, targetDate);
       setOverview(result);
@@ -98,6 +104,22 @@ export default function DailyOpsPage() {
       setOverview(null);
     } finally {
       setLoading(false);
+    }
+
+    // Feature 070: 當日食材成本（best-effort；失敗不影響主總覽）
+    try {
+      const [allMenus, recipes, ingredients, snap] = await Promise.all([
+        listMenus(db),
+        listRecipes(db),
+        listIngredients(db),
+        getMarketPriceSnapshot(db, targetDate).catch(() => null),
+      ]);
+      const dayMenus = allMenus.filter((m) => m.date === targetDate);
+      const recipeById = new Map(recipes.map((r) => [r.id, r]));
+      const ingredientById = new Map(ingredients.map((i) => [i.id, i]));
+      setMenusCost(estimateMenusCost(dayMenus, recipeById, ingredientById, snap));
+    } catch {
+      setMenusCost(null);
     }
   }
 
@@ -120,6 +142,34 @@ export default function DailyOpsPage() {
           </p>
         </div>
       </div>
+
+      {/* Feature 069: 當日概況——一眼掌握規模（菜色/份數/人力） */}
+      {overview && !loading && (overview.summary.dishCount > 0 || overview.summary.activeTaskCount > 0) && (
+        <div className="flex flex-wrap gap-2 text-sm">
+          <span className="rounded-md border bg-muted/20 px-3 py-1.5">
+            菜色 <span className="font-semibold tabular-nums">{overview.summary.dishCount}</span> 道
+          </span>
+          {overview.summary.headCount > 0 && (
+            <span className="rounded-md border bg-muted/20 px-3 py-1.5">
+              出餐 <span className="font-semibold tabular-nums">{overview.summary.headCount}</span> 份
+            </span>
+          )}
+          {overview.summary.activeTaskCount > 0 && (
+            <span className="rounded-md border bg-muted/20 px-3 py-1.5">
+              製程人力 <span className="font-semibold tabular-nums">{overview.summary.laborMinutes}</span> 人·分
+              <span className="ml-1 text-xs text-muted-foreground">（{overview.summary.activeTaskCount} 項任務）</span>
+            </span>
+          )}
+          {menusCost && menusCost.pricedDishCount > 0 && (
+            <span className="rounded-md border bg-muted/20 px-3 py-1.5">
+              當日食材成本 約 <span className="font-semibold tabular-nums">${menusCost.totalCost.toLocaleString()}</span>
+              {!menusCost.complete && (
+                <span className="ml-1 text-xs text-amber-600" title="部分菜色或食材無價，實際成本可能更高">*</span>
+              )}
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="outline" size="sm" onClick={() => setDate(addDaysIso(date, -1))} aria-label="前一天">

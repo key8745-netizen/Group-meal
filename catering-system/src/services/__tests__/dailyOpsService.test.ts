@@ -190,6 +190,29 @@ function emptyData() {
     'full chain: no nextActionHint on done steps',
     overview.steps.every((s) => s.status !== 'done' || s.nextActionHint === null),
   );
+  // Feature 069: summary — menu() has no dishes; one active 10-min task
+  check('full chain: summary laborMinutes 10', overview.summary.laborMinutes, 10);
+  check('full chain: summary activeTaskCount 1', overview.summary.activeTaskCount, 1);
+  check('full chain: summary dishCount 0', overview.summary.dishCount, 0);
+}
+
+// ── 1b. Summary aggregates dishes/headcount/labor ─────────────────────────
+{
+  const overview = buildDailyOpsOverview(DATE, {
+    ...emptyData(),
+    menus: [menu({ menuRecipes: [
+      { recipeId: 'r1', recipeNameSnapshot: '主菜', servings: 50 },
+      { recipeId: 'r2', recipeNameSnapshot: '副菜', servings: 50 },
+    ] })],
+    workflowPlans: [workflowPlan({ tasks: [
+      task({ id: 'a', estimatedMinutes: 10, staffCount: 2 }),
+      task({ id: 'b', estimatedMinutes: 5, taskStatus: 'archived' }),
+    ] })],
+  });
+  check('summary: dishCount 2', overview.summary.dishCount, 2);
+  check('summary: headCount 50', overview.summary.headCount, 50);
+  check('summary: laborMinutes 20 (archived excluded)', overview.summary.laborMinutes, 20);
+  check('summary: activeTaskCount 1', overview.summary.activeTaskCount, 1);
 }
 
 // ── 2. Empty day: menu missing cascades to na downstream; marketPrice still evaluated ──

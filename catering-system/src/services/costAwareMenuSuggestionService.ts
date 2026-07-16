@@ -25,6 +25,7 @@ import type {
   IngredientMaster,
   MarketPriceSnapshot,
   Recipe,
+  RecipeMenu,
   CostAwareMenuSuggestion,
   CostAwareRecipeAssessmentItem,
 } from './types';
@@ -212,6 +213,57 @@ export function breakdownRecipeCost(
     pricedLineCount: priced.length,
     totalLineCount: lines.length,
     complete: lines.length > 0 && priced.length === lines.length,
+  };
+}
+
+// ─── Feature 070: 當日菜單預估食材成本（各菜色成本×份數加總）───────────────
+
+export interface MenusCostEstimate {
+  /** 有價菜色的（每份成本×份數）加總（2 位小數）。 */
+  totalCost: number;
+  /** 至少有部分食材有價、可估成本的菜色數。 */
+  pricedDishCount: number;
+  totalDishCount: number;
+  /** true = 每道菜的每一項食材都有價，估算完整。 */
+  complete: boolean;
+}
+
+/**
+ * Pure 當日菜單成本估算——把各菜單的每道菜（recipeId → 配方）以
+ * estimateRecipeCostPerServing 算每份成本，乘上該菜色份數後加總。找不到配方
+ * 或全項無價的菜色不計入金額，但列入 totalDishCount 並使 complete=false。
+ */
+export function estimateMenusCost(
+  menus: RecipeMenu[],
+  recipeById: Map<string, Recipe>,
+  ingredientById: Map<string, IngredientMaster>,
+  snapshot: MarketPriceSnapshot | null,
+): MenusCostEstimate {
+  let totalCost = 0;
+  let pricedDishCount = 0;
+  let totalDishCount = 0;
+  let complete = true;
+
+  for (const menu of menus) {
+    for (const item of menu.menuRecipes ?? []) {
+      totalDishCount++;
+      const recipe = recipeById.get(item.recipeId);
+      const est = recipe ? estimateRecipeCostPerServing(recipe, ingredientById, snapshot) : null;
+      if (est && est.costPerServing != null) {
+        totalCost += est.costPerServing * item.servings;
+        pricedDishCount++;
+        if (!est.complete) complete = false;
+      } else {
+        complete = false;
+      }
+    }
+  }
+
+  return {
+    totalCost: Math.round(totalCost * 100) / 100,
+    pricedDishCount,
+    totalDishCount,
+    complete: totalDishCount > 0 && complete,
   };
 }
 

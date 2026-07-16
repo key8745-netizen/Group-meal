@@ -11,6 +11,8 @@ import { getMarketPriceSnapshot, todayLocalIsoDate } from '@/services/marketPric
 import { computeLowStock, type LowStockItem } from '@/services/stockAlertService';
 import { listAllBatches } from '@/services/inventoryBatchService';
 import { weekendDecayAlerts, nextServiceDay, type WeekendDecayAlert } from '@/services/freshnessService';
+import { listRecipes } from '@/services/recipeService';
+import { suggestUseItUpRecipes, type UseItUpSuggestion } from '@/services/useItUpPlanner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +38,7 @@ export default function Dashboard() {
   const [ingredientMasters, setIngredientMasters] = useState<IngredientMaster[]>([]);
   const [freshnessAlerts, setFreshnessAlerts]   = useState<WeekendDecayAlert[]>([]);
   const [nextService,      setNextService]      = useState<string>('');
+  const [useItUpSuggestions, setUseItUpSuggestions] = useState<UseItUpSuggestion[]>([]);
 
   useEffect(() => {
     async function load() {
@@ -45,7 +48,7 @@ export default function Dashboard() {
         // Feature 058: KPI 全面改接新資料鏈（recipeMenus / purchaseOrders
         // PENDING / minStockLevel 低庫存 / 今日市價快取），移除舊 orders 與
         // AI 採購預估查詢。
-        const [menus, inventorySnap, ingredientSnap, pendingSnap, snapshot, allBatches] = await Promise.all([
+        const [menus, inventorySnap, ingredientSnap, pendingSnap, snapshot, allBatches, recipes] = await Promise.all([
           listMenus(db),
           getDocs(collection(db, 'inventory')),
           getDocs(collection(db, 'ingredients')),
@@ -53,6 +56,8 @@ export default function Dashboard() {
           getMarketPriceSnapshot(db, todayLocalIsoDate()).catch(() => null),
           // Feature 072: 批次為並存期附加資料，讀取失敗不影響控制台其餘卡片。
           listAllBatches(db).catch(() => [] as InventoryBatch[]),
+          // Feature 077: 反查「用得到快到期食材」的配方；讀取失敗不影響其餘卡片。
+          listRecipes(db).catch(() => []),
         ]);
 
         setTodayMenuCount(menus.filter((m) => m.date === today).length);
@@ -78,8 +83,27 @@ export default function Dashboard() {
         // Feature 072: 週末收工前保鮮警示——熬不過下一個開膳日的批次。
         const paramsById = new Map<string, IngredientFreshnessParams>(ingredients.map((i) => [i.id, i]));
         const namesById = new Map<string, string>(ingredients.map((i) => [i.id, i.name]));
-        setFreshnessAlerts(weekendDecayAlerts(allBatches, paramsById, namesById, today));
+        const alerts = weekendDecayAlerts(allBatches, paramsById, namesById, today);
+        setFreshnessAlerts(alerts);
         setNextService(nextServiceDay(today));
+
+        // Feature 077: 快到期食材 → 反查用得到它的（啟用中）配方。
+        setUseItUpSuggestions(
+          suggestUseItUpRecipes(
+            alerts.map((a) => ({
+              ingredientId: a.ingredientId,
+              ingredientName: a.ingredientName,
+              atRiskKg: a.atRiskKg,
+            })),
+            recipes
+              .filter((r) => r.isActive !== false)
+              .map((r) => ({
+                id: r.id,
+                name: r.name,
+                ingredientIds: (r.recipeIngredients ?? []).map((ri) => ri.ingredientId),
+              })),
+          ),
+        );
       } catch {
         // Dashboard is best-effort
       } finally {
@@ -195,6 +219,46 @@ export default function Dashboard() {
           </ul>
           {freshnessAlerts.length > 6 && (
             <div className="px-4 py-1.5 text-xs text-muted-foreground">…等共 {freshnessAlerts.length} 項</div>
+          )}
+
+          {/* Feature 077: 清庫存料理建議——用得到這些快到期食材的配方 */}
+          {useItUpSuggestions.length > 0 && (
+            <div className="border-t border-orange-200 bg-orange-100/40 px-4 py-2.5 dark:border-orange-900/60 dark:bg-orange-950/30">
+              <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-orange-800 dark:text-orange-300">
+                <UtensilsCrossed size={13} />
+                清庫存料理建議（煮這幾道就能用掉快到期食材）
+              </div>
+              <ul className="flex flex-col gap-1.5">
+                {useItUpSuggestions.map((s) => (
+                  <li
+                    key={s.recipeId}
+                    className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm"
+                    title={`可清 ${s.totalAtRiskKg.toFixed(2)}kg`}
+                  >
+                    <button
+                      className="font-medium text-orange-800 underline-offset-2 hover:underline dark:text-orange-300"
+                      onClick={() => navigate('/recipes')}
+                    >
+                      {s.recipeName}
+                    </button>
+                    <span className="flex flex-wrap items-center gap-1">
+                      {s.matched.map((m) => (
+                        <Badge
+                          key={m.ingredientId}
+                          variant="outline"
+                          className="border-orange-400 font-normal text-orange-700 dark:text-orange-400"
+                        >
+                          {m.ingredientName}
+                        </Badge>
+                      ))}
+                    </span>
+                    {s.matchCount >= 2 && (
+                      <span className="text-[11px] text-orange-700 dark:text-orange-400">一次清 {s.matchCount} 種</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
       )}

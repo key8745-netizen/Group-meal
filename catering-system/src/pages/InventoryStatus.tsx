@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { PackageSearch, RefreshCw } from 'lucide-react';
-import { db } from '@/lib/firebase';
-import type { IngredientMaster, InventoryDoc, InventoryBatch, FreshnessState } from '@/services/types';
+import { db, auth } from '@/lib/firebase';
+import type { IngredientMaster, InventoryDoc, InventoryBatch, FreshnessState, StorageType } from '@/services/types';
 import { pricePerKgFromDefault, todayLocalIsoDate } from '@/services/marketPriceService';
 import { listAllBatches } from '@/services/inventoryBatchService';
 import { batchState } from '@/services/freshnessService';
+import { PreservationDialog, type PreservationSource } from '@/components/inventory/PreservationDialog';
+import { toast } from '@/hooks/use-toast';
+import { Toaster } from '@/components/ui/toaster';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -60,7 +63,9 @@ function worstBatchFreshness(
 }
 
 type StockStatus = 'ok' | 'low' | 'critical' | 'unknown';
-type PageTab     = 'overview' | 'audit';
+type PageTab     = 'overview' | 'batches' | 'audit';
+
+const STORAGE_LABELS: Record<StorageType, string> = { ambient: '常溫', chilled: '冷藏', frozen: '冷凍' };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -89,6 +94,7 @@ type FilterKey = StockStatus | 'all';
 
 const PAGE_TABS: { key: PageTab; label: string }[] = [
   { key: 'overview', label: '庫存總覽' },
+  { key: 'batches',  label: '批次明細' },
   { key: 'audit',    label: '庫存盤點' },
 ];
 
@@ -99,6 +105,10 @@ export default function InventoryStatus() {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<InventoryRow[]>([]);
   const [filter, setFilter] = useState<FilterKey>('all');
+  // Feature 081: 批次明細分頁——原始批次 + 食材主檔對照 + 加工延壽目標。
+  const [allBatches, setAllBatches] = useState<InventoryBatch[]>([]);
+  const [ingredientById, setIngredientById] = useState<Map<string, IngredientMaster>>(new Map());
+  const [preserveTarget, setPreserveTarget] = useState<PreservationSource | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -114,6 +124,8 @@ export default function InventoryStatus() {
       ingredientSnap.docs.forEach(doc => {
         ingredientMap.set(doc.id, { id: doc.id, ...doc.data() } as IngredientMaster);
       });
+      setIngredientById(ingredientMap);
+      setAllBatches(allBatches);
 
       const batchesByIngredient = new Map<string, InventoryBatch[]>();
       for (const b of allBatches) {
@@ -184,6 +196,23 @@ export default function InventoryStatus() {
     { key: 'low',      label: `偏低（${counts.low}）` },
     { key: 'ok',       label: `充足（${counts.ok}）` },
   ];
+
+  // Feature 081: 有剩餘的批次，依效期 FEFO 排序（最急在前），附保鮮狀態與食材。
+  const batchRows = useMemo(() => {
+    const todayIso = todayLocalIsoDate();
+    return allBatches
+      .filter((b) => b.qtyRemainingKg > 0)
+      .map((b) => {
+        const ing = ingredientById.get(b.ingredientId);
+        return {
+          batch: b,
+          name: ing?.name ?? b.ingredientId,
+          freshness: batchState(b, ing ?? {}, todayIso) as FreshnessState,
+          perishable: ing?.isPerishable !== false,
+        };
+      })
+      .sort((a, b) => a.batch.expirationDate.localeCompare(b.batch.expirationDate));
+  }, [allBatches, ingredientById]);
 
   return (
     <div className="flex flex-col">
@@ -323,6 +352,117 @@ export default function InventoryStatus() {
           )}
         </div>
       )}
+
+      {/* Feature 081: 批次明細分頁 */}
+      {pageTab === 'batches' && (
+        <div className="space-y-6 p-6">
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight">批次明細</h1>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                依效期排序（最急在前）；易腐批次可「加工延壽」——煮熟冷藏/冷凍成新批次並記住來源。
+              </p>
+            </div>
+            <Button variant="ghost" size="sm" onClick={load} disabled={loading} aria-label="重新整理">
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              <span className="ml-1.5 hidden sm:inline">重新整理</span>
+            </Button>
+          </div>
+
+          {loading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+            </div>
+          ) : batchRows.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 py-20 text-muted-foreground">
+              <PackageSearch size={48} strokeWidth={1.2} />
+              <p className="text-sm">尚無批次資料（收貨或加工延壽後會建立批次）</p>
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>食材</TableHead>
+                    <TableHead>批次</TableHead>
+                    <TableHead>儲存</TableHead>
+                    <TableHead className="text-right">剩餘</TableHead>
+                    <TableHead>效期</TableHead>
+                    <TableHead>保鮮</TableHead>
+                    <TableHead>來源 / 加工</TableHead>
+                    <TableHead className="text-right">操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {batchRows.map(({ batch, name, freshness, perishable }, idx) => (
+                    <TableRow key={batch.ingredientId + batch.id} className={idx % 2 !== 0 ? 'bg-muted/30' : ''}>
+                      <TableCell className="font-medium">{name}</TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">#{batch.id}</TableCell>
+                      <TableCell className="text-sm">
+                        {STORAGE_LABELS[batch.storageType]}
+                        {batch.processedLabel && (
+                          <Badge variant="outline" className="ml-1.5 border-orange-400 font-normal text-orange-700 dark:text-orange-400">
+                            {batch.processedLabel}
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{batch.qtyRemainingKg.toFixed(2)} kg</TableCell>
+                      <TableCell className="tabular-nums text-sm">{batch.expirationDate}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={FRESHNESS_CONFIG[freshness].cls}>
+                          {FRESHNESS_CONFIG[freshness].label}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="max-w-[220px] text-xs text-muted-foreground">
+                        {batch.sourceNote ? (
+                          <span title={batch.sourceNote} className="line-clamp-2">{batch.sourceNote}</span>
+                        ) : '—'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {perishable && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 border-orange-400 px-2 text-xs text-orange-700 dark:text-orange-400"
+                            onClick={() =>
+                              setPreserveTarget({
+                                batchId: batch.id,
+                                ingredientId: batch.ingredientId,
+                                ingredientName: name,
+                                remainingKg: batch.qtyRemainingKg,
+                              })
+                            }
+                          >
+                            加工延壽
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Feature 081: 加工延壽對話框 */}
+      {preserveTarget && (
+        <PreservationDialog
+          db={db}
+          source={preserveTarget}
+          ingredient={ingredientById.get(preserveTarget.ingredientId)}
+          performedBy={auth.currentUser?.email ?? auth.currentUser?.uid ?? 'unknown'}
+          onClose={() => setPreserveTarget(null)}
+          onDone={(newBatchId) => {
+            setPreserveTarget(null);
+            toast({ title: '加工延壽完成', description: `已建立加工批次 #${newBatchId}` });
+            load();
+          }}
+        />
+      )}
+
+      <Toaster />
     </div>
   );
 }

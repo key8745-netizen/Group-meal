@@ -151,6 +151,10 @@ export function estimateRecipeCostPerServing(
 export interface RecipeCostBreakdownLine {
   ingredientId: string;
   name: string;
+  /** 每份用量（以食材基本單位計；Feature 068 批量試算用）。 */
+  baseQuantity: number;
+  /** 食材基本單位（g / ml / pcs）；找不到食材時為空字串。 */
+  baseUnit: string;
   /** 該食材每份成本（2 位小數）；無價為 null。 */
   costPerServing: number | null;
   /** 占「有價總成本」的百分比（1 位小數）；無價為 null。 */
@@ -183,13 +187,14 @@ export function breakdownRecipeCost(
   for (const line of lines) {
     const ing = ingredientById.get(line.ingredientId);
     const name = ing?.name ?? line.ingredientId;
+    const baseUnit = ing?.baseUnit ?? '';
     const resolution = ing ? resolveIngredientPrice(ing, snapshot) : { pricePerBaseUnit: null };
     if (resolution.pricePerBaseUnit != null) {
       const cost = round2(line.baseQuantity * resolution.pricePerBaseUnit);
       costTotal += cost;
-      priced.push({ ingredientId: line.ingredientId, name, costPerServing: cost, percent: null });
+      priced.push({ ingredientId: line.ingredientId, name, baseQuantity: line.baseQuantity, baseUnit, costPerServing: cost, percent: null });
     } else {
-      unpriced.push({ ingredientId: line.ingredientId, name, costPerServing: null, percent: null });
+      unpriced.push({ ingredientId: line.ingredientId, name, baseQuantity: line.baseQuantity, baseUnit, costPerServing: null, percent: null });
     }
   }
 

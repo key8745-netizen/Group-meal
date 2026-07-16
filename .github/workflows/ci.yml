@@ -1,0 +1,45 @@
+name: CI
+
+# 在 PR 與推送到 dev / production 分支時，跑型別檢查、建置與純函式單元測試。
+# 目的：讓每個 PR 有自動把關（typecheck + build 為確定性閘門；單元測試涵蓋
+# 純函式規劃器/服務）。需要 Firebase 模擬器或環境變數的測試不在 CI 範圍。
+
+on:
+  pull_request:
+  push:
+    branches:
+      - claude/fervent-dirac-HJT01
+      - claude/admiring-feynman-8LwF5
+
+# 同分支的新推送取消仍在跑的舊流程，省資源。
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        # netlify.toml 的 base 是 catering-system；前端與測試都在此目錄。
+        working-directory: catering-system
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: catering-system/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Unit tests (pure services)
+        run: npm run test:ci

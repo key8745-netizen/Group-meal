@@ -71,11 +71,16 @@ npx tsx scripts/generateAutomatedOrder.ts   # Auto-detect shortages → DRAFT pu
 npx tsx scripts/generateAutomatedOrder.ts <recipeId> <headCount>
 ```
 
-There are no test files. Type-checking is the primary correctness gate:
+Correctness gates (also run in CI — see `.github/workflows/ci.yml`):
 ```bash
-npm run typecheck
+npm run typecheck   # tsc --noEmit
+npm run build       # tsc && vite build
+npm run test:ci     # runs all src/services/__tests__/*.test.ts via tsx (excludes *.emulator.test.ts)
 ```
-One pre-existing error in `src/pages/Analytics.tsx:398` (`Formatter` type mismatch from recharts) can be ignored — it is not introduced by new changes.
+Tests are standalone `tsx` scripts (custom `check()` asserts, throw + non-zero exit on failure);
+`scripts/ci-test.mjs` runs each and fails the build if any suite fails. `*.emulator.test.ts` need the
+Firebase emulator and are excluded from CI. Run one suite directly with
+`npx tsx src/services/__tests__/<name>.test.ts`.
 
 ## Environment Variables
 

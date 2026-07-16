@@ -8,7 +8,9 @@ import { useEffect, useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { Plus, Package, Eye, EyeOff, Upload } from 'lucide-react';
 import { db, auth } from '@/lib/firebase';
-import type { IngredientMaster, InventoryDoc } from '@/services/types';
+import type { IngredientMaster, InventoryDoc, MarketPriceSnapshot } from '@/services/types';
+import { fetchRecentMarketSnapshots } from '@/services/marketPriceService';
+import { buildPriceHistory } from '@/services/marketPriceHistoryService';
 import {
   listIngredients,
   createIngredient,
@@ -61,6 +63,7 @@ function toFormValues(ingredient: IngredientMaster): IngredientMasterInput {
 export default function IngredientMasterPage() {
   const [ingredients, setIngredients] = useState<IngredientMaster[]>([]);
   const [stockKgById, setStockKgById] = useState<Map<string, number>>(new Map());
+  const [marketSnapshots, setMarketSnapshots] = useState<MarketPriceSnapshot[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<EditingState>(null);
   const [search, setSearch] = useState('');
@@ -71,9 +74,11 @@ export default function IngredientMasterPage() {
     setLoading(true);
     try {
       // Feature 060: 一併載入目前庫存（kg），讓主檔清單能對照安全庫存。
-      const [list, inventorySnap] = await Promise.all([
+      // Feature 063: 一併載入近期市價快照，供編輯時顯示市價走勢小圖。
+      const [list, inventorySnap, snapshots] = await Promise.all([
         listIngredients(db, { includeInactive: true }),
         getDocs(collection(db, 'inventory')),
+        fetchRecentMarketSnapshots(db, 14).catch(() => [] as MarketPriceSnapshot[]),
       ]);
       const stockMap = new Map<string, number>();
       inventorySnap.docs.forEach((d) => {
@@ -82,6 +87,7 @@ export default function IngredientMasterPage() {
       });
       setIngredients(list);
       setStockKgById(stockMap);
+      setMarketSnapshots(snapshots);
     } catch {
       toast({ variant: 'destructive', title: '無法載入食材資料' });
     } finally {
@@ -198,6 +204,7 @@ export default function IngredientMasterPage() {
               <IngredientMasterForm
                 initial={toFormValues(editing.ingredient)}
                 currentStockKg={stockKgById.get(editing.ingredient.id)}
+                priceHistory={buildPriceHistory(marketSnapshots, editing.ingredient.marketCropName)}
                 onSave={handleSave}
                 onCancel={() => setEditing(null)}
               />

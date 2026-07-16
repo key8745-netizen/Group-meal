@@ -128,7 +128,18 @@ Two patterns exist — do not mix them:
 - **Deduct stock**: always via `inventoryService.deductStock()` — uses `runTransaction` with pre-validation
 - **Restock**: always via `inventoryService.restockIngredient()` — called by `purchaseOrderService.completeOrder()`
 - **Manual adjustment**: `InventoryAudit` uses its own `runTransaction` writing `type: 'adjustment'` transactions
+- **加工延壽 (Feature 079)**: `preservationService.recordPreservation()` — one `runTransaction` that
+  reduces the source batch's `qtyRemainingKg`, creates a processed batch under the **same** ingredient
+  (`storageType` change + reset expiry + `sourceBatchId`/`sourceNote`/`processedLabel`), adjusts
+  `currentStock` by the cooking loss only, and writes an `adjustment` audit record. The plan is computed
+  by the pure `preservationPlanner.planPreservation()`. Same-ingredient design keeps the processed batch
+  visible to recipe suggestions + freshness alerts (惜食 loop stays intact).
 - Never update `inventory/{id}.currentStock` directly outside a transaction
+
+Freshness/preservation schema fields (Feature 071/079): `IngredientMaster.processedYieldRatio?`
+(default cook yield); `InventoryBatch.processedLabel?` (e.g. 「煮熟冷藏」). The `batches` subcollection
+rule is permissive (no field whitelist), so new batch fields need no rules change; `ingredientAllowedFields()`
+in `firestore.rules` **does** whitelist ingredient fields — `processedYieldRatio` was added there.
 
 ## Unit Conversion
 

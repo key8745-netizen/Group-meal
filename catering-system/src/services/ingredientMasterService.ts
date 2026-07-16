@@ -46,6 +46,8 @@ export interface IngredientMasterInput {
   shelfLifeDaysAmbient?: number;
   warnThresholdDays?: number;
   criticalThresholdDays?: number;
+  /** Feature 079: 加工延壽預設良率。 */
+  processedYieldRatio?: number;
 }
 
 /**
@@ -71,6 +73,7 @@ function freshnessWriteFields(
   num(input.shelfLifeDaysAmbient, 'shelfLifeDaysAmbient');
   num(input.warnThresholdDays, 'warnThresholdDays');
   num(input.criticalThresholdDays, 'criticalThresholdDays');
+  num(input.processedYieldRatio, 'processedYieldRatio');
   return out;
 }
 

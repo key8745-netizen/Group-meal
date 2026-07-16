@@ -4,7 +4,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import {
   Package, ShoppingCart, TrendingDown, TrendingUp, UtensilsCrossed, ClipboardList, CalendarRange, CalendarClock,
 } from 'lucide-react';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import type { IngredientMaster, InventoryDoc, MarketPriceSnapshot, InventoryBatch, IngredientFreshnessParams } from '@/services/types';
 import { listMenus } from '@/services/recipeMenuService';
 import { getMarketPriceSnapshot, todayLocalIsoDate } from '@/services/marketPriceService';
@@ -13,6 +13,9 @@ import { listAllBatches } from '@/services/inventoryBatchService';
 import { weekendDecayAlerts, nextServiceDay, type WeekendDecayAlert } from '@/services/freshnessService';
 import { listRecipes } from '@/services/recipeService';
 import { suggestUseItUpRecipes, type UseItUpSuggestion } from '@/services/useItUpPlanner';
+import { PreservationDialog, type PreservationSource } from '@/components/inventory/PreservationDialog';
+import { toast } from '@/hooks/use-toast';
+import { Toaster } from '@/components/ui/toaster';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -39,6 +42,9 @@ export default function Dashboard() {
   const [freshnessAlerts, setFreshnessAlerts]   = useState<WeekendDecayAlert[]>([]);
   const [nextService,      setNextService]      = useState<string>('');
   const [useItUpSuggestions, setUseItUpSuggestions] = useState<UseItUpSuggestion[]>([]);
+  // Feature 079: 加工延壽對話框目標批次 + 重新載入計數。
+  const [preserveTarget, setPreserveTarget] = useState<PreservationSource | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     async function load() {
@@ -111,7 +117,7 @@ export default function Dashboard() {
       }
     }
     load();
-  }, []);
+  }, [refreshKey]);
 
   const kpis = [
     {
@@ -213,6 +219,21 @@ export default function Dashboard() {
                 <span className="flex items-center gap-3 text-xs">
                   <span className="tabular-nums text-orange-700 dark:text-orange-400">剩 {fmtKg(a.atRiskKg)}</span>
                   <span className="tabular-nums text-muted-foreground">效期 {a.expiryIso}</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 border-orange-400 px-2 text-xs text-orange-700 dark:text-orange-400"
+                    onClick={() =>
+                      setPreserveTarget({
+                        batchId: a.batchId,
+                        ingredientId: a.ingredientId,
+                        ingredientName: a.ingredientName,
+                        remainingKg: a.atRiskKg,
+                      })
+                    }
+                  >
+                    加工延壽
+                  </Button>
                 </span>
               </li>
             ))}
@@ -362,6 +383,24 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Feature 079: 加工延壽對話框 */}
+      {preserveTarget && (
+        <PreservationDialog
+          db={db}
+          source={preserveTarget}
+          ingredient={ingredientMasters.find((i) => i.id === preserveTarget.ingredientId)}
+          performedBy={auth.currentUser?.email ?? auth.currentUser?.uid ?? 'unknown'}
+          onClose={() => setPreserveTarget(null)}
+          onDone={(newBatchId) => {
+            setPreserveTarget(null);
+            toast({ title: '加工延壽完成', description: `已建立加工批次 #${newBatchId}` });
+            setRefreshKey((k) => k + 1);
+          }}
+        />
+      )}
+
+      <Toaster />
     </div>
   );
 }

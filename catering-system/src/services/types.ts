@@ -161,6 +161,8 @@ export interface IngredientMaster {
   warnThresholdDays?: number;
   criticalThresholdDays?: number;
   openedShelfLifeHours?: number;
+  /** Feature 079: 加工延壽預設良率（產出kg = 耗用kg × 此係數，如 0.75）；可逐次覆蓋。 */
+  processedYieldRatio?: number;
 }
 
 // ─── Recipes (Feature 011: 配方引用食材主檔) ──────────────────────────────────
@@ -395,6 +397,8 @@ export interface IngredientFreshnessParams {
   criticalThresholdDays?: number;
   /** 開封後可用時數（選填）。 */
   openedShelfLifeHours?: number;
+  /** Feature 079: 加工延壽預設良率（產出kg = 耗用kg × 此係數）。 */
+  processedYieldRatio?: number;
 }
 
 /**
@@ -420,6 +424,8 @@ export interface InventoryBatch {
   sourceBatchId?: string | null;
   /** 來源快照（人可讀）：原料品項名＋加工日＋耗用原料量。 */
   sourceNote?: string | null;
+  /** Feature 079: 加工延壽標籤（如「煮熟冷藏」），標示此批為加工延壽產出。 */
+  processedLabel?: string | null;
 }
 
 // ─── Meal Plan ────────────────────────────────────────────────────────────────

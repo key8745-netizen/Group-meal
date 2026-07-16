@@ -5,9 +5,10 @@
  */
 
 import { useEffect, useState } from 'react';
+import { collection, getDocs } from 'firebase/firestore';
 import { Plus, Package, Eye, EyeOff, Upload } from 'lucide-react';
 import { db, auth } from '@/lib/firebase';
-import type { IngredientMaster } from '@/services/types';
+import type { IngredientMaster, InventoryDoc } from '@/services/types';
 import {
   listIngredients,
   createIngredient,
@@ -59,6 +60,7 @@ function toFormValues(ingredient: IngredientMaster): IngredientMasterInput {
 
 export default function IngredientMasterPage() {
   const [ingredients, setIngredients] = useState<IngredientMaster[]>([]);
+  const [stockKgById, setStockKgById] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<EditingState>(null);
   const [search, setSearch] = useState('');
@@ -68,8 +70,18 @@ export default function IngredientMasterPage() {
   async function reload() {
     setLoading(true);
     try {
-      const list = await listIngredients(db, { includeInactive: true });
+      // Feature 060: 一併載入目前庫存（kg），讓主檔清單能對照安全庫存。
+      const [list, inventorySnap] = await Promise.all([
+        listIngredients(db, { includeInactive: true }),
+        getDocs(collection(db, 'inventory')),
+      ]);
+      const stockMap = new Map<string, number>();
+      inventorySnap.docs.forEach((d) => {
+        const inv = d.data() as InventoryDoc;
+        if (typeof inv.currentStock === 'number') stockMap.set(d.id, inv.currentStock);
+      });
       setIngredients(list);
+      setStockKgById(stockMap);
     } catch {
       toast({ variant: 'destructive', title: '無法載入食材資料' });
     } finally {
@@ -185,6 +197,7 @@ export default function IngredientMasterPage() {
             <div className="rounded-lg border bg-muted/20 p-4">
               <IngredientMasterForm
                 initial={toFormValues(editing.ingredient)}
+                currentStockKg={stockKgById.get(editing.ingredient.id)}
                 onSave={handleSave}
                 onCancel={() => setEditing(null)}
               />
@@ -192,6 +205,7 @@ export default function IngredientMasterPage() {
           )}
           <IngredientMasterList
             ingredients={filtered}
+            stockKgById={stockKgById}
             onEdit={(ing) => setEditing({ mode: 'edit', ingredient: ing })}
             onToggleActive={handleToggleActive}
           />

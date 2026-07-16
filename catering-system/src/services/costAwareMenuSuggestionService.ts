@@ -146,6 +146,70 @@ export function estimateRecipeCostPerServing(
   };
 }
 
+// ─── Feature 064: 配方成本明細（逐食材貢獻，找出成本大戶）───────────────────
+
+export interface RecipeCostBreakdownLine {
+  ingredientId: string;
+  name: string;
+  /** 該食材每份成本（2 位小數）；無價為 null。 */
+  costPerServing: number | null;
+  /** 占「有價總成本」的百分比（1 位小數）；無價為 null。 */
+  percent: number | null;
+}
+
+export interface RecipeCostBreakdown {
+  /** 有價項依成本由高到低，無價項排在最後（保留原順序）。 */
+  lines: RecipeCostBreakdownLine[];
+  costPerServing: number | null;
+  pricedLineCount: number;
+  totalLineCount: number;
+  complete: boolean;
+}
+
+/**
+ * Pure 配方成本明細——逐食材算出每份成本與占比，方便找出「成本大戶」。
+ * 接受食材行（{ ingredientId, baseQuantity }）以同時支援已存配方與編輯中即時
+ * 試算。市價優先、基準價備援（同 resolveIngredientPrice）。
+ */
+export function breakdownRecipeCost(
+  lines: { ingredientId: string; baseQuantity: number }[],
+  ingredientById: Map<string, IngredientMaster>,
+  snapshot: MarketPriceSnapshot | null,
+): RecipeCostBreakdown {
+  const priced: RecipeCostBreakdownLine[] = [];
+  const unpriced: RecipeCostBreakdownLine[] = [];
+  let costTotal = 0;
+
+  for (const line of lines) {
+    const ing = ingredientById.get(line.ingredientId);
+    const name = ing?.name ?? line.ingredientId;
+    const resolution = ing ? resolveIngredientPrice(ing, snapshot) : { pricePerBaseUnit: null };
+    if (resolution.pricePerBaseUnit != null) {
+      const cost = round2(line.baseQuantity * resolution.pricePerBaseUnit);
+      costTotal += cost;
+      priced.push({ ingredientId: line.ingredientId, name, costPerServing: cost, percent: null });
+    } else {
+      unpriced.push({ ingredientId: line.ingredientId, name, costPerServing: null, percent: null });
+    }
+  }
+
+  priced.sort((a, b) => (b.costPerServing ?? 0) - (a.costPerServing ?? 0));
+  const total = round2(costTotal);
+  for (const l of priced) {
+    l.percent = total > 0 && l.costPerServing != null
+      ? Math.round((l.costPerServing / total) * 1000) / 10
+      : null;
+  }
+
+  return {
+    lines: [...priced, ...unpriced],
+    costPerServing: priced.length > 0 ? total : null,
+    pricedLineCount: priced.length,
+    totalLineCount: lines.length,
+    complete: lines.length > 0 && priced.length === lines.length,
+  };
+}
+
 export interface CostAwareSuggestionInput {
   targetServingCount: number;
 }

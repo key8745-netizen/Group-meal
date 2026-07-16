@@ -27,7 +27,7 @@ import { RecipeDraftRecalcDialog } from '@/components/recipes/RecipeDraftRecalcD
 import { DRAFT_NOTE_MARKER } from '@/services/recipeDraftService';
 import { listIngredients } from '@/services/ingredientMasterService';
 import { getMarketPriceSnapshot, todayLocalIsoDate } from '@/services/marketPriceService';
-import { estimateRecipeCostPerServing } from '@/services/costAwareMenuSuggestionService';
+import { estimateRecipeCostPerServing, breakdownRecipeCost } from '@/services/costAwareMenuSuggestionService';
 import type { IngredientMaster, MarketPriceSnapshot } from '@/services/types';
 import type { RecipeCostCell } from '@/components/recipes/RecipeList';
 
@@ -80,16 +80,26 @@ export default function RecipePage() {
     getMarketPriceSnapshot(db, todayLocalIsoDate()).then(setSnapshot).catch(() => setSnapshot(null));
   }, []);
 
+  const ingredientById = useMemo(
+    () => new Map(ingredients.map((i) => [i.id, i])),
+    [ingredients],
+  );
+
   const costByRecipeId = useMemo(() => {
     if (ingredients.length === 0) return undefined;
-    const ingredientById = new Map(ingredients.map((i) => [i.id, i]));
     const map = new Map<string, RecipeCostCell>();
     for (const recipe of recipes) {
       const est = estimateRecipeCostPerServing(recipe, ingredientById, snapshot);
       map.set(recipe.id, { costPerServing: est.costPerServing, complete: est.complete });
     }
     return map;
-  }, [recipes, ingredients, snapshot]);
+  }, [recipes, ingredients, ingredientById, snapshot]);
+
+  // Feature 064: 編輯中配方的每份成本明細（依已儲存的 recipeIngredients）。
+  const editingCostBreakdown = useMemo(() => {
+    if (editing?.mode !== 'edit' || ingredients.length === 0) return undefined;
+    return breakdownRecipeCost(editing.recipe.recipeIngredients ?? [], ingredientById, snapshot);
+  }, [editing, ingredients, ingredientById, snapshot]);
 
   async function handleSave(input: RecipeInput) {
     const uid = auth.currentUser?.uid ?? '';
@@ -208,6 +218,7 @@ export default function RecipePage() {
             <div className="rounded-lg border bg-muted/20 p-4">
               <RecipeForm
                 initial={toFormValues(editing.recipe)}
+                costBreakdown={editingCostBreakdown}
                 onSave={handleSave}
                 onCancel={() => setEditing(null)}
               />

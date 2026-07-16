@@ -27,6 +27,7 @@ import {
 import MarketPriceCard from '@/components/dashboard/MarketPriceCard';
 import CostAwareMenuCard from '@/components/dashboard/CostAwareMenuCard';
 import ProductionScheduleCard from '@/components/dashboard/ProductionScheduleCard';
+import PreservationStatsCard from '@/components/dashboard/PreservationStatsCard';
 
 const fmtKg = (n: number) => `${n.toFixed(2)} kg`;
 
@@ -194,6 +195,7 @@ export default function Dashboard() {
           <MarketPriceCard ingredients={ingredientMasters} ready={!loading} />
           <CostAwareMenuCard />
           <ProductionScheduleCard />
+          <PreservationStatsCard />
         </div>
       </div>
 

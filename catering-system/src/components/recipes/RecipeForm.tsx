@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Plus, Trash2 } from 'lucide-react';
 import type { IngredientMaster } from '@/services/types';
 import type { RecipeInput, RecipeIngredientInput } from '@/services/recipeService';
+import type { RecipeCostBreakdown } from '@/services/costAwareMenuSuggestionService';
 import { IngredientSelector } from './IngredientSelector';
 
 export interface RecipeFormValues extends RecipeInput {}
@@ -42,12 +43,55 @@ export function validateRecipeForm(form: RecipeFormValues): Record<string, strin
   return errors;
 }
 
+/** Feature 064: 每份成本明細——逐食材貢獻與占比長條，找出成本大戶。 */
+function CostBreakdownPanel({ breakdown }: { breakdown: RecipeCostBreakdown }) {
+  return (
+    <div className="rounded-md border bg-muted/20 p-3">
+      <div className="mb-2 flex items-baseline justify-between">
+        <span className="text-xs font-medium text-foreground">每份成本明細（依已儲存資料）</span>
+        <span className="text-sm font-semibold tabular-nums">
+          {breakdown.costPerServing != null ? `$${breakdown.costPerServing.toFixed(1)}` : '—'}
+          {!breakdown.complete && <span className="ml-1 text-amber-600" title="部分食材無價，成本偏低">*</span>}
+        </span>
+      </div>
+      <ul className="flex flex-col gap-1.5">
+        {breakdown.lines.map((line) => (
+          <li key={line.ingredientId} className="flex items-center gap-2 text-xs">
+            <span className="w-20 shrink-0 truncate text-foreground" title={line.name}>{line.name}</span>
+            <span className="relative h-3 flex-1 overflow-hidden rounded-sm bg-muted">
+              {line.percent != null && (
+                <span
+                  className="absolute inset-y-0 left-0 rounded-sm bg-primary/70"
+                  style={{ width: `${Math.max(2, line.percent)}%` }}
+                />
+              )}
+            </span>
+            <span className="w-24 shrink-0 text-right tabular-nums text-muted-foreground">
+              {line.costPerServing != null
+                ? `$${line.costPerServing.toFixed(1)}（${line.percent ?? 0}%）`
+                : '無價'}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {!breakdown.complete && (
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          ＊部分食材未設定價格（基準價或市場作物名），實際成本可能更高。
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function RecipeForm({
   initial,
+  costBreakdown,
   onSave,
   onCancel,
 }: {
   initial?: Partial<RecipeFormValues>;
+  /** Feature 064: 依「已儲存」配方算出的每份成本明細（編輯時參考成本大戶）。 */
+  costBreakdown?: RecipeCostBreakdown;
   onSave: (form: RecipeFormValues) => Promise<void>;
   onCancel: () => void;
 }) {
@@ -212,6 +256,10 @@ export function RecipeForm({
           </div>
         )}
       </div>
+
+      {costBreakdown && costBreakdown.lines.length > 0 && (
+        <CostBreakdownPanel breakdown={costBreakdown} />
+      )}
 
       <div className="flex items-center gap-2">
         <input

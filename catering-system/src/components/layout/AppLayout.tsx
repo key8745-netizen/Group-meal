@@ -22,6 +22,8 @@ import {
   CalendarDays,
   Rocket,
   Settings2,
+  ScrollText,
+  Workflow,
   X,
 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
@@ -71,11 +73,11 @@ const navGroups: { section: string; items: NavItem[] }[] = [
 const advancedItems: NavItem[] = [
   { to: '/dashboard', label: '儀表板', icon: LayoutDashboard },
   { to: '/recipe-menus', label: '菜單配方', icon: CalendarRange },
-  { to: '/menu-drafts', label: '草稿菜單', icon: ClipboardCheck },
+  { to: '/menu-drafts', label: '草稿菜單', icon: ScrollText },
   { to: '/menu-suggestions', label: '菜單建議', icon: ChefHat },
   { to: '/prep-plans', label: '備料快照', icon: ClipboardCheck },
   { to: '/purchase-demand-drafts', label: '採購需求草稿', icon: ClipboardList },
-  { to: '/production-workflows', label: '製程規劃', icon: ClipboardCheck },
+  { to: '/production-workflows', label: '製程規劃', icon: Workflow },
   { to: '/production-schedules', label: '生產排程', icon: CalendarClock },
   { to: '/analytics', label: '報表分析', icon: BarChart2 },
 ];

@@ -121,6 +121,26 @@ export default function DailyOpsPage() {
         </div>
       </div>
 
+      {/* Feature 069: 當日概況——一眼掌握規模（菜色/份數/人力） */}
+      {overview && !loading && (overview.summary.dishCount > 0 || overview.summary.activeTaskCount > 0) && (
+        <div className="flex flex-wrap gap-2 text-sm">
+          <span className="rounded-md border bg-muted/20 px-3 py-1.5">
+            菜色 <span className="font-semibold tabular-nums">{overview.summary.dishCount}</span> 道
+          </span>
+          {overview.summary.headCount > 0 && (
+            <span className="rounded-md border bg-muted/20 px-3 py-1.5">
+              出餐 <span className="font-semibold tabular-nums">{overview.summary.headCount}</span> 份
+            </span>
+          )}
+          {overview.summary.activeTaskCount > 0 && (
+            <span className="rounded-md border bg-muted/20 px-3 py-1.5">
+              製程人力 <span className="font-semibold tabular-nums">{overview.summary.laborMinutes}</span> 人·分
+              <span className="ml-1 text-xs text-muted-foreground">（{overview.summary.activeTaskCount} 項任務）</span>
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="outline" size="sm" onClick={() => setDate(addDaysIso(date, -1))} aria-label="前一天">
           <ChevronLeft size={15} />

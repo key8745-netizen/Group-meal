@@ -145,6 +145,8 @@ export interface IngredientMaster {
   notes?: string;
   /** Feature 032: crop name used to match this ingredient against the MOA AMIS wholesale market price API, or null/undefined when unassigned. */
   marketCropName?: string | null;
+  /** Feature 057: 安全庫存（kg）；0 或未設定 = 不追蹤低庫存警示。 */
+  minStockLevel?: number;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
   createdBy?: string;

@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, getDocs, query, Timestamp, where } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import {
-  ClipboardList, Package, ShoppingCart, TrendingDown, UtensilsCrossed, FileEdit,
+  Package, ShoppingCart, TrendingDown, TrendingUp, UtensilsCrossed, ClipboardList, CalendarRange,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import type { Ingredient, IngredientMaster, InventoryDoc } from '@/services/types';
-import { UnitConverter } from '@/services/unitConverter';
-import { generatePurchaseSuggestion } from '@/services/purchaseService';
+import type { IngredientMaster, InventoryDoc, MarketPriceSnapshot } from '@/services/types';
+import { listMenus } from '@/services/recipeMenuService';
+import { getMarketPriceSnapshot, todayLocalIsoDate } from '@/services/marketPriceService';
+import { computeLowStock, type LowStockItem } from '@/services/stockAlertService';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -20,60 +21,37 @@ import MarketPriceCard from '@/components/dashboard/MarketPriceCard';
 import CostAwareMenuCard from '@/components/dashboard/CostAwareMenuCard';
 import ProductionScheduleCard from '@/components/dashboard/ProductionScheduleCard';
 
-interface LowStockItem {
-  ingredientId: string;
-  ingredientName: string;
-  currentStockKg: number;
-  safetyLevelKg: number;
-}
-
 const fmtKg = (n: number) => `${n.toFixed(2)} kg`;
-const fmtCurrency = (n: number) =>
-  `NT$ ${n.toLocaleString('zh-TW', { maximumFractionDigits: 0 })}`;
 
 export default function Dashboard() {
   const navigate = useNavigate();
 
   const [loading,          setLoading]          = useState(true);
-  const [todayOrderCount,  setTodayOrderCount]  = useState(0);
-  const [draftOrderCount,  setDraftOrderCount]  = useState(0);
+  const [todayMenuCount,   setTodayMenuCount]   = useState(0);
+  const [pendingOrderCount, setPendingOrderCount] = useState(0);
   const [lowStockItems,    setLowStockItems]    = useState<LowStockItem[]>([]);
-  const [purchaseEstimate, setPurchaseEstimate] = useState<number | null>(null);
+  const [marketSnapshot,   setMarketSnapshot]   = useState<MarketPriceSnapshot | null>(null);
   const [ingredientMasters, setIngredientMasters] = useState<IngredientMaster[]>([]);
 
   useEffect(() => {
     async function load() {
       try {
-        const todayStart = new Date();
-        todayStart.setHours(0, 0, 0, 0);
-        const tomorrowStart = new Date(todayStart);
-        tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+        const today = todayLocalIsoDate();
 
-        const [orderSnap, inventorySnap, ingredientSnap, suggestion, purchaseSnap] = await Promise.all([
-          getDocs(query(
-            collection(db, 'orders'),
-            where('orderDate', '>=', Timestamp.fromDate(todayStart)),
-            where('orderDate', '<', Timestamp.fromDate(tomorrowStart)),
-          )),
+        // Feature 058: KPI 全面改接新資料鏈（recipeMenus / purchaseOrders
+        // PENDING / minStockLevel 低庫存 / 今日市價快取），移除舊 orders 與
+        // AI 採購預估查詢。
+        const [menus, inventorySnap, ingredientSnap, pendingSnap, snapshot] = await Promise.all([
+          listMenus(db),
           getDocs(collection(db, 'inventory')),
           getDocs(collection(db, 'ingredients')),
-          generatePurchaseSuggestion(db),
-          getDocs(query(
-            collection(db, 'purchaseOrders'),
-            where('status', 'in', ['DRAFT', 'PENDING']),
-          )),
+          getDocs(query(collection(db, 'purchaseOrders'), where('status', '==', 'PENDING'))),
+          getMarketPriceSnapshot(db, todayLocalIsoDate()).catch(() => null),
         ]);
 
-        setTodayOrderCount(orderSnap.size);
-        setPurchaseEstimate(suggestion.totalEstimatedCost);
-
-        const drafts = purchaseSnap.docs.filter(d => d.data().status === 'DRAFT');
-        setDraftOrderCount(drafts.length);
-
-        const ingredientMap = new Map<string, Ingredient>();
-        ingredientSnap.docs.forEach(doc => {
-          ingredientMap.set(doc.id, { id: doc.id, ...doc.data() } as Ingredient);
-        });
+        setTodayMenuCount(menus.filter((m) => m.date === today).length);
+        setPendingOrderCount(pendingSnap.size);
+        setMarketSnapshot(snapshot);
 
         // Feature 035: same docs, reused as IngredientMaster (additive fields
         // on the same `ingredients/{id}` doc — see marketPriceService) for
@@ -82,34 +60,16 @@ export default function Dashboard() {
           ingredientSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as IngredientMaster)),
         );
 
-        const lowItems: LowStockItem[] = [];
+        // Feature 057: 低庫存改用 stockAlertService（minStockLevel 以 kg 計）。
+        const stockKgById = new Map<string, number>();
         inventorySnap.docs.forEach(doc => {
           const inv = doc.data() as InventoryDoc;
-          const ing = ingredientMap.get(inv.ingredientId);
-          if (!ing) return;
-          const currentStockKg = inv.currentStock ?? 0;
-          let safetyLevelKg = 0;
-          try {
-            safetyLevelKg = UnitConverter.toKg(ing.minStockLevel, ing.unit);
-          } catch {
-            safetyLevelKg = ing.minStockLevel;
-          }
-          if (currentStockKg < safetyLevelKg) {
-            lowItems.push({
-              ingredientId: inv.ingredientId,
-              ingredientName: inv.ingredientName,
-              currentStockKg,
-              safetyLevelKg,
-            });
-          }
+          if (typeof inv.currentStock === 'number') stockKgById.set(doc.id, inv.currentStock);
         });
-
-        setLowStockItems(
-          lowItems.sort((a, b) =>
-            (a.currentStockKg / Math.max(a.safetyLevelKg, 0.001)) -
-            (b.currentStockKg / Math.max(b.safetyLevelKg, 0.001)),
-          ),
-        );
+        setLowStockItems(computeLowStock(
+          ingredientSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as IngredientMaster)),
+          stockKgById,
+        ));
       } catch {
         // Dashboard is best-effort
       } finally {
@@ -121,36 +81,36 @@ export default function Dashboard() {
 
   const kpis = [
     {
-      title:   '今日訂單',
-      icon:    ClipboardList,
-      value:   loading ? null : String(todayOrderCount),
-      desc:    '今日新建訂單總數',
-      alert:   false,
-      onClick: () => navigate('/daily-ops'),
+      title:   '今日菜單',
+      icon:    CalendarRange,
+      value:   loading ? null : String(todayMenuCount),
+      desc:    todayMenuCount > 0 ? '今日出餐菜單已建立' : '今日尚未開工（首頁一鍵開工）',
+      alert:   !loading && todayMenuCount === 0,
+      onClick: () => navigate(todayMenuCount > 0 ? '/daily-ops' : '/'),
     },
     {
       title:   '低庫存食材',
       icon:    TrendingDown,
       value:   loading ? null : String(lowStockItems.length),
-      desc:    '低於安全水位的食材項目',
+      desc:    '低於安全庫存（食材主檔可設定）',
       alert:   lowStockItems.length > 0,
       onClick: () => navigate('/inventory'),
     },
     {
-      title:   '待確認採購單',
-      icon:    FileEdit,
-      value:   loading ? null : String(draftOrderCount),
-      desc:    '系統自動生成，待人工確認',
-      alert:   draftOrderCount > 0,
+      title:   '待收貨採購單',
+      icon:    ShoppingCart,
+      value:   loading ? null : String(pendingOrderCount),
+      desc:    '貨到後至採購管理按收貨（自動入庫）',
+      alert:   pendingOrderCount > 0,
       onClick: () => navigate('/purchase'),
     },
     {
-      title:   '待採購預估',
-      icon:    ShoppingCart,
-      value:   loading ? null : purchaseEstimate !== null ? fmtCurrency(purchaseEstimate) : '—',
-      desc:    '依庫存及訂單需求估算',
-      alert:   false,
-      onClick: () => navigate('/purchase'),
+      title:   '今日市價',
+      icon:    TrendingUp,
+      value:   loading ? null : marketSnapshot ? `${marketSnapshot.entries.length} 項` : '未更新',
+      desc:    marketSnapshot ? `行情快取 ${marketSnapshot.rocDate}` : '開啟市場行情頁會自動抓取',
+      alert:   !loading && !marketSnapshot,
+      onClick: () => navigate('/market-prices'),
     },
   ];
 
@@ -227,10 +187,7 @@ export default function Dashboard() {
                 </TableHeader>
                 <TableBody>
                   {lowStockItems.map((item, idx) => {
-                    const gap = item.safetyLevelKg - item.currentStockKg;
-                    const ratio = item.safetyLevelKg > 0
-                      ? item.currentStockKg / item.safetyLevelKg
-                      : 0;
+                    const ratio = item.safetyKg > 0 ? item.currentKg / item.safetyKg : 0;
                     const isCritical = ratio < 0.3;
                     return (
                       <TableRow
@@ -239,13 +196,13 @@ export default function Dashboard() {
                       >
                         <TableCell className="font-medium">{item.ingredientName}</TableCell>
                         <TableCell className="text-right tabular-nums text-destructive">
-                          {fmtKg(item.currentStockKg)}
+                          {fmtKg(item.currentKg)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums text-muted-foreground">
-                          {fmtKg(item.safetyLevelKg)}
+                          {fmtKg(item.safetyKg)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums font-medium text-destructive">
-                          −{fmtKg(gap)}
+                          −{fmtKg(item.deficitKg)}
                         </TableCell>
                         <TableCell>
                           <Badge

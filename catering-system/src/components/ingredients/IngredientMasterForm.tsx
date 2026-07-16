@@ -25,6 +25,7 @@ const EMPTY_FORM: IngredientMasterFormValues = {
   supplierId: null,
   notes: '',
   marketCropName: '',
+  minStockLevel: 0,
 };
 
 export function validateIngredientMasterForm(
@@ -142,6 +143,16 @@ export function IngredientMasterForm({
             placeholder="例：箱、kg"
           />
           {errors.defaultPriceUnit && <p className="text-xs text-destructive">{errors.defaultPriceUnit}</p>}
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium">安全庫存（kg，0 = 不追蹤）</label>
+          <Input
+            type="number" min={0} step="any"
+            value={form.minStockLevel ?? 0}
+            onChange={(e) => setForm((f) => ({ ...f, minStockLevel: Math.max(0, parseFloat(e.target.value) || 0) }))}
+          />
+          <p className="text-[11px] text-muted-foreground">庫存低於此值時首頁會提醒補貨</p>
         </div>
 
         <div className="flex flex-col gap-1">

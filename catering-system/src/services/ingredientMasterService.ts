@@ -36,6 +36,8 @@ export interface IngredientMasterInput {
   notes?: string;
   /** Feature 032: crop name used to match this ingredient against the MOA AMIS wholesale market price API. */
   marketCropName?: string | null;
+  /** Feature 057: 安全庫存（kg）；0 = 不追蹤。 */
+  minStockLevel?: number;
 }
 
 export async function listIngredients(
@@ -65,6 +67,7 @@ export async function createIngredient(
     supplierId: input.supplierId ?? null,
     notes: input.notes ?? '',
     marketCropName: input.marketCropName ?? null,
+    minStockLevel: input.minStockLevel ?? 0,
     isActive: true,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -123,6 +126,8 @@ export async function updateIngredient(
     supplierId: input.supplierId ?? null,
     notes: input.notes ?? '',
     marketCropName: input.marketCropName ?? null,
+    // Feature 057: 表單值優先；未提供時保留既有值（含舊資料）。單位為 kg。
+    minStockLevel: input.minStockLevel ?? (typeof existing.minStockLevel === 'number' ? existing.minStockLevel : 0),
     isActive: existing.isActive !== false,
     createdAt: existing.createdAt ?? serverTimestamp(),
     createdBy: existing.createdBy ?? uid,

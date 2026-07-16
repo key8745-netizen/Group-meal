@@ -5,6 +5,7 @@ import { getPrepPlan } from '@/services/prepPlanService';
 import { listIngredients } from '@/services/ingredientMasterService';
 import { generateTaskDraftsFromPrepPlan } from '@/services/workflowTaskDraftService';
 import { Button } from '@/components/ui/button';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
@@ -72,6 +73,7 @@ export function ProductionWorkflowTaskList({
   onSaveTasks: (tasks: ProductionWorkflowTask[]) => Promise<void>;
   saving?: boolean;
 }) {
+  const { confirm, confirmDialog } = useConfirm();
   const [showArchived, setShowArchived] = useState(false);
   const [equipmentFilter, setEquipmentFilter] = useState<EquipmentType | ''>('');
   const [staffRoleFilter, setStaffRoleFilter] = useState('');
@@ -112,9 +114,11 @@ export function ProductionWorkflowTaskList({
   async function handleGenerateDrafts() {
     const activeCount = pendingTasks.filter((t) => t.taskStatus === 'active').length;
     if (activeCount > 0) {
-      const proceed = window.confirm(
-        `此規劃已有 ${activeCount} 項進行中的任務，是否仍要附加自動產生的任務草稿？`,
-      );
+      const proceed = await confirm({
+        title: '附加任務草稿',
+        description: `此規劃已有 ${activeCount} 項進行中的任務，是否仍要附加自動產生的任務草稿？`,
+        confirmLabel: '仍要附加',
+      });
       if (!proceed) return;
     }
     setGeneratingDraft(true);
@@ -449,6 +453,7 @@ export function ProductionWorkflowTaskList({
           </table>
         </div>
       )}
+      {confirmDialog}
     </div>
   );
 }

@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { PackageSearch, RefreshCw } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import type { Ingredient, InventoryDoc } from '@/services/types';
-import { UnitConverter } from '@/services/unitConverter';
+import type { IngredientMaster, InventoryDoc } from '@/services/types';
+import { pricePerKgFromDefault } from '@/services/marketPriceService';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -19,9 +19,9 @@ interface InventoryRow {
   ingredientName: string;
   currentStockKg: number;
   safetyLevelKg: number;
-  displayUnit: string;
   category: string;
-  unitCost: number;
+  /** 每 kg 單價（基準價換算；未設定為 0）。 */
+  pricePerKg: number;
   lastUpdated?: string;
 }
 
@@ -74,31 +74,28 @@ export default function InventoryStatus() {
         getDocs(collection(db, 'ingredients')),
       ]);
 
-      const ingredientMap = new Map<string, Ingredient>();
+      const ingredientMap = new Map<string, IngredientMaster>();
       ingredientSnap.docs.forEach(doc => {
-        ingredientMap.set(doc.id, { id: doc.id, ...doc.data() } as Ingredient);
+        ingredientMap.set(doc.id, { id: doc.id, ...doc.data() } as IngredientMaster);
       });
 
       const data: InventoryRow[] = inventorySnap.docs.map(doc => {
         const inv = doc.data() as InventoryDoc;
         const ing = ingredientMap.get(inv.ingredientId);
         const currentStockKg = inv.currentStock ?? 0;
-        let safetyLevelKg = 0;
-        if (ing) {
-          try {
-            safetyLevelKg = UnitConverter.toKg(ing.minStockLevel, ing.unit);
-          } catch {
-            safetyLevelKg = ing.minStockLevel;
-          }
-        }
+        // Feature 067: minStockLevel 一律以 kg 儲存（食材主檔「安全庫存(kg)」欄位），
+        // 與首頁／儀表板的 computeLowStock 一致；不再依賴 legacy ing.unit 轉換，
+        // 避免同一食材在不同頁面出現不同的安全水位。
+        const safetyLevelKg = ing && typeof ing.minStockLevel === 'number' ? ing.minStockLevel : 0;
         return {
           ingredientId: inv.ingredientId,
           ingredientName: inv.ingredientName,
           currentStockKg,
           safetyLevelKg,
-          displayUnit: ing?.unit ?? 'kg',
+          // Feature 067: 單價改用現行價格模型（基準價 → 每 kg），legacy unitCost
+          // 對主檔管理的食材恆為 0（顯示 NT$0 誤導），改以 pricePerKgFromDefault。
+          pricePerKg: ing ? (pricePerKgFromDefault(ing) ?? 0) : 0,
           category: ing?.category ?? '—',
-          unitCost: ing?.unitCost ?? 0,
           lastUpdated: inv.lastUpdated
             ? inv.lastUpdated.toDate().toLocaleDateString('zh-TW')
             : undefined,
@@ -245,7 +242,7 @@ export default function InventoryStatus() {
                           {row.safetyLevelKg > 0 ? `${row.safetyLevelKg.toFixed(2)} kg` : '—'}
                         </TableCell>
                         <TableCell className="text-right tabular-nums text-muted-foreground">
-                          NT$ {row.unitCost.toLocaleString()}
+                          {row.pricePerKg > 0 ? `NT$ ${row.pricePerKg.toLocaleString()}` : '—'}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {row.lastUpdated ?? '—'}

@@ -5,7 +5,7 @@
  * via `onSave`, which calls createRecipe/updateRecipe.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, Trash2 } from 'lucide-react';
@@ -13,6 +13,7 @@ import type { IngredientMaster } from '@/services/types';
 import type { RecipeInput, RecipeIngredientInput } from '@/services/recipeService';
 import type { RecipeCostBreakdown } from '@/services/costAwareMenuSuggestionService';
 import { IngredientSelector } from './IngredientSelector';
+import { RecipeFlavorAdvisorPanel } from './RecipeFlavorAdvisorPanel';
 
 export interface RecipeFormValues extends RecipeInput {}
 
@@ -119,12 +120,15 @@ function CostBreakdownPanel({ breakdown }: { breakdown: RecipeCostBreakdown }) {
 export function RecipeForm({
   initial,
   costBreakdown,
+  resolveIngredientName,
   onSave,
   onCancel,
 }: {
   initial?: Partial<RecipeFormValues>;
   /** Feature 064: 依「已儲存」配方算出的每份成本明細（編輯時參考成本大戶）。 */
   costBreakdown?: RecipeCostBreakdown;
+  /** Feature 075: 依 ingredientId 取食材名，供編輯既有配方時解析風味建議。 */
+  resolveIngredientName?: (ingredientId: string) => string | undefined;
   onSave: (form: RecipeFormValues) => Promise<void>;
   onCancel: () => void;
 }) {
@@ -149,6 +153,15 @@ export function RecipeForm({
   function updateRow(idx: number, patch: Partial<RowState>) {
     setRows((r) => r.map((row, i) => (i === idx ? { ...row, ...patch } : row)));
   }
+
+  // Feature 075: 配方目前的食材名（新選的用快取，既有的靠 resolver 反查 id）。
+  const recipeIngredientNames = useMemo(
+    () =>
+      rows
+        .map((r) => r._ingredient?.name ?? (r.ingredientId ? resolveIngredientName?.(r.ingredientId) : undefined))
+        .filter((n): n is string => !!n && n.trim().length > 0),
+    [rows, resolveIngredientName],
+  );
 
   function unitOptions(row: RowState): string[] {
     const ing = row._ingredient;
@@ -292,6 +305,10 @@ export function RecipeForm({
 
       {costBreakdown && costBreakdown.lines.length > 0 && (
         <CostBreakdownPanel breakdown={costBreakdown} />
+      )}
+
+      {recipeIngredientNames.length > 0 && (
+        <RecipeFlavorAdvisorPanel ingredientNames={recipeIngredientNames} />
       )}
 
       <div className="flex items-center gap-2">

@@ -184,6 +184,7 @@ export default function RecipePage() {
       {editing?.mode === 'create' && (
         <div className="rounded-lg border bg-muted/20 p-4">
           <RecipeForm
+            resolveIngredientName={(id) => ingredientById.get(id)?.name}
             onSave={handleSave}
             onCancel={() => setEditing(null)}
           />
@@ -219,6 +220,7 @@ export default function RecipePage() {
               <RecipeForm
                 initial={toFormValues(editing.recipe)}
                 costBreakdown={editingCostBreakdown}
+                resolveIngredientName={(id) => ingredientById.get(id)?.name}
                 onSave={handleSave}
                 onCancel={() => setEditing(null)}
               />

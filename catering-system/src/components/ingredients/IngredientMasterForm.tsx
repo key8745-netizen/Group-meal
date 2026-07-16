@@ -5,10 +5,13 @@
  */
 
 import { useState } from 'react';
+import { TrendingDown, TrendingUp, Minus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Sparkline } from '@/components/ui/sparkline';
 import type { IngredientBaseUnit } from '@/services/types';
 import type { IngredientMasterInput } from '@/services/ingredientMasterService';
+import type { PriceHistory } from '@/services/marketPriceHistoryService';
 
 const BASE_UNITS: IngredientBaseUnit[] = ['g', 'ml', 'pcs'];
 
@@ -43,15 +46,48 @@ export function validateIngredientMasterForm(
   return errors;
 }
 
+/** Feature 063: 市價近況小圖 + 最新價 + 漲跌。 */
+function PriceHistoryHint({ history }: { history: PriceHistory }) {
+  const { points, latest, min, max, changePercent } = history;
+  const up = changePercent !== null && changePercent > 0;
+  const down = changePercent !== null && changePercent < 0;
+  // 漲價 = 對採購不利（紅）；跌價 = 有利（綠）
+  const trendColor = up ? 'text-destructive' : down ? 'text-green-600' : 'text-muted-foreground';
+  const TrendIcon = up ? TrendingUp : down ? TrendingDown : Minus;
+
+  return (
+    <div className="mt-1 flex items-center gap-3 rounded-md border bg-muted/20 px-3 py-2">
+      <Sparkline values={points.map((p) => p.avgPrice)} className={trendColor} />
+      <div className="flex flex-col text-xs">
+        <span className="font-medium text-foreground">
+          最新 ${latest}/kg
+          {changePercent !== null && (
+            <span className={`ml-1.5 inline-flex items-center gap-0.5 ${trendColor}`}>
+              <TrendIcon size={12} />
+              {changePercent > 0 ? '+' : ''}{changePercent}%
+            </span>
+          )}
+        </span>
+        <span className="text-muted-foreground">
+          近 {points.length} 日 · 區間 ${min}–${max}/kg
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function IngredientMasterForm({
   initial,
   currentStockKg,
+  priceHistory,
   onSave,
   onCancel,
 }: {
   initial?: Partial<IngredientMasterFormValues>;
   /** Feature 060: 編輯時帶入目前庫存（kg），顯示於安全庫存欄位提示。 */
   currentStockKg?: number;
+  /** Feature 063: 該食材對應作物的近期市價歷史，顯示走勢小圖。 */
+  priceHistory?: PriceHistory;
   onSave: (form: IngredientMasterFormValues) => Promise<void>;
   onCancel: () => void;
 }) {
@@ -179,6 +215,9 @@ export function IngredientMasterForm({
             onChange={(e) => setForm((f) => ({ ...f, marketCropName: e.target.value || null }))}
             placeholder="例：甘藍"
           />
+          {priceHistory && priceHistory.points.length > 0 && (
+            <PriceHistoryHint history={priceHistory} />
+          )}
         </div>
 
         <div className="col-span-2 flex flex-col gap-1">

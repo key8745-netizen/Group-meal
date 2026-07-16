@@ -10,7 +10,7 @@
  */
 
 import {
-  doc, getDoc, setDoc, serverTimestamp, type Firestore,
+  collection, doc, getDoc, getDocs, limit, orderBy, query, setDoc, serverTimestamp, type Firestore,
 } from 'firebase/firestore';
 import type { IngredientMaster, MarketPriceEntry, MarketPriceSnapshot } from './types';
 
@@ -229,6 +229,20 @@ export async function getMarketPriceSnapshot(db: Firestore, date: string): Promi
   const snap = await getDoc(doc(db, COLLECTION, date));
   if (!snap.exists()) return null;
   return { id: snap.id, ...snap.data() } as MarketPriceSnapshot;
+}
+
+/**
+ * Feature 063: Reads the most recent N daily snapshots (newest first) for
+ * building per-ingredient price-history sparklines. Ordered by the `date`
+ * field so the caller can feed them to buildPriceHistory (which re-sorts).
+ */
+export async function fetchRecentMarketSnapshots(
+  db: Firestore,
+  n = 14,
+): Promise<MarketPriceSnapshot[]> {
+  const q = query(collection(db, COLLECTION), orderBy('date', 'desc'), limit(n));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as MarketPriceSnapshot));
 }
 
 /**

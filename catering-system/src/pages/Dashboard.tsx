@@ -2,13 +2,15 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import {
-  Package, ShoppingCart, TrendingDown, TrendingUp, UtensilsCrossed, ClipboardList, CalendarRange,
+  Package, ShoppingCart, TrendingDown, TrendingUp, UtensilsCrossed, ClipboardList, CalendarRange, CalendarClock,
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import type { IngredientMaster, InventoryDoc, MarketPriceSnapshot } from '@/services/types';
+import type { IngredientMaster, InventoryDoc, MarketPriceSnapshot, InventoryBatch, IngredientFreshnessParams } from '@/services/types';
 import { listMenus } from '@/services/recipeMenuService';
 import { getMarketPriceSnapshot, todayLocalIsoDate } from '@/services/marketPriceService';
 import { computeLowStock, type LowStockItem } from '@/services/stockAlertService';
+import { listAllBatches } from '@/services/inventoryBatchService';
+import { weekendDecayAlerts, nextServiceDay, type WeekendDecayAlert } from '@/services/freshnessService';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +34,8 @@ export default function Dashboard() {
   const [lowStockItems,    setLowStockItems]    = useState<LowStockItem[]>([]);
   const [marketSnapshot,   setMarketSnapshot]   = useState<MarketPriceSnapshot | null>(null);
   const [ingredientMasters, setIngredientMasters] = useState<IngredientMaster[]>([]);
+  const [freshnessAlerts, setFreshnessAlerts]   = useState<WeekendDecayAlert[]>([]);
+  const [nextService,      setNextService]      = useState<string>('');
 
   useEffect(() => {
     async function load() {
@@ -41,12 +45,14 @@ export default function Dashboard() {
         // Feature 058: KPI 全面改接新資料鏈（recipeMenus / purchaseOrders
         // PENDING / minStockLevel 低庫存 / 今日市價快取），移除舊 orders 與
         // AI 採購預估查詢。
-        const [menus, inventorySnap, ingredientSnap, pendingSnap, snapshot] = await Promise.all([
+        const [menus, inventorySnap, ingredientSnap, pendingSnap, snapshot, allBatches] = await Promise.all([
           listMenus(db),
           getDocs(collection(db, 'inventory')),
           getDocs(collection(db, 'ingredients')),
           getDocs(query(collection(db, 'purchaseOrders'), where('status', '==', 'PENDING'))),
           getMarketPriceSnapshot(db, todayLocalIsoDate()).catch(() => null),
+          // Feature 072: 批次為並存期附加資料，讀取失敗不影響控制台其餘卡片。
+          listAllBatches(db).catch(() => [] as InventoryBatch[]),
         ]);
 
         setTodayMenuCount(menus.filter((m) => m.date === today).length);
@@ -66,10 +72,14 @@ export default function Dashboard() {
           const inv = doc.data() as InventoryDoc;
           if (typeof inv.currentStock === 'number') stockKgById.set(doc.id, inv.currentStock);
         });
-        setLowStockItems(computeLowStock(
-          ingredientSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as IngredientMaster)),
-          stockKgById,
-        ));
+        const ingredients = ingredientSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as IngredientMaster));
+        setLowStockItems(computeLowStock(ingredients, stockKgById));
+
+        // Feature 072: 週末收工前保鮮警示——熬不過下一個開膳日的批次。
+        const paramsById = new Map<string, IngredientFreshnessParams>(ingredients.map((i) => [i.id, i]));
+        const namesById = new Map<string, string>(ingredients.map((i) => [i.id, i.name]));
+        setFreshnessAlerts(weekendDecayAlerts(allBatches, paramsById, namesById, today));
+        setNextService(nextServiceDay(today));
       } catch {
         // Dashboard is best-effort
       } finally {
@@ -156,6 +166,38 @@ export default function Dashboard() {
           <ProductionScheduleCard />
         </div>
       </div>
+
+      {/* Feature 072: 週末收工前保鮮警示——熬不過下一個開膳日的批次，時效最急、置頂 */}
+      {!loading && freshnessAlerts.length > 0 && (
+        <div className="overflow-hidden rounded-lg border border-orange-300 bg-orange-50 dark:border-orange-900/60 dark:bg-orange-950/20">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-orange-200 px-4 py-2.5 dark:border-orange-900/60">
+            <span className="flex items-center gap-2 text-sm font-semibold text-orange-800 dark:text-orange-300">
+              <CalendarClock size={16} />
+              保鮮警示：{freshnessAlerts.length} 項批次熬不過下一個開膳日{nextService && `（${nextService} 前請用完）`}
+            </span>
+            <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs" onClick={() => navigate('/inventory')}>
+              查看庫存批次
+            </Button>
+          </div>
+          <ul className="divide-y divide-orange-200/70 dark:divide-orange-900/40">
+            {freshnessAlerts.slice(0, 6).map((a) => (
+              <li key={a.batchId + a.ingredientId} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-2 text-sm">
+                <span className="font-medium text-foreground">
+                  {a.ingredientName}
+                  <span className="ml-2 font-mono text-xs text-muted-foreground">#{a.batchId}</span>
+                </span>
+                <span className="flex items-center gap-3 text-xs">
+                  <span className="tabular-nums text-orange-700 dark:text-orange-400">剩 {fmtKg(a.atRiskKg)}</span>
+                  <span className="tabular-nums text-muted-foreground">效期 {a.expiryIso}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+          {freshnessAlerts.length > 6 && (
+            <div className="px-4 py-1.5 text-xs text-muted-foreground">…等共 {freshnessAlerts.length} 項</div>
+          )}
+        </div>
+      )}
 
       {/* Body: Alerts + Quick Actions */}
       <div className="grid gap-6 lg:grid-cols-[1fr_260px]">

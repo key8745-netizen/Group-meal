@@ -27,9 +27,29 @@ import { RecipeDraftRecalcDialog } from '@/components/recipes/RecipeDraftRecalcD
 import { DRAFT_NOTE_MARKER } from '@/services/recipeDraftService';
 import { listIngredients } from '@/services/ingredientMasterService';
 import { getMarketPriceSnapshot, todayLocalIsoDate } from '@/services/marketPriceService';
-import { estimateRecipeCostPerServing, breakdownRecipeCost } from '@/services/costAwareMenuSuggestionService';
-import type { IngredientMaster, MarketPriceSnapshot } from '@/services/types';
+import {
+  estimateRecipeCostPerServing,
+  breakdownRecipeCost,
+  resolveIngredientPrice,
+} from '@/services/costAwareMenuSuggestionService';
+import { collection, getDocs } from 'firebase/firestore';
+import { listAllBatches } from '@/services/inventoryBatchService';
+import { batchState } from '@/services/freshnessService';
+import type {
+  IngredientMaster,
+  MarketPriceSnapshot,
+  InventoryDoc,
+  InventoryBatch,
+  FreshnessState,
+  IngredientFreshnessParams,
+} from '@/services/types';
+import type { CrossRefContext } from '@/services/flavorInventoryCrossRef';
 import type { RecipeCostCell } from '@/components/recipes/RecipeList';
+
+/** 新鮮度嚴重度排序（數字大 = 更該優先處理），用於取每食材「最差」批次狀態。 */
+const FRESHNESS_URGENCY: Record<FreshnessState, number> = {
+  EXPIRED: 5, CRITICAL: 4, USE_FIRST: 3, FRESH: 2, DEPLETED: 1,
+};
 
 type EditingState =
   | { mode: 'create' }
@@ -60,6 +80,9 @@ export default function RecipePage() {
   const [showDraftRecalc, setShowDraftRecalc] = useState(false);
   const [ingredients, setIngredients] = useState<IngredientMaster[]>([]);
   const [snapshot, setSnapshot] = useState<MarketPriceSnapshot | null>(null);
+  // Feature 076: 交叉比對用的庫存與批次（載入失敗僅退化為純風味建議）。
+  const [stockKgById, setStockKgById] = useState<Map<string, number>>(new Map());
+  const [batches, setBatches] = useState<InventoryBatch[]>([]);
 
   async function reload() {
     setLoading(true);
@@ -78,6 +101,18 @@ export default function RecipePage() {
     // Feature 053: 每份成本欄（市價優先、基準價備援）——載入失敗僅不顯示成本。
     listIngredients(db).then(setIngredients).catch(() => setIngredients([]));
     getMarketPriceSnapshot(db, todayLocalIsoDate()).then(setSnapshot).catch(() => setSnapshot(null));
+    // Feature 076: 庫存現量（inventory.currentStock）與批次（保鮮）。
+    getDocs(collection(db, 'inventory'))
+      .then((snap) => {
+        const m = new Map<string, number>();
+        snap.docs.forEach((d) => {
+          const inv = d.data() as InventoryDoc;
+          if (typeof inv.currentStock === 'number') m.set(d.id, inv.currentStock);
+        });
+        setStockKgById(m);
+      })
+      .catch(() => setStockKgById(new Map()));
+    listAllBatches(db).then(setBatches).catch(() => setBatches([]));
   }, []);
 
   const ingredientById = useMemo(
@@ -100,6 +135,51 @@ export default function RecipePage() {
     if (editing?.mode !== 'edit' || ingredients.length === 0) return undefined;
     return breakdownRecipeCost(editing.recipe.recipeIngredients ?? [], ingredientById, snapshot);
   }, [editing, ingredients, ingredientById, snapshot]);
+
+  // Feature 076: 風味建議交叉比對情境——庫存現量、每食材最差批次新鮮度、每公斤估價。
+  const crossRefContext = useMemo<CrossRefContext>(() => {
+    const todayIso = todayLocalIsoDate();
+
+    // 每食材保鮮參數（供 batchState 判斷）。
+    const paramsById = new Map<string, IngredientFreshnessParams>();
+    ingredients.forEach((ing) => {
+      paramsById.set(ing.id, {
+        isPerishable: ing.isPerishable,
+        defaultStorageType: ing.defaultStorageType,
+        shelfLifeDaysAmbient: ing.shelfLifeDaysAmbient,
+        shelfLifeDaysChilled: ing.shelfLifeDaysChilled,
+        shelfLifeDaysFrozen: ing.shelfLifeDaysFrozen,
+        warnThresholdDays: ing.warnThresholdDays,
+        criticalThresholdDays: ing.criticalThresholdDays,
+      });
+    });
+
+    // 取每食材所有批次中「最緊急」的新鮮度狀態。
+    const freshnessByIngredientId = new Map<string, FreshnessState>();
+    for (const b of batches) {
+      const state = batchState(b, paramsById.get(b.ingredientId) ?? {}, todayIso);
+      const prev = freshnessByIngredientId.get(b.ingredientId);
+      if (!prev || FRESHNESS_URGENCY[state] > FRESHNESS_URGENCY[prev]) {
+        freshnessByIngredientId.set(b.ingredientId, state);
+      }
+    }
+
+    // 每公斤估價（市價優先、基準價備援）。
+    const costPerKgByIngredientId = new Map<string, number>();
+    ingredients.forEach((ing) => {
+      const price = resolveIngredientPrice(ing, snapshot);
+      if (price.pricePerKg != null && price.pricePerKg > 0) {
+        costPerKgByIngredientId.set(ing.id, price.pricePerKg);
+      }
+    });
+
+    return {
+      ingredients: ingredients.map((i) => ({ id: i.id, name: i.name })),
+      stockByIngredientId: stockKgById,
+      freshnessByIngredientId,
+      costPerKgByIngredientId,
+    };
+  }, [ingredients, batches, stockKgById, snapshot]);
 
   async function handleSave(input: RecipeInput) {
     const uid = auth.currentUser?.uid ?? '';
@@ -185,6 +265,7 @@ export default function RecipePage() {
         <div className="rounded-lg border bg-muted/20 p-4">
           <RecipeForm
             resolveIngredientName={(id) => ingredientById.get(id)?.name}
+            crossRefContext={crossRefContext}
             onSave={handleSave}
             onCancel={() => setEditing(null)}
           />
@@ -221,6 +302,7 @@ export default function RecipePage() {
                 initial={toFormValues(editing.recipe)}
                 costBreakdown={editingCostBreakdown}
                 resolveIngredientName={(id) => ingredientById.get(id)?.name}
+                crossRefContext={crossRefContext}
                 onSave={handleSave}
                 onCancel={() => setEditing(null)}
               />

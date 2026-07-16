@@ -14,6 +14,7 @@ import type { RecipeInput, RecipeIngredientInput } from '@/services/recipeServic
 import type { RecipeCostBreakdown } from '@/services/costAwareMenuSuggestionService';
 import { IngredientSelector } from './IngredientSelector';
 import { RecipeFlavorAdvisorPanel } from './RecipeFlavorAdvisorPanel';
+import type { CrossRefContext } from '@/services/flavorInventoryCrossRef';
 
 export interface RecipeFormValues extends RecipeInput {}
 
@@ -121,6 +122,7 @@ export function RecipeForm({
   initial,
   costBreakdown,
   resolveIngredientName,
+  crossRefContext,
   onSave,
   onCancel,
 }: {
@@ -129,6 +131,8 @@ export function RecipeForm({
   costBreakdown?: RecipeCostBreakdown;
   /** Feature 075: 依 ingredientId 取食材名，供編輯既有配方時解析風味建議。 */
   resolveIngredientName?: (ingredientId: string) => string | undefined;
+  /** Feature 076: 庫存/保鮮/成本情境，帶入則風味建議會交叉比對並重新排序。 */
+  crossRefContext?: CrossRefContext;
   onSave: (form: RecipeFormValues) => Promise<void>;
   onCancel: () => void;
 }) {
@@ -308,7 +312,10 @@ export function RecipeForm({
       )}
 
       {recipeIngredientNames.length > 0 && (
-        <RecipeFlavorAdvisorPanel ingredientNames={recipeIngredientNames} />
+        <RecipeFlavorAdvisorPanel
+          ingredientNames={recipeIngredientNames}
+          crossRefContext={crossRefContext}
+        />
       )}
 
       <div className="flex items-center gap-2">

@@ -141,6 +141,11 @@ Two patterns exist — do not mix them:
   `currentStock` by the cooking loss only, and writes an `adjustment` audit record. The plan is computed
   by the pure `preservationPlanner.planPreservation()`. Same-ingredient design keeps the processed batch
   visible to recipe suggestions + freshness alerts (惜食 loop stays intact).
+- **FEFO batch sync (Feature 083)**: after `deductStock` authoritatively reduces `currentStock`,
+  `deductPrepPlanStock` calls `inventoryBatchService.applyFefoBatchDeduction()` per ingredient
+  (best-effort, try/catch) to reduce batch `qtyRemainingKg` in FEFO order (`planFefoDeduction`),
+  so freshness alerts don't show phantom (already-cooked) batches. `currentStock` stays authoritative;
+  batch writes are additive/best-effort per the coexistence model.
 - Never update `inventory/{id}.currentStock` directly outside a transaction
 
 Freshness/preservation schema fields (Feature 071/079): `IngredientMaster.processedYieldRatio?`

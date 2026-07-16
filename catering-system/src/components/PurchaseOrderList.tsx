@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { collection, onSnapshot, orderBy, query, Timestamp } from 'firebase/firestore';
-import { CheckCircle, ChevronDown, ChevronRight, ClipboardCopy, Link2, Package, ShieldCheck } from 'lucide-react';
+import { CheckCircle, ChevronDown, ChevronRight, ClipboardCopy, Link2, Package, Printer, ShieldCheck } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import {
   purchaseOrderService,
   type PurchaseOrder,
   type PurchaseOrderStatus,
 } from '@/services/purchaseOrderService';
+import { buildConsolidatedShoppingList } from '@/services/shoppingListService';
+import { ShoppingListPrintView } from '@/components/purchase/ShoppingListPrintView';
 
 const TENANT_ID: string =
   (import.meta.env.VITE_TENANT_ID as string | undefined) ??
@@ -20,6 +22,7 @@ import {
 } from '@/components/ui/table';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
+import { ReceiveOrderDialog } from '@/components/purchase/ReceiveOrderDialog';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -76,7 +79,7 @@ function ShareButton({ orderId }: { orderId: string }) {
 function OrderCard({ order, onApprove, onComplete }: {
   order: PurchaseOrder;
   onApprove: (id: string) => void;
-  onComplete: (id: string) => void;
+  onComplete: (order: PurchaseOrder) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -120,7 +123,7 @@ function OrderCard({ order, onApprove, onComplete }: {
             <Button
               size="sm"
               className="gap-1.5 text-xs"
-              onClick={() => onComplete(order.id!)}
+              onClick={() => onComplete(order)}
             >
               <CheckCircle size={13} />
               確認入庫
@@ -168,6 +171,10 @@ export function PurchaseOrderList() {
   const [loading,     setLoading]     = useState(true);
   const [activeTab,   setActiveTab]   = useState<PurchaseOrderStatus>('PENDING');
   const [completing,  setCompleting]  = useState<Set<string>>(new Set());
+  // Feature 061: 收貨對話框（逐項可改實收量）
+  const [receivingOrder, setReceivingOrder] = useState<PurchaseOrder | null>(null);
+  // Feature 062: 待採購彙總採買清單（列印用；null = 非列印狀態）
+  const [shoppingList, setShoppingList] = useState<ReturnType<typeof buildConsolidatedShoppingList> | null>(null);
 
   // ── Real-time listener ───────────────────────────────────────────────────
   useEffect(() => {
@@ -208,38 +215,45 @@ export function PurchaseOrderList() {
     }
   }
 
-  // ── Complete PENDING → RECEIVED ───────────────────────────────────────────
-  async function handleComplete(orderId: string) {
-    setCompleting((prev) => new Set(prev).add(orderId));
-    try {
-      await purchaseOrderService.completeOrder(orderId);
-      toast({ title: '入庫成功', description: `採購單 #${orderId.slice(-8)} 已完成入庫。` });
-    } catch (err) {
-      toast({
-        variant:     'destructive',
-        title:       '入庫失敗',
-        description: err instanceof Error ? err.message : '請稍後再試。',
-      });
-    } finally {
-      setCompleting((prev) => { const s = new Set(prev); s.delete(orderId); return s; });
-    }
-  }
-
   // ── Render ───────────────────────────────────────────────────────────────
   const tabOrders = orders.filter((o) => o.status === activeTab);
+  const pendingOrders = orders.filter((o) => o.status === 'PENDING');
+
+  // Feature 062: 彙總所有待採購單 → 一張採買清單，列印帶去市場
+  function handlePrintShoppingList() {
+    setShoppingList(buildConsolidatedShoppingList(pendingOrders));
+    setTimeout(() => {
+      window.print();
+      setShoppingList(null);
+    }, 0);
+  }
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <>
+    <div className="flex flex-col gap-6 p-6 print:hidden">
 
       {/* Header */}
-      <div className="flex items-center gap-2">
-        <Package size={20} className="text-muted-foreground" />
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">採購單管理</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            即時追蹤採購進度，確認入庫後自動補回庫存。
-          </p>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Package size={20} className="text-muted-foreground" />
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">採購單管理</h1>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              即時追蹤採購進度，確認入庫後自動補回庫存。
+            </p>
+          </div>
         </div>
+        {pendingOrders.length > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={handlePrintShoppingList}
+          >
+            <Printer size={14} />
+            列印採買清單
+          </Button>
+        )}
       </div>
 
       {/* Tabs */}
@@ -288,13 +302,28 @@ export function PurchaseOrderList() {
               key={order.id}
               order={order}
               onApprove={completing.has(order.id!) ? () => {} : handleApprove}
-              onComplete={completing.has(order.id!) ? () => {} : handleComplete}
+              onComplete={setReceivingOrder}
             />
           ))}
         </div>
       )}
 
+      {receivingOrder && (
+        <ReceiveOrderDialog
+          order={receivingOrder}
+          onClose={() => setReceivingOrder(null)}
+          onReceived={() => setReceivingOrder(null)}
+        />
+      )}
+
       <Toaster />
     </div>
+
+    {shoppingList && (
+      <div className="hidden print:block">
+        <ShoppingListPrintView summary={shoppingList} />
+      </div>
+    )}
+    </>
   );
 }

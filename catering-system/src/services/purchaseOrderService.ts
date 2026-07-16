@@ -15,6 +15,7 @@ import { restockIngredient } from './inventoryService';
 import { logOrderFulfillment } from './performanceService';
 import { configService } from './configService';
 import { invalidateSnapshotCache } from './aiContextService';
+import { resolveReceivedQuantities } from './receivedQuantityPlanner';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -109,8 +110,17 @@ export const purchaseOrderService = {
    * If a mid-list restock fails, the successfully restocked items are NOT
    * rolled back (eventual consistency).  The order status remains PENDING so
    * staff can retry after resolving the data issue.
+   *
+   * Feature 061: `receivedOverridesKg` lets staff record the ACTUAL received
+   * quantity per ingredient (keyed by ingredientId, in kg) when delivery
+   * differs from the ordered amount. Unspecified items fall back to the ordered
+   * qty; an override of 0 means "did not arrive" and is not restocked. Called
+   * with no overrides the behaviour is unchanged (restock the ordered qty).
    */
-  async completeOrder(orderId: string): Promise<void> {
+  async completeOrder(
+    orderId: string,
+    receivedOverridesKg?: Map<string, number>,
+  ): Promise<void> {
     const order = await getPurchaseOrder(orderId);
 
     if (order.status !== 'PENDING') {
@@ -120,14 +130,17 @@ export const purchaseOrderService = {
     }
 
     const performedBy = currentUser();
+    const resolved = resolveReceivedQuantities(order.items, receivedOverridesKg);
 
-    // Restock each ingredient sequentially so failures are easy to diagnose
-    for (const item of order.items) {
+    // Restock each ingredient sequentially so failures are easy to diagnose.
+    // Items with receivedKg === 0 (did not arrive) are skipped.
+    for (const line of resolved) {
+      if (!(line.receivedKg > 0)) continue;
       await restockIngredient(
         db as Firestore,
-        item.ingredientId,
-        item.name,
-        item.purchaseQtyKg,
+        line.ingredientId,
+        line.name,
+        line.receivedKg,
         orderId,
         performedBy,
       );
@@ -144,14 +157,16 @@ export const purchaseOrderService = {
 
     // Fire-and-forget: log fulfillment data for performance tracking.
     // Never awaited — must not block the UI or fail the completeOrder call.
+    // Logs the ACTUAL received qty (incl. 0) so fulfillment data is honest.
     logOrderFulfillment(
       db as Firestore,
       orderId,
-      order.items.map((item) => ({
-        ingredientId:             item.ingredientId,
-        ingredientName:           item.name,
-        purchasedQtyKg:           item.purchaseQtyKg,
-        originalRecommendedQtyKg: item.recommendedQtyKg ?? null,
+      resolved.map((line) => ({
+        ingredientId:             line.ingredientId,
+        ingredientName:           line.name,
+        purchasedQtyKg:           line.receivedKg,
+        originalRecommendedQtyKg:
+          order.items.find((i) => i.ingredientId === line.ingredientId)?.recommendedQtyKg ?? null,
       })),
     );
   },

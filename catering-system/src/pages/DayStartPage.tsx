@@ -30,6 +30,8 @@ import { PreservationDialog, type PreservationSource } from '@/components/invent
 import { MenuBalanceBar } from '@/components/menus/MenuBalanceBar';
 import { planBalancedMenu } from '@/services/balancedMenuPlanner';
 import { recentlyUsedRecipeIds, type RecentMenuDay } from '@/services/menuVarietyService';
+import { formatWeight } from '@/utils/unitConverter';
+import { useWeightUnit } from '@/contexts/WeightUnitContext';
 import { runDayStart, loadMonthlyMenuDay, type DayStartStep, type DayStartResult } from '@/services/dayStartService';
 import { getKitchenSettings } from '@/services/kitchenSettingsService';
 import { computeLowStock, planSafetyRestock } from '@/services/stockAlertService';
@@ -67,6 +69,7 @@ function StepIcon({ status }: { status: DayStartStep['status'] }) {
 export default function DayStartPage() {
   const { confirm, confirmDialog } = useConfirm();
   const navigate = useNavigate();
+  const { unit: weightUnit } = useWeightUnit();
   const [phase, setPhase] = useState<Phase>('pick');
   const [date, setDate] = useState(today());
   const [headCount, setHeadCount] = useState(100);
@@ -485,7 +488,7 @@ export default function DayStartPage() {
               <li key={a.batchId + a.ingredientId} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
                 <span className="font-medium text-orange-900 dark:text-orange-300">{a.ingredientName}</span>
                 <span className="font-mono text-xs text-muted-foreground">#{a.batchId}</span>
-                <span className="text-xs text-orange-700 dark:text-orange-400">剩 {a.atRiskKg.toFixed(2)}kg · 效期 {a.expiryIso}</span>
+                <span className="text-xs text-orange-700 dark:text-orange-400">剩 {formatWeight(a.atRiskKg, weightUnit)} · 效期 {a.expiryIso}</span>
                 <Button
                   size="sm"
                   variant="outline"

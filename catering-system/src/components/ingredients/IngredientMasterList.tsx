@@ -14,9 +14,15 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { IngredientMaster } from '@/services/types';
+import { toTaijin, toLb, formatWeight } from '@/utils/unitConverter';
+import { useWeightUnit } from '@/contexts/WeightUnitContext';
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /** Feature 060: 目前庫存 / 安全庫存 對照格（低於安全量轉紅）。 */
 function StockCell({ currentKg, safetyKg }: { currentKg?: number; safetyKg: number }) {
+  const { unit } = useWeightUnit();
+  const toDisplay = (kg: number) => (unit === '台斤' ? toTaijin(kg) : unit === '磅' ? toLb(kg) : round2(kg));
   const hasSafety = safetyKg > 0;
   const hasStock = typeof currentKg === 'number';
   if (!hasSafety && !hasStock) {
@@ -25,8 +31,8 @@ function StockCell({ currentKg, safetyKg }: { currentKg?: number; safetyKg: numb
   const below = hasSafety && (currentKg ?? 0) < safetyKg;
   return (
     <span className={`tabular-nums ${below ? 'font-medium text-destructive' : ''}`}>
-      {hasStock ? (currentKg as number).toFixed(2) : '—'}
-      <span className="text-muted-foreground"> / {hasSafety ? `${safetyKg.toFixed(2)} kg` : '未設'}</span>
+      {hasStock ? toDisplay(currentKg as number) : '—'}
+      <span className="text-muted-foreground"> / {hasSafety ? formatWeight(safetyKg, unit) : '未設'}</span>
     </span>
   );
 }

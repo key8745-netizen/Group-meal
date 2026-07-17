@@ -15,6 +15,10 @@ import {
 } from '@/services/prepPlanStockDeductService';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
+import { toTaijin, toLb, inputToKg } from '@/utils/unitConverter';
+import { useWeightUnit } from '@/contexts/WeightUnitContext';
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 interface Props {
   prepPlan: PrepPlan;
@@ -25,9 +29,11 @@ interface Props {
 export function PrepPlanDeductDialog({ prepPlan, onClose, onDeducted }: Props) {
   const planned = useMemo(() => planPrepPlanDeduction(prepPlan), [prepPlan]);
   const lines = useMemo(() => [...planned.requirements.values()], [planned]);
+  const { unit } = useWeightUnit();
+  const toDisplay = (kg: number) => (unit === '台斤' ? toTaijin(kg) : unit === '磅' ? toLb(kg) : round2(kg));
 
   const [kgById, setKgById] = useState<Record<string, string>>(
-    () => Object.fromEntries(lines.map((l) => [l.ingredientId, String(l.totalQuantityKg)])),
+    () => Object.fromEntries(lines.map((l) => [l.ingredientId, String(toDisplay(l.totalQuantityKg))])),
   );
   const [submitting, setSubmitting] = useState(false);
 
@@ -39,8 +45,9 @@ export function PrepPlanDeductDialog({ prepPlan, onClose, onDeducted }: Props) {
     try {
       const overrides = new Map<string, number>();
       for (const line of lines) {
-        const v = Number(kgById[line.ingredientId]);
-        overrides.set(line.ingredientId, Number.isFinite(v) && v >= 0 ? v : 0);
+        const typed = Number(kgById[line.ingredientId]);
+        const v = Number.isFinite(typed) && typed >= 0 ? inputToKg(typed, unit) : 0;
+        overrides.set(line.ingredientId, v);
       }
       const result = await deductPrepPlanStock(db, prepPlan.id, uid, overrides);
       toast({
@@ -89,7 +96,7 @@ export function PrepPlanDeductDialog({ prepPlan, onClose, onDeducted }: Props) {
                       setKgById((prev) => ({ ...prev, [line.ingredientId]: e.target.value }))
                     }
                   />
-                  <span className="text-xs text-muted-foreground">kg</span>
+                  <span className="text-xs text-muted-foreground">{unit}</span>
                 </span>
               </li>
             ))}

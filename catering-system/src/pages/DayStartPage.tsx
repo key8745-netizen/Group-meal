@@ -28,6 +28,7 @@ import { weekendDecayAlerts } from '@/services/freshnessService';
 import { suggestUseItUpRecipes } from '@/services/useItUpPlanner';
 import { PreservationDialog, type PreservationSource } from '@/components/inventory/PreservationDialog';
 import { MenuBalanceBar } from '@/components/menus/MenuBalanceBar';
+import { planBalancedMenu } from '@/services/balancedMenuPlanner';
 import { runDayStart, loadMonthlyMenuDay, type DayStartStep, type DayStartResult } from '@/services/dayStartService';
 import { getKitchenSettings } from '@/services/kitchenSettingsService';
 import { computeLowStock, planSafetyRestock } from '@/services/stockAlertService';
@@ -257,6 +258,45 @@ export default function DayStartPage() {
     } finally {
       setLoadingMonthly(false);
     }
+  }
+
+  // Feature 090: 一鍵均衡菜單——依配額（1主菜+1主食+2蔬菜+1湯）自動挑，
+  // 每類內以「惜食>庫存可出>划算」排序。整合分類/清庫存/成本/庫存訊號。
+  function handleBalancedMenu() {
+    const clearing = new Set(clearStockSuggestions.map((s) => s.recipeId));
+    const candidates = recipes
+      .filter((r) => r.isActive !== false)
+      .map((r) => {
+        const est = costEstimateByRecipeId.get(r.id);
+        const assess = assessmentByRecipeId?.get(r.id);
+        return {
+          recipeId: r.id,
+          name: r.name,
+          category: r.category,
+          clearsExpiring: clearing.has(r.id),
+          stockFeasible:
+            assess?.maxServingsFromStock != null ? assess.maxServingsFromStock >= headCount : undefined,
+          costPerServing: est?.costPerServing ?? null,
+        };
+      });
+    const result = planBalancedMenu(candidates);
+    if (result.selectedRecipeIds.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: '無法產生均衡菜單',
+        description: '找不到已分類的配方——請先到配方管理設定菜色類別（主菜/主食/蔬菜/湯）。',
+      });
+      return;
+    }
+    setPicked(new Set(result.selectedRecipeIds));
+    const shortMsg =
+      result.shortfalls.length > 0
+        ? `；缺 ${result.shortfalls.map((s) => `${s.category}×${s.want - s.got}`).join('、')}（可手動補）`
+        : '';
+    toast({
+      title: `已產生均衡菜單（${result.selectedRecipeIds.length} 道）`,
+      description: `依配額挑選，優先清庫存＋划算${shortMsg}。可自行增減。`,
+    });
   }
 
   async function handleRecommend() {
@@ -535,6 +575,16 @@ export default function DayStartPage() {
                 >
                   <CalendarDays size={13} />
                   {loadingMonthly ? '載入中…' : '帶入月菜單'}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleBalancedMenu}
+                  disabled={recipes.length === 0}
+                  className="gap-1.5 border-emerald-400 text-emerald-700 dark:text-emerald-400"
+                >
+                  <Sparkles size={13} />
+                  一鍵均衡菜單
                 </Button>
                 <Button
                   variant="outline"

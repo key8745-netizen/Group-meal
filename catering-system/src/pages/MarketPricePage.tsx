@@ -20,6 +20,8 @@ import {
   todayLocalIsoDate,
 } from '@/services/marketPriceService';
 import { buildCropTrends, listRecentMarketPriceSnapshots, type CropTrend } from '@/services/marketPriceTrendService';
+import { pricePerDisplayUnit } from '@/utils/unitConverter';
+import { useWeightUnit } from '@/contexts/WeightUnitContext';
 import { CropTrendCard } from '@/components/marketPrices/CropTrendCard';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -42,6 +44,7 @@ function diffColorClass(pct: number | null): string {
 }
 
 export default function MarketPricePage() {
+  const { unit } = useWeightUnit();
   const [ingredients, setIngredients] = useState<IngredientMaster[]>([]);
   const [snapshot, setSnapshot] = useState<MarketPriceSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
@@ -179,10 +182,10 @@ export default function MarketPricePage() {
               <TableRow>
                 <TableHead>食材</TableHead>
                 <TableHead>市場作物</TableHead>
-                <TableHead className="text-right">今日均價 (NT$/kg)</TableHead>
+                <TableHead className="text-right">今日均價 (NT$/{unit})</TableHead>
                 <TableHead className="text-right">價格區間</TableHead>
                 <TableHead className="text-right">交易量</TableHead>
-                <TableHead className="text-right">基準價 (NT$/kg)</TableHead>
+                <TableHead className="text-right">基準價 (NT$/{unit})</TableHead>
                 <TableHead className="text-right">差異%</TableHead>
               </TableRow>
             </TableHeader>
@@ -201,18 +204,18 @@ export default function MarketPricePage() {
                     <TableCell className="font-medium">{ing.name}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{cropName}</TableCell>
                     <TableCell className="text-right">
-                      {hasMarketPrice ? `$${(entry!.avgPrice as number).toFixed(2)}` : '—'}
+                      {hasMarketPrice ? `$${pricePerDisplayUnit(entry!.avgPrice as number, unit).toFixed(2)}` : '—'}
                     </TableCell>
                     <TableCell className="text-right text-sm text-muted-foreground">
                       {entry?.minPrice != null && entry?.maxPrice != null
-                        ? `$${entry.minPrice.toFixed(2)} ~ $${entry.maxPrice.toFixed(2)}`
+                        ? `$${pricePerDisplayUnit(entry.minPrice, unit).toFixed(2)} ~ $${pricePerDisplayUnit(entry.maxPrice, unit).toFixed(2)}`
                         : '—'}
                     </TableCell>
                     <TableCell className="text-right text-sm text-muted-foreground">
                       {entry && entry.marketCount > 0 ? `${entry.totalQuantity} (${entry.marketCount} 市場)` : '—'}
                     </TableCell>
                     <TableCell className="text-right">
-                      {basePrice != null ? `$${basePrice.toFixed(2)}` : '—'}
+                      {basePrice != null ? `$${pricePerDisplayUnit(basePrice, unit).toFixed(2)}` : '—'}
                     </TableCell>
                     <TableCell className={`text-right ${diffColorClass(pct)}`}>
                       {pct != null ? `${pct > 0 ? '+' : ''}${pct.toFixed(1)}%` : '—'}

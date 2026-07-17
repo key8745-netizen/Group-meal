@@ -67,3 +67,12 @@ export function formatWeight(kg: number, unit: WeightUnit, digits = 2): string {
 export function inputToKg(value: number, unit: WeightUnit): number {
   return unit === '台斤' ? toKg(value) : unit === '磅' ? lbToKg(value) : round2(value);
 }
+
+/**
+ * Feature 098: 把「每 kg 單價」換算成「每顯示單位單價」。
+ * 例：$50/kg → 台斤 $30/台斤（1 台斤 = 0.6 kg）；磅 $22.68/磅。
+ */
+export function pricePerDisplayUnit(pricePerKg: number, unit: WeightUnit): number {
+  const factor = unit === '台斤' ? KG_PER_TAIJIN : unit === '磅' ? KG_PER_LB : 1;
+  return Math.round(pricePerKg * factor * 100) / 100;
+}

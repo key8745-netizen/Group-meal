@@ -9,7 +9,7 @@ import { batchState } from '@/services/freshnessService';
 import { PreservationDialog, type PreservationSource } from '@/components/inventory/PreservationDialog';
 import { createSeededBatch } from '@/services/inventoryBatchService';
 import { planInitialBatchSeedBatch } from '@/services/initialBatchSeedPlanner';
-import { formatWeight } from '@/utils/unitConverter';
+import { formatWeight, pricePerDisplayUnit } from '@/utils/unitConverter';
 import { useWeightUnit } from '@/contexts/WeightUnitContext';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
@@ -342,7 +342,7 @@ export default function InventoryStatus() {
                     <TableHead>類別</TableHead>
                     <TableHead className="text-right">目前庫存</TableHead>
                     <TableHead className="text-right">安全水位</TableHead>
-                    <TableHead className="text-right">單價 / kg</TableHead>
+                    <TableHead className="text-right">單價 / {unit}</TableHead>
                     <TableHead>批次 / 保鮮</TableHead>
                     <TableHead>更新日期</TableHead>
                     <TableHead>狀態</TableHead>
@@ -369,7 +369,7 @@ export default function InventoryStatus() {
                           {row.safetyLevelKg > 0 ? fmtKg(row.safetyLevelKg) : '—'}
                         </TableCell>
                         <TableCell className="text-right tabular-nums text-muted-foreground">
-                          {row.pricePerKg > 0 ? `NT$ ${row.pricePerKg.toLocaleString()}` : '—'}
+                          {row.pricePerKg > 0 ? `NT$ ${pricePerDisplayUnit(row.pricePerKg, unit).toLocaleString()}` : '—'}
                         </TableCell>
                         <TableCell>
                           {row.batchCount === 0 ? (

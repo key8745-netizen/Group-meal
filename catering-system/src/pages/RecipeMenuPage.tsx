@@ -4,10 +4,10 @@
  * the new `/recipeMenus/{id}` collection.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Plus, CalendarRange, Eye, EyeOff } from 'lucide-react';
 import { db, auth } from '@/lib/firebase';
-import type { RecipeMenu } from '@/services/types';
+import type { RecipeMenu, Recipe } from '@/services/types';
 import {
   listMenus,
   createMenu,
@@ -15,6 +15,7 @@ import {
   setMenuActive,
   type RecipeMenuInput,
 } from '@/services/recipeMenuService';
+import { listRecipes } from '@/services/recipeService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -49,6 +50,9 @@ export default function RecipeMenuPage() {
   const [editing, setEditing] = useState<EditingState>(null);
   const [search, setSearch] = useState('');
   const [showInactive, setShowInactive] = useState(false);
+  // Feature 086: 配方清單，供菜單風味建議解析食材名（載入失敗僅不顯示建議）。
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const recipeById = useMemo(() => new Map(recipes.map((r) => [r.id, r])), [recipes]);
 
   async function reload() {
     setLoading(true);
@@ -64,6 +68,7 @@ export default function RecipeMenuPage() {
 
   useEffect(() => {
     reload();
+    listRecipes(db).then(setRecipes).catch(() => setRecipes([]));
   }, []);
 
   async function handleSave(input: RecipeMenuInput) {
@@ -115,6 +120,7 @@ export default function RecipeMenuPage() {
       {editing?.mode === 'create' && (
         <div className="rounded-lg border bg-muted/20 p-4">
           <RecipeMenuForm
+            recipeById={recipeById}
             onSave={handleSave}
             onCancel={() => setEditing(null)}
           />
@@ -149,6 +155,7 @@ export default function RecipeMenuPage() {
             <div className="rounded-lg border bg-muted/20 p-4">
               <RecipeMenuForm
                 initial={toFormValues(editing.menu)}
+                recipeById={recipeById}
                 onSave={handleSave}
                 onCancel={() => setEditing(null)}
               />

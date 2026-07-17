@@ -5,13 +5,14 @@
  * `onSave`, which calls createMenu/updateMenu.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, Trash2 } from 'lucide-react';
 import type { Recipe } from '@/services/types';
 import type { RecipeMenuInput, RecipeMenuItemInput } from '@/services/recipeMenuService';
 import { RecipeSelector } from './RecipeSelector';
+import { RecipeFlavorAdvisorPanel } from '@/components/recipes/RecipeFlavorAdvisorPanel';
 
 export interface RecipeMenuFormValues extends RecipeMenuInput {}
 
@@ -47,10 +48,13 @@ export function validateRecipeMenuForm(form: RecipeMenuFormValues): Record<strin
 
 export function RecipeMenuForm({
   initial,
+  recipeById,
   onSave,
   onCancel,
 }: {
   initial?: Partial<RecipeMenuFormValues>;
+  /** Feature 086: 配方 id → Recipe，供編輯既有菜單時解析食材名做風味建議。 */
+  recipeById?: Map<string, Recipe>;
   onSave: (form: RecipeMenuFormValues) => Promise<void>;
   onCancel: () => void;
 }) {
@@ -65,6 +69,19 @@ export function RecipeMenuForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Feature 086: 這份菜單所有配方用到的食材名（新選的用快取 _recipe，既有的靠 recipeById 反查）。
+  const menuIngredientNames = useMemo(() => {
+    const names = new Set<string>();
+    for (const row of rows) {
+      const recipe = row._recipe ?? (row.recipeId ? recipeById?.get(row.recipeId) : undefined);
+      for (const ri of recipe?.recipeIngredients ?? []) {
+        const n = (ri.ingredientNameSnapshot ?? '').trim();
+        if (n) names.add(n);
+      }
+    }
+    return Array.from(names);
+  }, [rows, recipeById]);
 
   function addRow() {
     setRows((r) => [...r, { recipeId: '', servings: 1, notes: '' }]);
@@ -202,6 +219,10 @@ export function RecipeMenuForm({
           </div>
         )}
       </div>
+
+      {menuIngredientNames.length > 0 && (
+        <RecipeFlavorAdvisorPanel ingredientNames={menuIngredientNames} />
+      )}
 
       <div className="flex items-center gap-2">
         <input

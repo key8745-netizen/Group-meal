@@ -21,7 +21,8 @@ import {
 } from '@/components/ui/table';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
-import { toTaijin } from '@/utils/unitConverter';
+import { toTaijin, formatWeight, inputToKg } from '@/utils/unitConverter';
+import { useWeightUnit } from '@/contexts/WeightUnitContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,12 +35,6 @@ interface FormRow {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const fmtKg = (n: number) =>
-  `${n % 1 === 0 ? n.toFixed(0) : n.toFixed(2)} kg`;
-
-const fmtTaijin = (n: number) =>
-  `${n % 1 === 0 ? n.toFixed(0) : n.toFixed(2)} 台斤`;
-
 const parseQty = (s: string) => {
   const n = parseFloat(s);
   return isNaN(n) || n < 0 ? 0 : n;
@@ -51,6 +46,7 @@ export function ManualPurchaseForm() {
   const [rows,       setRows]       = useState<FormRow[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const { unit } = useWeightUnit();
   const [search,     setSearch]     = useState('');
 
   // ── Load ingredients + current stock ──────────────────────────────────────
@@ -102,7 +98,7 @@ export function ManualPurchaseForm() {
     setSubmitting(true);
     try {
       const items = selected.map((r) => {
-        const kg = parseQty(r.qtyStr);
+        const kg = inputToKg(parseQty(r.qtyStr), unit);
         return {
           ingredientId:   r.ingredientId,
           name:           r.name,
@@ -148,7 +144,7 @@ export function ManualPurchaseForm() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">手動建單</h1>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              在採購數量欄填入數量（kg），最後點「送出採購單」。
+              在採購數量欄填入數量（{unit}），最後點「送出採購單」。
             </p>
           </div>
         </div>
@@ -198,8 +194,8 @@ export function ManualPurchaseForm() {
               <TableRow>
                 <TableHead>食材名稱</TableHead>
                 <TableHead className="text-right">現有庫存</TableHead>
-                <TableHead className="w-44">採購數量 (kg)</TableHead>
-                <TableHead className="text-right">換算 (台斤)</TableHead>
+                <TableHead className="w-44">採購數量（{unit}）</TableHead>
+                <TableHead className="text-right">換算（kg）</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -227,7 +223,7 @@ export function ManualPurchaseForm() {
                     </TableCell>
 
                     <TableCell className="text-right tabular-nums text-muted-foreground">
-                      {fmtKg(row.currentStockKg)}
+                      {formatWeight(row.currentStockKg, unit)}
                     </TableCell>
 
                     <TableCell>
@@ -244,7 +240,7 @@ export function ManualPurchaseForm() {
                     </TableCell>
 
                     <TableCell className="text-right tabular-nums text-muted-foreground">
-                      {qty > 0 ? fmtTaijin(toTaijin(qty)) : '—'}
+                      {qty > 0 ? formatWeight(inputToKg(qty, unit), 'kg') : '—'}
                     </TableCell>
                   </TableRow>
                 );
@@ -264,7 +260,7 @@ export function ManualPurchaseForm() {
                 key={r.ingredientId}
                 className="rounded-full bg-background border px-3 py-1 text-xs"
               >
-                {r.name} — {fmtKg(parseQty(r.qtyStr))}
+                {r.name} — {formatWeight(inputToKg(parseQty(r.qtyStr), unit), unit)}
               </span>
             ))}
           </div>

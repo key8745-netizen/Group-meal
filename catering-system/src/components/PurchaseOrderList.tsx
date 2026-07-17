@@ -8,6 +8,8 @@ import {
   type PurchaseOrderStatus,
 } from '@/services/purchaseOrderService';
 import { buildConsolidatedShoppingList } from '@/services/shoppingListService';
+import { formatWeight } from '@/utils/unitConverter';
+import { useWeightUnit } from '@/contexts/WeightUnitContext';
 import { ShoppingListPrintView } from '@/components/purchase/ShoppingListPrintView';
 
 const TENANT_ID: string =
@@ -29,8 +31,6 @@ import { ReceiveOrderDialog } from '@/components/purchase/ReceiveOrderDialog';
 const fmtDate = (ts: Timestamp | undefined) =>
   ts ? ts.toDate().toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
 
-const fmtKg     = (n: number) => `${n % 1 === 0 ? n.toFixed(0) : n.toFixed(2)} kg`;
-const fmtTaijin = (n: number) => `${n % 1 === 0 ? n.toFixed(0) : n.toFixed(2)} 台斤`;
 
 const STATUS_LABEL: Record<PurchaseOrderStatus, string> = {
   DRAFT:     '草稿',
@@ -82,6 +82,7 @@ function OrderCard({ order, onApprove, onComplete }: {
   onComplete: (order: PurchaseOrder) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const { unit } = useWeightUnit();
 
   return (
     <div className="overflow-hidden rounded-lg border">
@@ -143,18 +144,14 @@ function OrderCard({ order, onApprove, onComplete }: {
           <TableHeader>
             <TableRow>
               <TableHead>食材名稱</TableHead>
-              <TableHead className="text-right">採購量 (kg)</TableHead>
-              <TableHead className="text-right">採購量 (台斤)</TableHead>
+              <TableHead className="text-right">採購量</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {order.items.map((item, idx) => (
               <TableRow key={item.ingredientId} className={idx % 2 !== 0 ? 'bg-muted/30' : ''}>
                 <TableCell className="font-medium">{item.name}</TableCell>
-                <TableCell className="text-right tabular-nums">{fmtKg(item.purchaseQtyKg)}</TableCell>
-                <TableCell className="text-right tabular-nums text-muted-foreground">
-                  {fmtTaijin(item.purchaseTaijin)}
-                </TableCell>
+                <TableCell className="text-right tabular-nums">{formatWeight(item.purchaseQtyKg, unit)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

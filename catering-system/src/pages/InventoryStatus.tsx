@@ -9,6 +9,8 @@ import { batchState } from '@/services/freshnessService';
 import { PreservationDialog, type PreservationSource } from '@/components/inventory/PreservationDialog';
 import { createSeededBatch } from '@/services/inventoryBatchService';
 import { planInitialBatchSeedBatch } from '@/services/initialBatchSeedPlanner';
+import { formatWeight } from '@/utils/unitConverter';
+import { useWeightUnit } from '@/contexts/WeightUnitContext';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
 import { useConfirm } from '@/components/ui/confirm-dialog';
@@ -115,6 +117,8 @@ export default function InventoryStatus() {
   // Feature 088: 初始批次種子（App 內從現有庫存啟用保鮮）。
   const [seeding, setSeeding] = useState(false);
   const { confirm, confirmDialog } = useConfirm();
+  const { unit } = useWeightUnit();
+  const fmtKg = (n: number) => formatWeight(n, unit);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -359,10 +363,10 @@ export default function InventoryStatus() {
                         <TableCell
                           className={`text-right tabular-nums ${isAlert ? 'font-medium text-destructive' : ''}`}
                         >
-                          {row.currentStockKg.toFixed(2)} kg
+                          {fmtKg(row.currentStockKg)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums text-muted-foreground">
-                          {row.safetyLevelKg > 0 ? `${row.safetyLevelKg.toFixed(2)} kg` : '—'}
+                          {row.safetyLevelKg > 0 ? fmtKg(row.safetyLevelKg) : '—'}
                         </TableCell>
                         <TableCell className="text-right tabular-nums text-muted-foreground">
                           {row.pricePerKg > 0 ? `NT$ ${row.pricePerKg.toLocaleString()}` : '—'}
@@ -465,7 +469,7 @@ export default function InventoryStatus() {
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">{batch.qtyRemainingKg.toFixed(2)} kg</TableCell>
+                      <TableCell className="text-right tabular-nums">{fmtKg(batch.qtyRemainingKg)}</TableCell>
                       <TableCell className="tabular-nums text-sm">{batch.expirationDate}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={FRESHNESS_CONFIG[freshness].cls}>

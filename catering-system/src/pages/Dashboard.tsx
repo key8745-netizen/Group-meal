@@ -14,6 +14,8 @@ import { weekendDecayAlerts, nextServiceDay, type WeekendDecayAlert } from '@/se
 import { listRecipes } from '@/services/recipeService';
 import { suggestUseItUpRecipes, type UseItUpSuggestion } from '@/services/useItUpPlanner';
 import { PreservationDialog, type PreservationSource } from '@/components/inventory/PreservationDialog';
+import { formatWeight } from '@/utils/unitConverter';
+import { useWeightUnit } from '@/contexts/WeightUnitContext';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,10 +31,10 @@ import CostAwareMenuCard from '@/components/dashboard/CostAwareMenuCard';
 import ProductionScheduleCard from '@/components/dashboard/ProductionScheduleCard';
 import PreservationStatsCard from '@/components/dashboard/PreservationStatsCard';
 
-const fmtKg = (n: number) => `${n.toFixed(2)} kg`;
-
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { unit } = useWeightUnit();
+  const fmtKg = (n: number) => formatWeight(n, unit);
 
   const [loading,          setLoading]          = useState(true);
   const [todayMenuCount,   setTodayMenuCount]   = useState(0);
@@ -256,7 +258,7 @@ export default function Dashboard() {
                   <li
                     key={s.recipeId}
                     className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm"
-                    title={`可清 ${s.totalAtRiskKg.toFixed(2)}kg`}
+                    title={`可清 ${fmtKg(s.totalAtRiskKg)}`}
                   >
                     <button
                       className="font-medium text-orange-800 underline-offset-2 hover:underline dark:text-orange-300"

@@ -24,6 +24,7 @@ import KitchenSettingsPage from '@/pages/KitchenSettingsPage';
 import Analytics from '@/pages/Analytics';
 import ShareOrderPage from '@/pages/share/ShareOrderPage';
 import Login from '@/pages/Login';
+import { WeightUnitProvider } from '@/contexts/WeightUnitContext';
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null | undefined>(undefined);
@@ -47,6 +48,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
+    <WeightUnitProvider>
     <BrowserRouter>
       <Routes>
         {/* Public: purchase-order share links sent to suppliers */}
@@ -78,5 +80,6 @@ export default function App() {
         </Route>
       </Routes>
     </BrowserRouter>
+    </WeightUnitProvider>
   );
 }

@@ -28,7 +28,9 @@ import { weekendDecayAlerts } from '@/services/freshnessService';
 import { suggestUseItUpRecipes } from '@/services/useItUpPlanner';
 import { PreservationDialog, type PreservationSource } from '@/components/inventory/PreservationDialog';
 import { MenuBalanceBar } from '@/components/menus/MenuBalanceBar';
-import { planBalancedMenu } from '@/services/balancedMenuPlanner';
+import { planBalancedMenu, type BalancedMenuQuota } from '@/services/balancedMenuPlanner';
+import { parseStoredQuotas, serializeQuotas } from '@/services/menuQuotaPreference';
+import { MenuQuotaEditor } from '@/components/menus/MenuQuotaEditor';
 import { recentlyUsedRecipeIds, type RecentMenuDay } from '@/services/menuVarietyService';
 import { formatWeight } from '@/utils/unitConverter';
 import { useWeightUnit } from '@/contexts/WeightUnitContext';
@@ -99,6 +101,16 @@ export default function DayStartPage() {
   const [preserveTarget, setPreserveTarget] = useState<PreservationSource | null>(null);
   // Feature 092: 近期菜單（跨天多樣性）。
   const [recentMenuDays, setRecentMenuDays] = useState<RecentMenuDay[]>([]);
+  // Feature 099: 一鍵均衡菜單配額（可自訂、localStorage 記憶）。
+  const QUOTA_KEY = 'group-meal:menuQuotas';
+  const [menuQuotas, setMenuQuotas] = useState<BalancedMenuQuota[]>(() => {
+    try { return parseStoredQuotas(localStorage.getItem(QUOTA_KEY)); } catch { return parseStoredQuotas(null); }
+  });
+  const [showQuotaEditor, setShowQuotaEditor] = useState(false);
+  function updateQuotas(next: BalancedMenuQuota[]) {
+    setMenuQuotas(next);
+    try { localStorage.setItem(QUOTA_KEY, serializeQuotas(next)); } catch { /* ignore */ }
+  }
 
   const [recommending, setRecommending] = useState(false);
   const [assessmentByRecipeId, setAssessmentByRecipeId] = useState<Map<string, CostAwareRecipeAssessmentItem> | null>(null);
@@ -304,7 +316,7 @@ export default function DayStartPage() {
           recentlyUsed: recentlyUsedSet.has(r.id),
         };
       });
-    const result = planBalancedMenu(candidates);
+    const result = planBalancedMenu(candidates, menuQuotas);
     if (result.selectedRecipeIds.length === 0) {
       toast({
         variant: 'destructive',
@@ -612,6 +624,15 @@ export default function DayStartPage() {
                   一鍵均衡菜單
                 </Button>
                 <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowQuotaEditor((v) => !v)}
+                  className="px-2 text-xs text-muted-foreground"
+                  title="調整一鍵均衡菜單的各類配額"
+                >
+                  配額
+                </Button>
+                <Button
                   variant="outline"
                   size="sm"
                   onClick={handleRecommend}
@@ -623,6 +644,12 @@ export default function DayStartPage() {
                 </Button>
               </div>
             </div>
+
+            {showQuotaEditor && (
+              <div className="mb-3">
+                <MenuQuotaEditor quotas={menuQuotas} onChange={updateQuotas} />
+              </div>
+            )}
 
             {picked.size > 0 && (
               <div className="mb-3 space-y-2">

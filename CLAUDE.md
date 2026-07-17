@@ -73,6 +73,8 @@ npx tsx scripts/seedPreservationYields.ts             # Feature 082: 加工延�
 npx tsx scripts/seedPreservationYields.ts --execute   # 寫入（merge-only、不臆測、乾貨略過）
 npx tsx scripts/seedInitialBatches.ts                 # Feature 087: 從 currentStock 建初始批次（dry-run 預設）
 npx tsx scripts/seedInitialBatches.ts --execute       # 寫入（讓保鮮系統看見既有庫存；merge-only、無保存天數略過）
+npx tsx scripts/seedDishCategories.ts                 # Feature 091: 依菜名猜菜色類別（dry-run 預設）
+npx tsx scripts/seedDishCategories.ts --execute       # 寫入 Recipe.category（merge-only、猜不出略過；供 089/090）
 ```
 
 Correctness gates (also run in CI — see `.github/workflows/ci.yml`):

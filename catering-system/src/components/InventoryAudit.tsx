@@ -31,7 +31,8 @@ import {
 } from '@/components/ui/table';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
-import { toTaijin } from '@/utils/unitConverter';
+import { toTaijin, toLb, formatWeight, inputToKg } from '@/utils/unitConverter';
+import { useWeightUnit } from '@/contexts/WeightUnitContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -48,18 +49,26 @@ interface AuditRow {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const fmtKg     = (n: number) => `${n % 1 === 0 ? n.toFixed(0) : n.toFixed(2)} kg`;
-const fmtTaijin = (n: number) => `${n % 1 === 0 ? n.toFixed(0) : n.toFixed(2)} 台斤`;
-
 function currentUser(): string {
   return auth.currentUser?.email ?? auth.currentUser?.uid ?? 'unknown';
 }
 
 // ─── InventoryAudit ───────────────────────────────────────────────────────────
 
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
 export function InventoryAudit() {
   const [rows,    setRows]    = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const { unit } = useWeightUnit();
+  // Feature 095: 依全站單位顯示/輸入盤點量（內部仍存 kg）。
+  const toDisplay = (kg: number) => (unit === '台斤' ? toTaijin(kg) : unit === '磅' ? toLb(kg) : round2(kg));
+
+  // 切換全站單位時，把（未編輯的）盤點輸入重設為新單位下的現有量。
+  useEffect(() => {
+    setRows((prev) => prev.map((r) => ({ ...r, editValue: String(toDisplay(r.currentKg)), dirty: false })));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unit]);
 
   // ── Load inventory + ingredients ──────────────────────────────────────────
 
@@ -83,7 +92,7 @@ export function InventoryAudit() {
             name:         ing.name,
             currentKg,
             minStockKg:   ing.minStockLevel ?? 0,
-            editValue:    String(currentKg),
+            editValue:    String(toDisplay(currentKg)),
             dirty:        false,
             saving:       false,
           };
@@ -102,7 +111,7 @@ export function InventoryAudit() {
     setRows((prev) =>
       prev.map((r) =>
         r.ingredientId === id
-          ? { ...r, editValue: value, dirty: parseFloat(value) !== r.currentKg }
+          ? { ...r, editValue: value, dirty: parseFloat(value) !== toDisplay(r.currentKg) }
           : r,
       ),
     );
@@ -112,7 +121,7 @@ export function InventoryAudit() {
     setRows((prev) =>
       prev.map((r) =>
         r.ingredientId === id
-          ? { ...r, editValue: String(r.currentKg), dirty: false }
+          ? { ...r, editValue: String(toDisplay(r.currentKg)), dirty: false }
           : r,
       ),
     );
@@ -122,7 +131,8 @@ export function InventoryAudit() {
     const row = rows.find((r) => r.ingredientId === id);
     if (!row) return;
 
-    const newKg = parseFloat(row.editValue);
+    const typed = parseFloat(row.editValue);
+    const newKg = inputToKg(typed, unit);
     if (isNaN(newKg) || newKg < 0) {
       toast({ variant: 'destructive', title: '請輸入有效的庫存量（≥ 0）' });
       return;
@@ -165,12 +175,12 @@ export function InventoryAudit() {
       setRows((prev) =>
         prev.map((r) =>
           r.ingredientId === id
-            ? { ...r, currentKg: newKg, editValue: String(newKg), dirty: false, saving: false }
+            ? { ...r, currentKg: newKg, editValue: String(toDisplay(newKg)), dirty: false, saving: false }
             : r,
         ),
       );
 
-      toast({ title: '已儲存', description: `${row.name} 庫存已更新為 ${fmtKg(newKg)}` });
+      toast({ title: '已儲存', description: `${row.name} 庫存已更新為 ${formatWeight(newKg, unit)}` });
     } catch (err) {
       toast({
         variant:     'destructive',
@@ -235,9 +245,8 @@ export function InventoryAudit() {
               <TableRow>
                 <TableHead>食材名稱</TableHead>
                 <TableHead className="text-right">現有庫存</TableHead>
-                <TableHead className="text-right">現有庫存 (台斤)</TableHead>
                 <TableHead className="text-right">安全庫存</TableHead>
-                <TableHead className="w-44">調整數量 (kg)</TableHead>
+                <TableHead className="w-44">調整數量（{unit}）</TableHead>
                 <TableHead className="w-20" />
               </TableRow>
             </TableHeader>
@@ -266,16 +275,12 @@ export function InventoryAudit() {
 
                     <TableCell className="text-right tabular-nums">
                       <span className={isBelowMin ? 'text-red-600 dark:text-red-400' : ''}>
-                        {fmtKg(row.currentKg)}
+                        {formatWeight(row.currentKg, unit)}
                       </span>
                     </TableCell>
 
                     <TableCell className="text-right tabular-nums text-muted-foreground">
-                      {fmtTaijin(toTaijin(row.currentKg))}
-                    </TableCell>
-
-                    <TableCell className="text-right tabular-nums text-muted-foreground">
-                      {fmtKg(row.minStockKg)}
+                      {formatWeight(row.minStockKg, unit)}
                     </TableCell>
 
                     <TableCell>

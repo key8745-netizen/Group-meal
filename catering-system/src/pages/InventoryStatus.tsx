@@ -7,8 +7,11 @@ import { pricePerKgFromDefault, todayLocalIsoDate } from '@/services/marketPrice
 import { listAllBatches } from '@/services/inventoryBatchService';
 import { batchState } from '@/services/freshnessService';
 import { PreservationDialog, type PreservationSource } from '@/components/inventory/PreservationDialog';
+import { createSeededBatch } from '@/services/inventoryBatchService';
+import { planInitialBatchSeedBatch } from '@/services/initialBatchSeedPlanner';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -109,6 +112,9 @@ export default function InventoryStatus() {
   const [allBatches, setAllBatches] = useState<InventoryBatch[]>([]);
   const [ingredientById, setIngredientById] = useState<Map<string, IngredientMaster>>(new Map());
   const [preserveTarget, setPreserveTarget] = useState<PreservationSource | null>(null);
+  // Feature 088: 初始批次種子（App 內從現有庫存啟用保鮮）。
+  const [seeding, setSeeding] = useState(false);
+  const { confirm, confirmDialog } = useConfirm();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -213,6 +219,46 @@ export default function InventoryStatus() {
       })
       .sort((a, b) => a.batch.expirationDate.localeCompare(b.batch.expirationDate));
   }, [allBatches, ingredientById]);
+
+  // Feature 088: 「有庫存但無批次」的易腐食材 → 可建立初始批次讓保鮮系統看見。
+  const seedablePlans = useMemo(() => {
+    const withBatches = new Set(allBatches.map((b) => b.ingredientId));
+    const list = rows.map((r) => ({
+      id: r.ingredientId,
+      name: r.ingredientName,
+      currentStockKg: r.currentStockKg,
+      hasBatches: withBatches.has(r.ingredientId),
+      params: ingredientById.get(r.ingredientId) ?? {},
+    }));
+    return planInitialBatchSeedBatch(list, todayLocalIsoDate()).filter((p) => p.action === 'willSeed');
+  }, [rows, allBatches, ingredientById]);
+
+  async function handleSeedInitialBatches() {
+    if (seedablePlans.length === 0) return;
+    const proceed = await confirm({
+      title: '從現有庫存建立初始批次',
+      description:
+        `將替 ${seedablePlans.length} 項「有庫存但無批次」的易腐食材各建立一筆初始批次，` +
+        `讓保鮮警示能看見既有庫存。入庫日與效期為估計（今日起算保存期），可於批次明細調整。`,
+      confirmLabel: `建立 ${seedablePlans.length} 筆`,
+    });
+    if (!proceed) return;
+    setSeeding(true);
+    try {
+      let count = 0;
+      for (const p of seedablePlans) {
+        if (!p.batch) continue;
+        try {
+          await createSeededBatch(db, p.id, p.batch);
+          count++;
+        } catch { /* 單筆失敗略過 */ }
+      }
+      toast({ title: '初始批次已建立', description: `共 ${count} 筆；保鮮警示現在會涵蓋這些食材。` });
+      await load();
+    } finally {
+      setSeeding(false);
+    }
+  }
 
   return (
     <div className="flex flex-col">
@@ -363,10 +409,23 @@ export default function InventoryStatus() {
                 依效期排序（最急在前）；易腐批次可「加工延壽」——煮熟冷藏/冷凍成新批次並記住來源。
               </p>
             </div>
-            <Button variant="ghost" size="sm" onClick={load} disabled={loading} aria-label="重新整理">
-              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-              <span className="ml-1.5 hidden sm:inline">重新整理</span>
-            </Button>
+            <div className="flex items-center gap-2">
+              {seedablePlans.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-emerald-400 text-emerald-700 dark:text-emerald-400"
+                  onClick={handleSeedInitialBatches}
+                  disabled={seeding}
+                >
+                  {seeding ? '建立中…' : `從現有庫存建立初始批次（${seedablePlans.length}）`}
+                </Button>
+              )}
+              <Button variant="ghost" size="sm" onClick={load} disabled={loading} aria-label="重新整理">
+                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                <span className="ml-1.5 hidden sm:inline">重新整理</span>
+              </Button>
+            </div>
           </div>
 
           {loading ? (
@@ -463,6 +522,7 @@ export default function InventoryStatus() {
       )}
 
       <Toaster />
+      {confirmDialog}
     </div>
   );
 }

@@ -26,6 +26,7 @@ import { calculateCostAwareMenuSuggestion, estimateRecipeCostPerServing, type Re
 import { listAllBatches } from '@/services/inventoryBatchService';
 import { weekendDecayAlerts } from '@/services/freshnessService';
 import { suggestUseItUpRecipes } from '@/services/useItUpPlanner';
+import { PreservationDialog, type PreservationSource } from '@/components/inventory/PreservationDialog';
 import { runDayStart, loadMonthlyMenuDay, type DayStartStep, type DayStartResult } from '@/services/dayStartService';
 import { getKitchenSettings } from '@/services/kitchenSettingsService';
 import { computeLowStock, planSafetyRestock } from '@/services/stockAlertService';
@@ -88,6 +89,8 @@ export default function DayStartPage() {
   const [restockDone, setRestockDone] = useState(false);
   // Feature 078: 清庫存推薦用批次（best-effort，讀取失敗僅不顯示）。
   const [batches, setBatches] = useState<InventoryBatch[]>([]);
+  // Feature 085: 加工延壽對話框目標批次。
+  const [preserveTarget, setPreserveTarget] = useState<PreservationSource | null>(null);
 
   const [recommending, setRecommending] = useState(false);
   const [assessmentByRecipeId, setAssessmentByRecipeId] = useState<Map<string, CostAwareRecipeAssessmentItem> | null>(null);
@@ -125,6 +128,14 @@ export default function DayStartPage() {
     () => computeLowStock(costIngredients, stockKgById),
     [costIngredients, stockKgById],
   );
+
+  // Feature 085: 快到期批次（熬不過下一個開膳日）——供「加工延壽」提示。
+  const nearExpiryBatches = useMemo(() => {
+    if (batches.length === 0 || costIngredients.length === 0) return [];
+    const paramsById = new Map<string, IngredientFreshnessParams>(costIngredients.map((i) => [i.id, i]));
+    const namesById = new Map<string, string>(costIngredients.map((i) => [i.id, i.name]));
+    return weekendDecayAlerts(batches, paramsById, namesById, today());
+  }, [batches, costIngredients]);
 
   // Feature 078: 快到期食材 → 反查「今天可排、能清庫存」的配方（沿用 077 引擎）。
   const clearStockSuggestions = useMemo(() => {
@@ -385,6 +396,44 @@ export default function DayStartPage() {
                 </li>
               );
             })}
+          </ul>
+          {nearExpiryBatches.length > 0 && (
+            <p className="mt-2 text-[11px] text-orange-700 dark:text-orange-400">
+              今天用不掉的，也可以「加工延壽」保存起來 ↓
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* ── Feature 085: 加工延壽提示——今天用不掉的快到期批次，煮熟保存 ── */}
+      {phase === 'pick' && nearExpiryBatches.length > 0 && (
+        <section className="rounded-lg border border-orange-200 bg-orange-50/60 p-4 dark:border-orange-900/50 dark:bg-orange-950/10">
+          <p className="text-sm font-medium text-orange-900 dark:text-orange-300">
+            ♻️ 加工延壽：今天用不掉的快到期批次，可煮熟冷藏／冷凍保存
+          </p>
+          <ul className="mt-2 flex flex-col gap-1.5">
+            {nearExpiryBatches.slice(0, 6).map((a) => (
+              <li key={a.batchId + a.ingredientId} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                <span className="font-medium text-orange-900 dark:text-orange-300">{a.ingredientName}</span>
+                <span className="font-mono text-xs text-muted-foreground">#{a.batchId}</span>
+                <span className="text-xs text-orange-700 dark:text-orange-400">剩 {a.atRiskKg.toFixed(2)}kg · 效期 {a.expiryIso}</span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="ml-auto h-7 border-orange-400 text-xs text-orange-700 dark:text-orange-400"
+                  onClick={() =>
+                    setPreserveTarget({
+                      batchId: a.batchId,
+                      ingredientId: a.ingredientId,
+                      ingredientName: a.ingredientName,
+                      remainingKg: a.atRiskKg,
+                    })
+                  }
+                >
+                  加工延壽
+                </Button>
+              </li>
+            ))}
           </ul>
         </section>
       )}
@@ -652,6 +701,22 @@ export default function DayStartPage() {
             </>
           )}
         </section>
+      )}
+
+      {/* Feature 085: 加工延壽對話框 */}
+      {preserveTarget && (
+        <PreservationDialog
+          db={db}
+          source={preserveTarget}
+          ingredient={costIngredients.find((i) => i.id === preserveTarget.ingredientId)}
+          performedBy={auth.currentUser?.email ?? auth.currentUser?.uid ?? 'unknown'}
+          onClose={() => setPreserveTarget(null)}
+          onDone={(newBatchId) => {
+            setPreserveTarget(null);
+            toast({ title: '加工延壽完成', description: `已建立加工批次 #${newBatchId}` });
+            listAllBatches(db).then(setBatches).catch(() => {});
+          }}
+        />
       )}
 
       <Toaster />

@@ -77,6 +77,36 @@ export async function createReceiptBatch(
 }
 
 /**
+ * Feature 088: 為單一食材建立一筆「初始批次種子」（App 內從現有庫存啟用保鮮）。
+ * spec 由純函式 initialBatchSeedPlanner 產生（含 storageType/效期/量/來源備註）。
+ * 僅在該食材尚無批次時呼叫（呼叫端已過濾）；用 nextBatchId 產生首筆批號。
+ */
+export async function createSeededBatch(
+  db: Firestore,
+  ingredientId: string,
+  spec: {
+    storageType: StorageType;
+    receivedDate: string;
+    expirationDate: string;
+    qtyKg: number;
+    sourceNote: string;
+  },
+): Promise<string> {
+  const id = nextBatchId(spec.receivedDate, []);
+  const data: Omit<InventoryBatch, 'id'> = {
+    ingredientId,
+    storageType: spec.storageType,
+    receivedDate: spec.receivedDate,
+    expirationDate: spec.expirationDate,
+    qtyReceivedKg: spec.qtyKg,
+    qtyRemainingKg: spec.qtyKg,
+    sourceNote: spec.sourceNote,
+  };
+  await setDoc(doc(db, 'inventory', ingredientId, 'batches', id), data);
+  return id;
+}
+
+/**
  * Feature 083: Best-effort 讓批次剩餘量反映出餐扣料（FEFO：先到期先扣）。
  *
  * currentStock 仍由 inventoryService.deductStock 權威扣除；本函式「額外」把同量

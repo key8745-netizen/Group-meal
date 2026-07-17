@@ -155,14 +155,16 @@ service cloud.firestore {
 
     function validRecipeCreate() {
       return validRecipeCommon(request.resource.data)
-        && request.resource.data.keys().hasOnly(['name', 'recipeIngredients', 'isActive', 'notes', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && request.resource.data.keys().hasOnly(['name', 'recipeIngredients', 'isActive', 'notes', 'category', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && (!('category' in request.resource.data) || request.resource.data.category in ['主菜', '主食', '蔬菜', '湯', '其他'])
         && request.resource.data.createdAt is timestamp && request.resource.data.createdBy is string
         && request.resource.data.updatedAt is timestamp && request.resource.data.updatedBy is string;
     }
 
     function validRecipeUpdate() {
       return validRecipeCommon(request.resource.data)
-        && request.resource.data.keys().hasOnly(['name', 'recipeIngredients', 'isActive', 'notes', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && request.resource.data.keys().hasOnly(['name', 'recipeIngredients', 'isActive', 'notes', 'category', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && (!('category' in request.resource.data) || request.resource.data.category in ['主菜', '主食', '蔬菜', '湯', '其他'])
         && request.resource.data.updatedAt is timestamp && request.resource.data.updatedBy is string
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.createdBy == resource.data.createdBy;

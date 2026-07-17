@@ -61,6 +61,7 @@ function toFormValues(recipe: Recipe): RecipeFormValues {
     name: recipe.name,
     isActive: recipe.isActive,
     notes: recipe.notes ?? '',
+    ...(recipe.category ? { category: recipe.category } : {}),
     recipeIngredients: (recipe.recipeIngredients ?? []).map((item) => ({
       ingredientId: item.ingredientId,
       quantity: item.quantity,

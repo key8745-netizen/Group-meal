@@ -29,6 +29,7 @@ import { suggestUseItUpRecipes } from '@/services/useItUpPlanner';
 import { PreservationDialog, type PreservationSource } from '@/components/inventory/PreservationDialog';
 import { MenuBalanceBar } from '@/components/menus/MenuBalanceBar';
 import { planBalancedMenu } from '@/services/balancedMenuPlanner';
+import { recentlyUsedRecipeIds, type RecentMenuDay } from '@/services/menuVarietyService';
 import { runDayStart, loadMonthlyMenuDay, type DayStartStep, type DayStartResult } from '@/services/dayStartService';
 import { getKitchenSettings } from '@/services/kitchenSettingsService';
 import { computeLowStock, planSafetyRestock } from '@/services/stockAlertService';
@@ -93,6 +94,8 @@ export default function DayStartPage() {
   const [batches, setBatches] = useState<InventoryBatch[]>([]);
   // Feature 085: 加工延壽對話框目標批次。
   const [preserveTarget, setPreserveTarget] = useState<PreservationSource | null>(null);
+  // Feature 092: 近期菜單（跨天多樣性）。
+  const [recentMenuDays, setRecentMenuDays] = useState<RecentMenuDay[]>([]);
 
   const [recommending, setRecommending] = useState(false);
   const [assessmentByRecipeId, setAssessmentByRecipeId] = useState<Map<string, CostAwareRecipeAssessmentItem> | null>(null);
@@ -124,7 +127,19 @@ export default function DayStartPage() {
       .catch(() => setStockKgById(new Map()));
     // Feature 078: 批次（保鮮）——清庫存推薦用；失敗安靜略過。
     listAllBatches(db).then(setBatches).catch(() => setBatches([]));
+    // Feature 092: 近期菜單——跨天不重複；失敗安靜略過。
+    listMenus(db)
+      .then((menus) =>
+        setRecentMenuDays(menus.map((m) => ({ date: m.date, recipeIds: (m.menuRecipes ?? []).map((r) => r.recipeId) }))),
+      )
+      .catch(() => setRecentMenuDays([]));
   }, []);
+
+  // Feature 092: 近 3 天（相對所選日期）已出過的配方集合。
+  const recentlyUsedSet = useMemo(
+    () => recentlyUsedRecipeIds(recentMenuDays, date, 3),
+    [recentMenuDays, date],
+  );
 
   const lowStock = useMemo(
     () => computeLowStock(costIngredients, stockKgById),
@@ -135,6 +150,12 @@ export default function DayStartPage() {
   const pickedCategories = useMemo(
     () => recipes.filter((r) => picked.has(r.id)).map((r) => r.category),
     [recipes, picked],
+  );
+
+  // Feature 092: 已選中「近期才出過」的菜（跨天重複提醒）。
+  const pickedRepeats = useMemo(
+    () => recipes.filter((r) => picked.has(r.id) && recentlyUsedSet.has(r.id)).map((r) => r.name),
+    [recipes, picked, recentlyUsedSet],
   );
 
   // Feature 085: 快到期批次（熬不過下一個開膳日）——供「加工延壽」提示。
@@ -277,6 +298,7 @@ export default function DayStartPage() {
           stockFeasible:
             assess?.maxServingsFromStock != null ? assess.maxServingsFromStock >= headCount : undefined,
           costPerServing: est?.costPerServing ?? null,
+          recentlyUsed: recentlyUsedSet.has(r.id),
         };
       });
     const result = planBalancedMenu(candidates);
@@ -600,8 +622,13 @@ export default function DayStartPage() {
             </div>
 
             {picked.size > 0 && (
-              <div className="mb-3">
+              <div className="mb-3 space-y-2">
                 <MenuBalanceBar categories={pickedCategories} />
+                {pickedRepeats.length > 0 && (
+                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                    🔁 近 3 天出過：{pickedRepeats.join('、')}（想換點花樣可考慮替換）
+                  </p>
+                )}
               </div>
             )}
 

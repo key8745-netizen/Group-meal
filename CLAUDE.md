@@ -155,6 +155,11 @@ Freshness/preservation schema fields (Feature 071/079): `IngredientMaster.proces
 rule is permissive (no field whitelist), so new batch fields need no rules change; `ingredientAllowedFields()`
 in `firestore.rules` **does** whitelist ingredient fields — `processedYieldRatio` was added there.
 
+Menu balance (Feature 089): `Recipe.category?: DishCategory` (主菜/主食/蔬菜/湯/其他) drives the
+`menuBalancePlanner.summarizeMenuBalance()` readout shown in DayStart + RecipeMenuForm. The recipe
+rules whitelist (`validRecipeCreate`/`validRecipeUpdate` in `firestore.rules`) added `'category'` +
+an enum value check — **redeploy rules** after this change.
+
 ## Unit Conversion
 
 Two converters exist for historical reasons:

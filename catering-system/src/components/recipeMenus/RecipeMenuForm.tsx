@@ -13,6 +13,8 @@ import type { Recipe } from '@/services/types';
 import type { RecipeMenuInput, RecipeMenuItemInput } from '@/services/recipeMenuService';
 import { RecipeSelector } from './RecipeSelector';
 import { RecipeFlavorAdvisorPanel } from '@/components/recipes/RecipeFlavorAdvisorPanel';
+import { MenuBalanceBar } from '@/components/menus/MenuBalanceBar';
+import type { DishCategory } from '@/services/types';
 
 export interface RecipeMenuFormValues extends RecipeMenuInput {}
 
@@ -82,6 +84,15 @@ export function RecipeMenuForm({
     }
     return Array.from(names);
   }, [rows, recipeById]);
+
+  // Feature 089: 這份菜單各菜色的類別，供平衡檢查。
+  const menuCategories = useMemo<(DishCategory | undefined)[]>(
+    () =>
+      rows
+        .filter((r) => r.recipeId)
+        .map((r) => (r._recipe ?? recipeById?.get(r.recipeId))?.category),
+    [rows, recipeById],
+  );
 
   function addRow() {
     setRows((r) => [...r, { recipeId: '', servings: 1, notes: '' }]);
@@ -219,6 +230,8 @@ export function RecipeMenuForm({
           </div>
         )}
       </div>
+
+      {menuCategories.length > 0 && <MenuBalanceBar categories={menuCategories} />}
 
       {menuIngredientNames.length > 0 && (
         <RecipeFlavorAdvisorPanel ingredientNames={menuIngredientNames} />

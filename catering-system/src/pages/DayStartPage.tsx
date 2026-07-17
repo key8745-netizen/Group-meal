@@ -27,6 +27,7 @@ import { listAllBatches } from '@/services/inventoryBatchService';
 import { weekendDecayAlerts } from '@/services/freshnessService';
 import { suggestUseItUpRecipes } from '@/services/useItUpPlanner';
 import { PreservationDialog, type PreservationSource } from '@/components/inventory/PreservationDialog';
+import { MenuBalanceBar } from '@/components/menus/MenuBalanceBar';
 import { runDayStart, loadMonthlyMenuDay, type DayStartStep, type DayStartResult } from '@/services/dayStartService';
 import { getKitchenSettings } from '@/services/kitchenSettingsService';
 import { computeLowStock, planSafetyRestock } from '@/services/stockAlertService';
@@ -127,6 +128,12 @@ export default function DayStartPage() {
   const lowStock = useMemo(
     () => computeLowStock(costIngredients, stockKgById),
     [costIngredients, stockKgById],
+  );
+
+  // Feature 089: 已選菜色的類別，供菜單平衡檢查。
+  const pickedCategories = useMemo(
+    () => recipes.filter((r) => picked.has(r.id)).map((r) => r.category),
+    [recipes, picked],
   );
 
   // Feature 085: 快到期批次（熬不過下一個開膳日）——供「加工延壽」提示。
@@ -541,6 +548,12 @@ export default function DayStartPage() {
                 </Button>
               </div>
             </div>
+
+            {picked.size > 0 && (
+              <div className="mb-3">
+                <MenuBalanceBar categories={pickedCategories} />
+              </div>
+            )}
 
             {autoLoadedNote && (
               <div className="mb-3 rounded-md bg-green-50 p-3 text-xs text-green-800">

@@ -182,12 +182,17 @@ export interface RecipeIngredientItem {
 }
 
 /** A recipe stored at /recipes/{recipeId}, referencing ingredient master data. */
+/** Feature 089: 菜色類別，供菜單平衡檢查（主菜/主食/蔬菜/湯/其他）。 */
+export type DishCategory = '主菜' | '主食' | '蔬菜' | '湯' | '其他';
+
 export interface Recipe {
   id: string;
   name: string;
   recipeIngredients: RecipeIngredientItem[];
   isActive: boolean;
   notes?: string;
+  /** Feature 089: 菜色類別（選填；未設 = 未分類）。 */
+  category?: DishCategory;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
   createdBy: string;

@@ -18,10 +18,11 @@ import {
   getDocs,
   addDoc,
   updateDoc,
+  deleteField,
   serverTimestamp,
   type Firestore,
 } from 'firebase/firestore';
-import type { Ingredient, Recipe, RecipeIngredientItem } from './types';
+import type { DishCategory, Ingredient, Recipe, RecipeIngredientItem } from './types';
 
 const COLLECTION = 'recipes';
 
@@ -39,6 +40,8 @@ export interface RecipeInput {
   isActive: boolean;
   notes?: string;
   recipeIngredients: RecipeIngredientInput[];
+  /** Feature 089: 菜色類別（選填）。 */
+  category?: DishCategory;
 }
 
 export async function listRecipes(
@@ -132,6 +135,7 @@ export async function createRecipe(
     recipeIngredients,
     isActive: input.isActive,
     notes: input.notes ?? '',
+    ...(input.category ? { category: input.category } : {}),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
     createdBy: uid,
@@ -155,6 +159,8 @@ export async function updateRecipe(
     recipeIngredients,
     isActive: input.isActive,
     notes: input.notes ?? '',
+    // Feature 089: 設了寫入類別；清空則移除欄位（維持規則白名單相容）。
+    category: input.category ? input.category : deleteField(),
     updatedAt: serverTimestamp(),
     updatedBy: uid,
   });

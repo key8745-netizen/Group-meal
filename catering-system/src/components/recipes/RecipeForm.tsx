@@ -9,7 +9,8 @@ import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, Trash2 } from 'lucide-react';
-import type { IngredientMaster } from '@/services/types';
+import type { IngredientMaster, DishCategory } from '@/services/types';
+import { DISH_CATEGORIES } from '@/services/menuBalancePlanner';
 import type { RecipeInput, RecipeIngredientInput } from '@/services/recipeService';
 import type { RecipeCostBreakdown } from '@/services/costAwareMenuSuggestionService';
 import { IngredientSelector } from './IngredientSelector';
@@ -139,6 +140,7 @@ export function RecipeForm({
   const [name, setName] = useState(initial?.name ?? EMPTY_FORM.name);
   const [isActive, setIsActive] = useState(initial?.isActive ?? EMPTY_FORM.isActive);
   const [notes, setNotes] = useState(initial?.notes ?? EMPTY_FORM.notes ?? '');
+  const [category, setCategory] = useState<DishCategory | ''>(initial?.category ?? '');
   const [rows, setRows] = useState<RowState[]>(
     (initial?.recipeIngredients ?? []).map((item) => ({ ...item })),
   );
@@ -181,6 +183,7 @@ export function RecipeForm({
       name,
       isActive,
       notes,
+      ...(category ? { category } : {}),
       recipeIngredients: rows.map(({ _ingredient, ...rest }) => rest),
     };
 
@@ -202,7 +205,7 @@ export function RecipeForm({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
-        <div className="col-span-2 flex flex-col gap-1">
+        <div className="flex flex-col gap-1">
           <label className="text-xs font-medium">配方名稱 *</label>
           <Input
             value={name}
@@ -210,6 +213,19 @@ export function RecipeForm({
             placeholder="例：紅燒牛肉"
           />
           {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
+        </div>
+
+        {/* Feature 089: 菜色類別（供菜單平衡檢查） */}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium">菜色類別</label>
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value as DishCategory | '')}
+            className="h-9 rounded-md border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          >
+            <option value="">未分類</option>
+            {DISH_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
         </div>
 
         <div className="col-span-2 flex flex-col gap-1">

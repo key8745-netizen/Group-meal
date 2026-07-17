@@ -71,6 +71,8 @@ npx tsx scripts/generateAutomatedOrder.ts   # Auto-detect shortages → DRAFT pu
 npx tsx scripts/generateAutomatedOrder.ts <recipeId> <headCount>
 npx tsx scripts/seedPreservationYields.ts             # Feature 082: 加工延壽良率種子（dry-run 預設）
 npx tsx scripts/seedPreservationYields.ts --execute   # 寫入（merge-only、不臆測、乾貨略過）
+npx tsx scripts/seedInitialBatches.ts                 # Feature 087: 從 currentStock 建初始批次（dry-run 預設）
+npx tsx scripts/seedInitialBatches.ts --execute       # 寫入（讓保鮮系統看見既有庫存；merge-only、無保存天數略過）
 ```
 
 Correctness gates (also run in CI — see `.github/workflows/ci.yml`):

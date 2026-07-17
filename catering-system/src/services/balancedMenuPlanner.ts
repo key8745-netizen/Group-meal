@@ -19,6 +19,8 @@ export interface BalancedMenuCandidate {
   stockFeasible?: boolean;
   /** 每份成本（越低越划算；null = 未知，排最後）。 */
   costPerServing?: number | null;
+  /** Feature 092: 近期已出過 → 降優先（換點花樣）；惜食仍可蓋過。 */
+  recentlyUsed?: boolean;
 }
 
 export interface BalancedMenuQuota {
@@ -49,10 +51,13 @@ export interface BalancedMenuResult {
   shortfalls: { category: DishCategory; want: number; got: number }[];
 }
 
-/** 類別內排序：惜食 > 庫存可出 > 成本低 > 名稱（穩定）。 */
+/** 類別內排序：惜食 > 換花樣（近期沒出過）> 庫存可出 > 成本低 > 名稱（穩定）。 */
 function compareCandidates(a: BalancedMenuCandidate, b: BalancedMenuCandidate): number {
   const clr = Number(!!b.clearsExpiring) - Number(!!a.clearsExpiring);
   if (clr !== 0) return clr;
+  // Feature 092: 惜食相同時，近期沒出過的優先（換花樣）。
+  const variety = Number(!!a.recentlyUsed) - Number(!!b.recentlyUsed);
+  if (variety !== 0) return variety;
   const stk = Number(!!b.stockFeasible) - Number(!!a.stockFeasible);
   if (stk !== 0) return stk;
   const ca = a.costPerServing;

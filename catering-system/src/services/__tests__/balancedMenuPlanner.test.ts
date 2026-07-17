@@ -63,6 +63,26 @@ console.log('\n── balancedMenuPlanner: planBalancedMenu ──────�
   check('庫存可出優先', r.selectedRecipeIds, ['stock']);
 }
 
+// Feature 092: 換花樣——近期沒出過的優先於近期出過的（惜食相同時）
+{
+  const cands = [
+    c({ recipeId: 'recent', category: '主菜', costPerServing: 5, recentlyUsed: true }),
+    c({ recipeId: 'fresh', category: '主菜', costPerServing: 30, recentlyUsed: false }),
+  ];
+  const r = planBalancedMenu(cands, [{ category: '主菜', count: 1 }]);
+  check('近期沒出過優先（換花樣）', r.selectedRecipeIds, ['fresh']);
+}
+
+// Feature 092: 惜食蓋過換花樣——清庫存的即使近期出過仍優先
+{
+  const cands = [
+    c({ recipeId: 'clearRecent', category: '主菜', clearsExpiring: true, recentlyUsed: true }),
+    c({ recipeId: 'freshNoClear', category: '主菜', recentlyUsed: false }),
+  ];
+  const r = planBalancedMenu(cands, [{ category: '主菜', count: 1 }]);
+  check('惜食蓋過換花樣', r.selectedRecipeIds, ['clearRecent']);
+}
+
 // 候選不足 → 回報缺口
 {
   const cands = [c({ recipeId: 'v1', category: '蔬菜' })];

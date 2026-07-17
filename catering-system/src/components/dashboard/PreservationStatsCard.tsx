@@ -12,11 +12,14 @@ import { db } from '@/lib/firebase';
 import { listAllBatches } from '@/services/inventoryBatchService';
 import { summarizePreservation, type PreservationSummary } from '@/services/preservationStatsService';
 import { todayLocalIsoDate } from '@/services/marketPriceService';
+import { formatWeight } from '@/utils/unitConverter';
+import { useWeightUnit } from '@/contexts/WeightUnitContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function PreservationStatsCard() {
   const navigate = useNavigate();
+  const { unit } = useWeightUnit();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<PreservationSummary | null>(null);
 
@@ -57,15 +60,15 @@ export default function PreservationStatsCard() {
           <div className="flex flex-col gap-2">
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-bold tabular-nums text-emerald-700 dark:text-emerald-400">
-                {summary.processedKg}
+                {formatWeight(summary.processedKg, unit)}
               </span>
-              <span className="text-sm text-muted-foreground">kg 累計延壽產出</span>
+              <span className="text-sm text-muted-foreground">累計延壽產出</span>
             </div>
             <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground">
               <span>累計 <span className="font-medium text-foreground">{summary.processedBatchCount}</span> 批</span>
               <span>近 {summary.windowDays} 天 <span className="font-medium text-foreground">{summary.recentBatchCount}</span> 批</span>
-              <span>仍有庫存 <span className="font-medium text-foreground">{summary.activeRemainingKg}</span> kg</span>
-              <span>近 {summary.windowDays} 天 <span className="font-medium text-foreground">{summary.recentKg}</span> kg</span>
+              <span>仍有庫存 <span className="font-medium text-foreground">{formatWeight(summary.activeRemainingKg, unit)}</span></span>
+              <span>近 {summary.windowDays} 天 <span className="font-medium text-foreground">{formatWeight(summary.recentKg, unit)}</span></span>
             </div>
           </div>
         )}

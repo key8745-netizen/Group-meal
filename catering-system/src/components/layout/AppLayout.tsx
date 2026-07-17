@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { WeightUnitToggle } from '@/components/layout/WeightUnitToggle';
 
 type NavItem = {
   to: string;
@@ -225,6 +226,10 @@ export default function AppLayout() {
               <span className="text-sm font-medium text-foreground">{pageTitle}</span>
             </>
           )}
+          {/* Feature 093: 全站重量單位切換（kg / 台斤 / 磅） */}
+          <div className="ml-auto">
+            <WeightUnitToggle />
+          </div>
         </header>
 
         {/* Page content */}

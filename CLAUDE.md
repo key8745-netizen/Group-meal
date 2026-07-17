@@ -169,7 +169,12 @@ Two converters exist for historical reasons:
 - `src/services/unitConverter.ts` → `UnitConverter` class — handles kg / g / 台斤 / L / piece; used by order/purchase/recipe services
 - `src/utils/unitConverter.ts` → `toTaijin(kg)` / `toKg(taijin)` — simple 2dp kg↔台斤; used by UI components and scripts
 
-**1 台斤 = 0.6 kg**. All internal storage is in **kg**.
+**1 台斤 = 0.6 kg**; **1 磅 = 0.453592 kg**. All internal storage is in **kg**.
+
+Display-unit toggle (Feature 093): `WeightUnitProvider` (`src/contexts/WeightUnitContext.tsx`) wraps
+the app; the top-bar `WeightUnitToggle` switches kg / 台斤 / 磅 (localStorage-persisted). Weight
+**displays** use `formatWeight(kg, unit)` from `src/utils/unitConverter.ts` — internal values stay kg,
+only display changes. `inputToKg(value, unit)` converts unit-aware inputs back to kg.
 
 ## BOM / Recipe Matching
 

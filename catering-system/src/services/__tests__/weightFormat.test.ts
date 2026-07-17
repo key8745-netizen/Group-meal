@@ -3,7 +3,7 @@
  * Run with: npx tsx src/services/__tests__/weightFormat.test.ts
  */
 
-import { formatWeight, inputToKg } from '../../utils/unitConverter';
+import { formatWeight, inputToKg, pricePerDisplayUnit } from '../../utils/unitConverter';
 
 let passed = 0;
 let failed = 0;
@@ -34,6 +34,11 @@ check('輸入 2 台斤 → 1.2kg', inputToKg(2, '台斤'), 1.2);
 check('輸入 1.5 kg → 1.5kg', inputToKg(1.5, 'kg'), 1.5);
 check('輸入 1 磅 → 0.45kg', inputToKg(1, '磅'), 0.45);
 check('往返一致：kg→台斤→kg', inputToKg(Number((0.6 * (1 / 0.6)).toFixed(2)), '台斤') >= 0, true);
+
+// 單價換算：$50/kg
+check('$50/kg → kg 不變', pricePerDisplayUnit(50, 'kg'), 50);
+check('$50/kg → 台斤 = 30', pricePerDisplayUnit(50, '台斤'), 30);
+check('$100/kg → 磅 ≈ 45.36', pricePerDisplayUnit(100, '磅'), 45.36);
 
 console.log(`\n${'─'.repeat(60)}`);
 console.log(`Result: ${passed} passed, ${failed} failed`);

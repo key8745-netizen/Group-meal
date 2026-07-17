@@ -17,6 +17,8 @@ import {
   type CrossRefContext,
   type EnrichedSuggestion,
 } from '@/services/flavorInventoryCrossRef';
+import { formatWeight, pricePerDisplayUnit } from '@/utils/unitConverter';
+import { useWeightUnit } from '@/contexts/WeightUnitContext';
 
 /** 交叉比對後每個建議的樣式與標籤文案。 */
 function tagStyle(e: EnrichedSuggestion): { className: string; label: string } | null {
@@ -44,6 +46,7 @@ export function RecipeFlavorAdvisorPanel({
   /** Feature 076：帶入則交叉比對庫存/保鮮/成本並重新排序；不帶入維持純風味共識排序。 */
   crossRefContext?: CrossRefContext;
 }) {
+  const { unit } = useWeightUnit();
   const advice = useMemo(() => adviseRecipeFlavors(ingredientNames), [ingredientNames]);
 
   const enriched = useMemo<EnrichedSuggestion[]>(
@@ -74,8 +77,8 @@ export function RecipeFlavorAdvisorPanel({
               const style = hasCrossRef ? tagStyle(s) : null;
               const parts: string[] = [];
               if (s.from.length > 0) parts.push(`來自：${s.from.join('、')}`);
-              if (s.inStockKg != null) parts.push(`庫存 ${s.inStockKg.toFixed(2)}kg`);
-              if (s.costPerKg != null) parts.push(`約 $${s.costPerKg}/kg`);
+              if (s.inStockKg != null) parts.push(`庫存 ${formatWeight(s.inStockKg, unit)}`);
+              if (s.costPerKg != null) parts.push(`約 $${pricePerDisplayUnit(s.costPerKg, unit)}/${unit}`);
               return (
                 <Badge
                   key={s.name}

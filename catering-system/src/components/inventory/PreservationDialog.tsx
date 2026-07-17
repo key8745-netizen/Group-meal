@@ -14,6 +14,9 @@ import { recordPreservation } from '@/services/preservationService';
 import { todayLocalIsoDate } from '@/services/marketPriceService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { WeightInput } from '@/components/ui/weight-input';
+import { formatWeight } from '@/utils/unitConverter';
+import { useWeightUnit } from '@/contexts/WeightUnitContext';
 
 const STORAGE_LABELS: Record<StorageType, string> = { ambient: '常溫', chilled: '冷藏', frozen: '冷凍' };
 const DEFAULT_LABEL: Record<StorageType, string> = { ambient: '加工常溫', chilled: '煮熟冷藏', frozen: '煮熟冷凍' };
@@ -43,6 +46,7 @@ export function PreservationDialog({
   onDone: (newBatchId: string) => void;
 }) {
   const today = todayLocalIsoDate();
+  const { unit } = useWeightUnit();
   const [targetStorage, setTargetStorage] = useState<StorageType>(
     ingredient?.defaultStorageType === 'frozen' ? 'frozen' : 'chilled',
   );
@@ -105,7 +109,7 @@ export function PreservationDialog({
         <div>
           <h2 className="text-lg font-semibold text-foreground">加工延壽</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {source.ingredientName}　批次 <span className="font-mono">#{source.batchId}</span>　剩 {source.remainingKg.toFixed(2)}kg
+            {source.ingredientName}　批次 <span className="font-mono">#{source.batchId}</span>　剩 {formatWeight(source.remainingKg, unit)}
           </p>
         </div>
 
@@ -128,11 +132,10 @@ export function PreservationDialog({
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium">耗用原料（kg）</label>
-            <Input
-              type="number" min={0} max={source.remainingKg} step="any"
-              value={consumeKg}
-              onChange={(e) => setConsumeKg(Math.max(0, parseFloat(e.target.value) || 0))}
+            <label className="text-xs font-medium">耗用原料</label>
+            <WeightInput
+              valueKg={consumeKg}
+              onChangeKg={(kg) => setConsumeKg(Math.min(source.remainingKg, kg))}
             />
           </div>
           <div className="flex flex-col gap-1">
@@ -159,7 +162,7 @@ export function PreservationDialog({
             <div className="flex flex-col gap-1">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">產出加工批次</span>
-                <span className="font-semibold tabular-nums">{plan.outputKg.toFixed(2)} kg</span>
+                <span className="font-semibold tabular-nums">{formatWeight(plan.outputKg, unit)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">新效期</span>
@@ -167,11 +170,11 @@ export function PreservationDialog({
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">來源批次剩餘</span>
-                <span className="tabular-nums">{plan.sourceRemainingAfterKg.toFixed(2)} kg</span>
+                <span className="tabular-nums">{formatWeight(plan.sourceRemainingAfterKg, unit)}</span>
               </div>
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>烹煮失重</span>
-                <span className="tabular-nums">{plan.lossKg >= 0 ? '−' : '+'}{Math.abs(plan.lossKg).toFixed(2)} kg</span>
+                <span className="tabular-nums">{plan.lossKg >= 0 ? '−' : '+'}{formatWeight(Math.abs(plan.lossKg), unit)}</span>
               </div>
               <p className="mt-1 text-[11px] text-muted-foreground">
                 加工批次掛回同一食材，仍會被配方推薦與保鮮警示網羅（惜食不中斷）。

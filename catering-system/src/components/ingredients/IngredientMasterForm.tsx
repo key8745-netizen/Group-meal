@@ -13,6 +13,9 @@ import type { IngredientBaseUnit, StorageType } from '@/services/types';
 import type { IngredientMasterInput } from '@/services/ingredientMasterService';
 import type { PriceHistory } from '@/services/marketPriceHistoryService';
 import { FlavorKnowledgePanel } from '@/components/ingredients/FlavorKnowledgePanel';
+import { WeightInput } from '@/components/ui/weight-input';
+import { formatWeight } from '@/utils/unitConverter';
+import { useWeightUnit } from '@/contexts/WeightUnitContext';
 
 const BASE_UNITS: IngredientBaseUnit[] = ['g', 'ml', 'pcs'];
 const STORAGE_LABELS: Record<StorageType, string> = { ambient: '常溫', chilled: '冷藏', frozen: '冷凍' };
@@ -103,6 +106,7 @@ export function IngredientMasterForm({
   const [form, setForm] = useState<IngredientMasterFormValues>({ ...EMPTY_FORM, ...initial });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const { unit: displayUnit } = useWeightUnit();
 
   async function handleSubmit() {
     const validationErrors = validateIngredientMasterForm(form);
@@ -194,16 +198,15 @@ export function IngredientMasterForm({
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium">安全庫存（kg，0 = 不追蹤）</label>
-          <Input
-            type="number" min={0} step="any"
-            value={form.minStockLevel ?? 0}
-            onChange={(e) => setForm((f) => ({ ...f, minStockLevel: Math.max(0, parseFloat(e.target.value) || 0) }))}
+          <label className="text-xs font-medium">安全庫存（0 = 不追蹤）</label>
+          <WeightInput
+            valueKg={form.minStockLevel ?? 0}
+            onChangeKg={(kg) => setForm((f) => ({ ...f, minStockLevel: kg }))}
           />
           <p className="text-[11px] text-muted-foreground">
             庫存低於此值時首頁會提醒補貨
             {typeof currentStockKg === 'number' && (
-              <span className="ml-1">（目前庫存 {currentStockKg.toFixed(2)} kg）</span>
+              <span className="ml-1">（目前庫存 {formatWeight(currentStockKg, displayUnit)}）</span>
             )}
           </p>
         </div>

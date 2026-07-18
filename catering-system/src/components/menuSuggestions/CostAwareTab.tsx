@@ -14,7 +14,7 @@ import { getDocs, collection } from 'firebase/firestore';
 import type { CostAwareMenuSuggestion, InventoryDoc } from '@/services/types';
 import { listRecipes } from '@/services/recipeService';
 import { listIngredients } from '@/services/ingredientMasterService';
-import { getMarketPriceSnapshot } from '@/services/marketPriceService';
+import { getMarketPriceSnapshot, todayLocalIsoDate } from '@/services/marketPriceService';
 import {
   createCostAwareMenuSuggestion,
   listCostAwareMenuSuggestions,
@@ -24,8 +24,9 @@ import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
 
+// 本地時區「今天」（避免早於當地 08:00 時 UTC 日期落到前一天）。
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayLocalIsoDate();
 }
 
 function CostAwareResultTable({ result }: { result: CostAwareMenuSuggestion }) {

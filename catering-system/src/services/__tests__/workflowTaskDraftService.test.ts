@@ -305,6 +305,43 @@ function plan(prepItems: PrepPlanItem[], overrides: Partial<PrepPlan> = {}): Pre
   }
 }
 
+// ── (o) Feature 100: 配方指定切法覆蓋類別範本刀工 ───────────────────────────
+{
+  console.log('(o) recipe cutType overrides template');
+  const carrot = ingredient({ id: 'car1', name: '胡蘿蔔', category: '根莖類' });
+  // 根莖範本預設 rollCut（滾刀塊）；配方指定 julienne（切絲）應覆蓋。
+  const item = prepItem({
+    ingredientId: 'car1', ingredientNameSnapshot: '胡蘿蔔', requiredBaseQuantity: 1000,
+    recipeContributions: [
+      { recipeId: 'r1', recipeNameSnapshot: '青椒肉絲', sourceServings: 10, contributedBaseQuantity: 1000, cutType: 'julienne' },
+    ],
+  });
+  const result = generateTaskDraftsFromPrepPlan(plan([item]), [carrot], []);
+  const cut = result.tasks.filter((t) => t.ingredientId && t.processType === 'cut')[0];
+  check('cut step overridden to julienne', cut.cutType, 'julienne');
+  check('cut task name reflects 切絲', cut.taskName, '胡蘿蔔：切割（切絲）');
+  checkTrue('cut guidance marks 配方指定切法', (cut.notes ?? '').includes('依配方指定切法'));
+  // peel 步驟仍在、未被影響
+  check('chain still peel → cut', result.tasks.filter((t) => t.ingredientId).map((t) => t.processType), ['peel', 'cut']);
+}
+
+// ── (p) Feature 100: 同食材跨菜切法不同 → 維持預設 + 提示人工分切 ────────────
+{
+  console.log('(p) conflicting cutTypes keep template + note');
+  const carrot = ingredient({ id: 'car2', name: '白蘿蔔', category: '根莖類' });
+  const item = prepItem({
+    ingredientId: 'car2', ingredientNameSnapshot: '白蘿蔔', requiredBaseQuantity: 2000,
+    recipeContributions: [
+      { recipeId: 'r1', recipeNameSnapshot: '蘿蔔絲', sourceServings: 10, contributedBaseQuantity: 1000, cutType: 'julienne' },
+      { recipeId: 'r2', recipeNameSnapshot: '燉蘿蔔', sourceServings: 10, contributedBaseQuantity: 1000, cutType: 'rollCut' },
+    ],
+  });
+  const result = generateTaskDraftsFromPrepPlan(plan([item]), [carrot], []);
+  const cut = result.tasks.filter((t) => t.ingredientId && t.processType === 'cut')[0];
+  check('conflicting cuts keep template default (rollCut)', cut.cutType, 'rollCut');
+  checkTrue('note flags 跨菜不同切法', result.generationNotes.some((n) => n.includes('跨菜有不同指定切法')));
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) {
   throw new Error(`${failed} test(s) failed`);

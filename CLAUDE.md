@@ -162,6 +162,17 @@ Menu balance (Feature 089): `Recipe.category?: DishCategory` (主菜/主食/蔬�
 rules whitelist (`validRecipeCreate`/`validRecipeUpdate` in `firestore.rules`) added `'category'` +
 an enum value check — **redeploy rules** after this change.
 
+Per-dish knife work (Feature 100): `RecipeIngredientItem.cutType?: CutType` (跟著配方走——同食材、
+不同菜可不同切法) is edited in `RecipeForm` (切法 dropdown per row) and flows through
+`prepPlanService` into `PrepPlanRecipeContribution.cutType`. `workflowTaskDraftService` reads the
+distinct recipe-specified cuts per aggregated ingredient: exactly one → overrides that category
+template's `cut` step (cutType + label + guidance); conflicting cuts across dishes → keep the
+template default and emit a 「跨菜有不同指定切法…請人工分切」 generation note. **No rules change**:
+the recipe rules whitelist only top-level `Recipe` fields; `recipeIngredients[]` item fields are not
+validated in `firestore.rules` (see comment there), so nested `cutType` needs no redeploy. Distinguish
+the two levels: 前處理 (清洗/去皮/去蒂頭) is ingredient-intrinsic and lives in the category templates;
+刀工 (切段/切絲/…) is dish-dependent and lives on the recipe line.
+
 ## Unit Conversion
 
 Two converters exist for historical reasons:

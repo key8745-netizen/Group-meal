@@ -106,6 +106,8 @@ async function buildPrepItems(
         recipeNameSnapshot: recipe.name,
         sourceServings: menuRecipe.servings,
         contributedBaseQuantity,
+        // Feature 100: 帶下配方指定的切法，供製程任務覆蓋類別範本刀工。
+        ...(recipeIngredient.cutType ? { cutType: recipeIngredient.cutType } : {}),
       };
 
       const existing = itemsByKey.get(key);

@@ -179,6 +179,11 @@ export interface RecipeIngredientItem {
   baseQuantity: number;
   baseUnit: IngredientBaseUnit;
   notes?: string;
+  /**
+   * Feature 100: 這道菜此食材的刀工切法（切絲/滾刀塊…）。跟著配方走（同食材、
+   * 不同菜可不同切法）；驅動製程任務草稿的 cut 步驟，未設 = 沿用類別範本預設。
+   */
+  cutType?: CutType;
 }
 
 /** A recipe stored at /recipes/{recipeId}, referencing ingredient master data. */
@@ -272,6 +277,8 @@ export interface PrepPlanRecipeContribution {
   sourceServings: number;
   /** recipeIngredient.baseQuantity * sourceServings. */
   contributedBaseQuantity: number;
+  /** Feature 100: 來源配方此食材指定的切法（帶下去覆蓋製程任務的刀工）。 */
+  cutType?: CutType;
 }
 
 /** An aggregated ingredient requirement within a PrepPlan. */

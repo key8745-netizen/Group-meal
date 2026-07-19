@@ -9,7 +9,7 @@ import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, Trash2 } from 'lucide-react';
-import type { IngredientMaster, DishCategory } from '@/services/types';
+import type { IngredientMaster, DishCategory, CutType } from '@/services/types';
 import { DISH_CATEGORIES } from '@/services/menuBalancePlanner';
 import type { RecipeInput, RecipeIngredientInput } from '@/services/recipeService';
 import type { RecipeCostBreakdown } from '@/services/costAwareMenuSuggestionService';
@@ -30,6 +30,20 @@ interface RowState extends RecipeIngredientInput {
   /** Cached ingredient master data, used to populate unit choices. */
   _ingredient?: IngredientMaster;
 }
+
+/** Feature 100: 刀工選項（跟著配方走，未指定則製程任務用類別範本預設）。 */
+const CUT_CHOICES: { value: CutType | ''; label: string }[] = [
+  { value: '', label: '切法（預設）' },
+  { value: 'section', label: '切段' },
+  { value: 'julienne', label: '切絲' },
+  { value: 'shred', label: '刨絲' },
+  { value: 'slice', label: '切片' },
+  { value: 'dice', label: '切丁' },
+  { value: 'chunk', label: '切塊' },
+  { value: 'rollCut', label: '滾刀塊' },
+  { value: 'mince', label: '切末' },
+  { value: 'diagonal', label: '斜切' },
+];
 
 export function validateRecipeForm(form: RecipeFormValues): Record<string, string> {
   const errors: Record<string, string> = {};
@@ -304,6 +318,20 @@ export function RecipeForm({
                   {errors[`item-${idx}-unit`] && (
                     <p className="text-xs text-destructive">{errors[`item-${idx}-unit`]}</p>
                   )}
+                </div>
+
+                {/* Feature 100: 這道菜此食材的切法（跟著配方走，驅動製程任務刀工） */}
+                <div className="w-24">
+                  <select
+                    value={row.cutType ?? ''}
+                    onChange={(e) => updateRow(idx, { cutType: (e.target.value || undefined) as CutType | undefined })}
+                    className="h-9 w-full rounded-md border bg-background px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                    title="這道菜此食材的切法；未指定則備料製程用類別預設"
+                  >
+                    {CUT_CHOICES.map((c) => (
+                      <option key={c.value} value={c.value}>{c.label}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="flex-1">

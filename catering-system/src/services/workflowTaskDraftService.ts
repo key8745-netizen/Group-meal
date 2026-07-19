@@ -291,10 +291,38 @@ export function generateTaskDraftsFromPrepPlan(
     }
 
     const sourcePrepPlanItemId = `${item.ingredientId}__${item.baseUnit}`;
+
+    // Feature 100: 配方指定的切法覆蓋類別範本的 cut 步驟（同食材跨菜若切法不同，
+    // 無法一次分切，維持範本預設並提示人工分切）。
+    const specifiedCuts = Array.from(
+      new Set(
+        (item.recipeContributions ?? [])
+          .map((c) => c.cutType)
+          .filter((c): c is CutType => !!c && c !== 'none'),
+      ),
+    );
+    const cutOverride = specifiedCuts.length === 1 ? specifiedCuts[0] : undefined;
+    if (specifiedCuts.length > 1) {
+      notes.push(
+        `「${item.ingredientNameSnapshot}」跨菜有不同指定切法（${specifiedCuts
+          .map((c) => CUT_LABELS[c] ?? c)
+          .join('、')}），維持類別預設，請人工分切。`,
+      );
+    }
+
     let prevStepId: string | undefined;
     let lastStepId: string | undefined;
 
-    for (const step of steps) {
+    for (const rawStep of steps) {
+      const step =
+        cutOverride && rawStep.processType === 'cut' && rawStep.cutType !== cutOverride
+          ? {
+              ...rawStep,
+              cutType: cutOverride,
+              label: undefined,
+              guidance: `依配方指定切法：${CUT_LABELS[cutOverride] ?? cutOverride}（覆蓋類別預設）`,
+            }
+          : rawStep;
       const minutes = Math.max(1, Math.round(step.baseMinutes + step.minutesPerKg * quantityKg));
       seq += 1;
       const id = nextId();

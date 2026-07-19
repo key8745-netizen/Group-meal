@@ -22,7 +22,7 @@ import {
   serverTimestamp,
   type Firestore,
 } from 'firebase/firestore';
-import type { DishCategory, Ingredient, Recipe, RecipeIngredientItem } from './types';
+import type { CutType, DishCategory, Ingredient, Recipe, RecipeIngredientItem } from './types';
 
 const COLLECTION = 'recipes';
 
@@ -32,6 +32,8 @@ export interface RecipeIngredientInput {
   quantity: number;
   unit: string;
   notes?: string;
+  /** Feature 100: 這道菜此食材的切法（選填，未設 = 用類別範本預設）。 */
+  cutType?: CutType;
 }
 
 /** Fields a user can supply when creating or editing a recipe. */
@@ -117,6 +119,7 @@ async function resolveRecipeIngredients(
       baseQuantity,
       baseUnit,
       ...(item.notes ? { notes: item.notes } : {}),
+      ...(item.cutType && item.cutType !== 'none' ? { cutType: item.cutType } : {}),
     });
   }
 

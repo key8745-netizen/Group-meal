@@ -18,7 +18,7 @@ import {
   serverTimestamp,
   type Firestore,
 } from 'firebase/firestore';
-import type { IngredientBaseUnit, IngredientMaster, StorageType } from './types';
+import type { CutType, IngredientBaseUnit, IngredientMaster, StorageType } from './types';
 import { normalizeIngredientName } from '@/utils/normalizeIngredientName';
 
 const COLLECTION = 'ingredients';
@@ -48,6 +48,8 @@ export interface IngredientMasterInput {
   criticalThresholdDays?: number;
   /** Feature 079: 加工延壽預設良率。 */
   processedYieldRatio?: number;
+  /** Feature 101: 此食材的預設切法（選填；配方未指定時的製程刀工回落）。 */
+  defaultCutType?: CutType;
 }
 
 /**
@@ -106,6 +108,7 @@ export async function createIngredient(
     marketCropName: input.marketCropName ?? null,
     minStockLevel: input.minStockLevel ?? 0,
     ...freshnessWriteFields(input),
+    ...(input.defaultCutType && input.defaultCutType !== 'none' ? { defaultCutType: input.defaultCutType } : {}),
     isActive: true,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -168,6 +171,8 @@ export async function updateIngredient(
     minStockLevel: input.minStockLevel ?? (typeof existing.minStockLevel === 'number' ? existing.minStockLevel : 0),
     // Feature 071: 保鮮參數（表單優先，未提供沿用既有）。
     ...freshnessWriteFields(input, existing),
+    // Feature 101: 預設切法（表單即權威——選「預設」= 清除；故不從 existing 沿用）。
+    ...(input.defaultCutType && input.defaultCutType !== 'none' ? { defaultCutType: input.defaultCutType } : {}),
     isActive: existing.isActive !== false,
     createdAt: existing.createdAt ?? serverTimestamp(),
     createdBy: existing.createdBy ?? uid,

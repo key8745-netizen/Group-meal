@@ -163,6 +163,11 @@ export interface IngredientMaster {
   openedShelfLifeHours?: number;
   /** Feature 079: 加工延壽預設良率（產出kg = 耗用kg × 此係數，如 0.75）；可逐次覆蓋。 */
   processedYieldRatio?: number;
+  /**
+   * Feature 101: 此食材的預設切法（如馬鈴薯預設切塊）。製程任務刀工的回落來源——
+   * 優先序：配方指定（RecipeIngredientItem.cutType）> 食材預設 > 類別範本。選填。
+   */
+  defaultCutType?: CutType;
 }
 
 // ─── Recipes (Feature 011: 配方引用食材主檔) ──────────────────────────────────

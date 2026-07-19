@@ -173,6 +173,13 @@ validated in `firestore.rules` (see comment there), so nested `cutType` needs no
 the two levels: 前處理 (清洗/去皮/去蒂頭) is ingredient-intrinsic and lives in the category templates;
 刀工 (切段/切絲/…) is dish-dependent and lives on the recipe line.
 
+Per-ingredient default cut (Feature 101): `IngredientMaster.defaultCutType?: CutType` is a fallback the
+`workflowTaskDraftService` cut-override precedence uses — **recipe-specified (single) > ingredient
+`defaultCutType` > category template**. Edited via a 預設切法 dropdown in `IngredientMasterForm`;
+persisted form-authoritatively (choosing 「不指定」 clears it). Guidance text distinguishes the source
+(依配方指定切法 vs 依食材預設切法). Ingredient fields **are** whitelisted, so `'defaultCutType'` was added
+to `ingredientAllowedFields()` in `firestore.rules` — **redeploy rules** after this change.
+
 ## Unit Conversion
 
 Two converters exist for historical reasons:

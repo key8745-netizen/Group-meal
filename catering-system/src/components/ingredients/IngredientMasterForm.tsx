@@ -9,7 +9,7 @@ import { TrendingDown, TrendingUp, Minus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sparkline } from '@/components/ui/sparkline';
-import type { IngredientBaseUnit, StorageType } from '@/services/types';
+import type { IngredientBaseUnit, StorageType, CutType } from '@/services/types';
 import type { IngredientMasterInput } from '@/services/ingredientMasterService';
 import type { PriceHistory } from '@/services/marketPriceHistoryService';
 import { FlavorKnowledgePanel } from '@/components/ingredients/FlavorKnowledgePanel';
@@ -22,6 +22,19 @@ const STORAGE_LABELS: Record<StorageType, string> = { ambient: '常溫', chilled
 const SHELF_LIFE_KEY: Record<StorageType, 'shelfLifeDaysAmbient' | 'shelfLifeDaysChilled' | 'shelfLifeDaysFrozen'> = {
   ambient: 'shelfLifeDaysAmbient', chilled: 'shelfLifeDaysChilled', frozen: 'shelfLifeDaysFrozen',
 };
+/** Feature 101: 食材預設切法選項（配方未指定時的製程刀工回落）。 */
+const CUT_CHOICES: { value: CutType | ''; label: string }[] = [
+  { value: '', label: '不指定' },
+  { value: 'section', label: '切段' },
+  { value: 'julienne', label: '切絲' },
+  { value: 'shred', label: '刨絲' },
+  { value: 'slice', label: '切片' },
+  { value: 'dice', label: '切丁' },
+  { value: 'chunk', label: '切塊' },
+  { value: 'rollCut', label: '滾刀塊' },
+  { value: 'mince', label: '切末' },
+  { value: 'diagonal', label: '斜切' },
+];
 
 export interface IngredientMasterFormValues extends IngredientMasterInput {}
 
@@ -141,6 +154,19 @@ export function IngredientMasterForm({
             onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
             placeholder="例：主食"
           />
+        </div>
+
+        {/* Feature 101: 預設切法——配方未指定時，製程任務刀工的回落 */}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium">預設切法</label>
+          <select
+            value={form.defaultCutType ?? ''}
+            onChange={(e) => setForm((f) => ({ ...f, defaultCutType: (e.target.value || undefined) as CutType | undefined }))}
+            className="h-9 rounded-md border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            title="配方未指定切法時，備料製程套用此預設；配方可覆寫"
+          >
+            {CUT_CHOICES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+          </select>
         </div>
 
         <div className="flex flex-col gap-1">

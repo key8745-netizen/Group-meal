@@ -50,6 +50,8 @@ service cloud.firestore {
         'warnThresholdDays', 'criticalThresholdDays', 'openedShelfLifeHours',
         // Feature 079: 加工延壽預設良率
         'processedYieldRatio',
+        // Feature 101: 食材預設切法
+        'defaultCutType',
         'createdAt', 'updatedAt', 'createdBy', 'updatedBy',
       ];
     }

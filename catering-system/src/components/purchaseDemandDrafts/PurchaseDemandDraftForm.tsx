@@ -34,7 +34,7 @@ import { Badge } from '@/components/ui/badge';
 import { db } from '@/lib/firebase';
 import type { IngredientMaster, MarketPriceSnapshot, PurchaseDemandDraftItem } from '@/services/types';
 import { listIngredients } from '@/services/ingredientMasterService';
-import { getMarketPriceSnapshot, pricePerKgFromDefault } from '@/services/marketPriceService';
+import { getMarketPriceSnapshot, pricePerKgFromDefault, todayLocalIsoDate } from '@/services/marketPriceService';
 import { resolveIngredientPrice, type IngredientPriceResolution } from '@/services/costAwareMenuSuggestionService';
 import { PrepPlanSelector } from './PrepPlanSelector';
 
@@ -48,8 +48,9 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+// 本地時區「今天」（避免早於當地 08:00 時 UTC 日期落到前一天）。
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayLocalIsoDate();
 }
 
 export interface PurchaseDemandDraftFormValues {

@@ -4,11 +4,14 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { MealPlan, Menu } from './types';
+import { todayLocalIsoDate } from './marketPriceService';
 
 const COL = 'mealPlans';
 
+// 以本地時區計算「今天」作為 mealPlans 文件鍵（YYYY-MM-DD）。
+// 用 UTC（toISOString）會在台灣當地 00:00–08:00 落到前一天，導致寫錯日期。
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayLocalIsoDate();
 }
 
 export const mealPlanService = {

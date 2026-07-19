@@ -21,7 +21,7 @@ import type { Recipe, InventoryDoc, IngredientMaster, MarketPriceSnapshot, CostA
 import { listRecipes } from '@/services/recipeService';
 import { listMenus } from '@/services/recipeMenuService';
 import { listIngredients } from '@/services/ingredientMasterService';
-import { getMarketPriceSnapshot } from '@/services/marketPriceService';
+import { getMarketPriceSnapshot, todayLocalIsoDate } from '@/services/marketPriceService';
 import { calculateCostAwareMenuSuggestion, estimateRecipeCostPerServing, type RecipeCostEstimate } from '@/services/costAwareMenuSuggestionService';
 import { listAllBatches } from '@/services/inventoryBatchService';
 import { weekendDecayAlerts } from '@/services/freshnessService';
@@ -45,8 +45,10 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
 
+// 以瀏覽器本地時區計算「今天」（台灣 UTC+8）。早於當地 08:00 時，
+// UTC 日期會落到前一天，故一律走本地日期，並與市價快取鍵 todayLocalIsoDate 一致。
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayLocalIsoDate();
 }
 
 const RECOMMEND_PRECHECK_COUNT = 5;

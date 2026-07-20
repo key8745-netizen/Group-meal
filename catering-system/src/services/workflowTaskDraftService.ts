@@ -38,6 +38,8 @@ export interface TaskDraftTemplateStep {
   label?: string;
   /** 工序要領——寫入任務 notes 供現場人員參考（Feature 051）。 */
   guidance?: string;
+  /** Feature 104: 要顧的分鐘數（hands-on）。省略 = 全程要顧；醃漬等免顧工序設小值。 */
+  attentionMinutes?: number;
 }
 
 export interface GeneratedTaskDraftResult {
@@ -97,7 +99,8 @@ export const MEAT_TEMPLATE: TaskDraftTemplateStep[] = [
   { processType: 'cut', cutType: 'slice', equipmentType: 'cuttingStation', baseMinutes: 6, minutesPerKg: 5, staffRole: '廚師',
     label: '分切修整', guidance: '依克重定量分切；修除多餘肥油、淋巴與硬筋膜；逆紋切破壞纖維口感較嫩；厚排以肉槌/刀背斷筋防縮' },
   { processType: 'marinate', equipmentType: 'prepTable', baseMinutes: 10, minutesPerKg: 2, staffRole: '廚師',
-    label: '醃漬上漿', guidance: '打水：水或高湯分次揉入使蛋白質吸水；上漿：蛋白＋太白粉揉勻形成保護膜鎖水；鹽/醬油/米酒/薑汁打底去腥' },
+    attentionMinutes: 4,
+    label: '醃漬上漿', guidance: '打水：水或高湯分次揉入使蛋白質吸水；上漿：蛋白＋太白粉揉勻形成保護膜鎖水；鹽/醬油/米酒/薑汁打底去腥（拌勻後靜置醃漬期間可先做別的）' },
   { processType: 'preCook', equipmentType: 'stoveBurner', baseMinutes: 8, minutesPerKg: 3, staffRole: '廚師',
     label: '預熟處理', guidance: '視菜式選用：排骨/大骨冷水下鍋汆燙去血水雜質；上漿肉片 120–140°C 低溫過油定型保嫩；需預炸定型者高溫油炸——不需要此步驟請刪除' },
 ];
@@ -107,7 +110,8 @@ export const SEAFOOD_TEMPLATE: TaskDraftTemplateStep[] = [
   { processType: 'cut', cutType: 'slice', equipmentType: 'cuttingStation', baseMinutes: 6, minutesPerKg: 5, staffRole: '廚師',
     label: '分切修整', guidance: '魚去鱗去刺（片菲力）；蝦開背去腸泥；依克重定量分切' },
   { processType: 'marinate', equipmentType: 'prepTable', baseMinutes: 6, minutesPerKg: 2, staffRole: '廚師',
-    label: '去腥醃漬', guidance: '米酒、薑汁去腥，鹽打底；海鮮醃漬時間宜短以免出水' },
+    attentionMinutes: 3,
+    label: '去腥醃漬', guidance: '米酒、薑汁去腥，鹽打底；海鮮醃漬時間宜短以免出水（拌勻後靜置期間可先做別的）' },
 ];
 
 /** 蛋豆製品：前處理（切塊/打散，板豆腐可先汆燙）。 */
@@ -357,6 +361,10 @@ export function generateTaskDraftsFromPrepPlan(
         sequence: seq,
         dependsOnTaskIds: prevStepId ? [prevStepId] : [],
         canRunInParallel: true,
+        // Feature 104: 免顧工序（如醃漬）帶入 hands-on 分鐘，讓排程器把靜置空檔排給別的任務。
+        ...(step.attentionMinutes != null && step.attentionMinutes < minutes
+          ? { attentionMinutes: step.attentionMinutes }
+          : {}),
         notes: stepNotes,
       };
       tasks.push(task);

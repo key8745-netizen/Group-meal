@@ -328,6 +328,22 @@ export function ProductionWorkflowTaskList({
                 onChange={(e) => setNewTask((p) => ({ ...p, estimatedMinutes: Number(e.target.value) }))}
               />
             </div>
+            {/* Feature 104: 要顧時間——燉/煮/蒸等免顧工序設小值，排程會把靜置空檔排給別的任務 */}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium">要顧時間（分鐘）</label>
+              <Input
+                className="text-xs h-8"
+                type="number"
+                min={1}
+                value={newTask.attentionMinutes ?? ''}
+                placeholder={`全程要顧（${newTask.estimatedMinutes}）`}
+                title="需要盯著的分鐘數；燉/煮/蒸設小值，其餘為免顧空檔。留空＝全程要顧"
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  setNewTask((p) => ({ ...p, attentionMinutes: e.target.value === '' || !(v > 0) ? undefined : v }));
+                }}
+              />
+            </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium">人員角色</label>
               <Input
@@ -457,7 +473,14 @@ export function ProductionWorkflowTaskList({
                   <td className="px-3 py-2 text-xs">{task.cutType ? CUT_TYPE_LABELS[task.cutType] : '—'}</td>
                   <td className="px-3 py-2 text-xs">{task.cookingMethod ? COOKING_METHOD_LABELS[task.cookingMethod] : '—'}</td>
                   <td className="px-3 py-2 text-xs">{EQUIPMENT_TYPE_LABELS[task.equipmentType]}</td>
-                  <td className="px-3 py-2 text-right tabular-nums text-xs">{task.estimatedMinutes}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-xs">
+                    {task.estimatedMinutes}
+                    {task.attentionMinutes != null && task.attentionMinutes < task.estimatedMinutes && (
+                      <span className="ml-1 text-emerald-600 dark:text-emerald-400" title={`要顧 ${task.attentionMinutes} 分，其餘 ${task.estimatedMinutes - task.attentionMinutes} 分免顧`}>
+                        （顧{task.attentionMinutes}）
+                      </span>
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-xs">{task.staffRole || '—'}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-xs">{task.staffCount}</td>
                   <td className="px-3 py-2 text-xs">{task.canRunInParallel ? '是' : '否'}</td>

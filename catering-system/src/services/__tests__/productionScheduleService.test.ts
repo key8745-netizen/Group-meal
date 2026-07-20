@@ -266,6 +266,45 @@ function byId(tasks: ScheduledTaskAssignment[], id: string): ScheduledTaskAssign
   check('identical results across repeated runs', norm(r1), norm(r2));
 }
 
+// ── (l) Feature 104: 免顧工序釋放人力，別的任務插進燉煮空檔 ──────────────────
+{
+  console.log('(l) attentionMinutes frees staff during passive cooking');
+  const input = baseInput({
+    availableStaff: [{ role: '廚師', count: 1 }],
+    availableEquipment: [{ type: 'stockPot', count: 1 }, { type: 'wok', count: 1 }],
+  });
+  const tasks = [
+    task({ id: 'braise', taskName: '滷肉', processType: 'cook', equipmentType: 'stockPot', staffRole: '廚師', estimatedMinutes: 40, attentionMinutes: 5 }),
+    task({ id: 'stir', taskName: '炒青菜', processType: 'cook', equipmentType: 'wok', staffRole: '廚師', estimatedMinutes: 10 }),
+  ];
+  const r = calculateProductionSchedule(plan(tasks), input);
+  const braise = byId(r.scheduledTasks, 'braise')!;
+  const stir = byId(r.scheduledTasks, 'stir')!;
+  check('braise runs 0–40', [braise.startOffsetMinutes, braise.endOffsetMinutes], [0, 40]);
+  check('braise hands-on = 5', braise.attentionMinutes, 5);
+  check('stir hands-on = full 10 (未設)', stir.attentionMinutes, 10);
+  check('stir starts at 5 (廚師顧完滷肉即開炒)', stir.startOffsetMinutes, 5);
+  checkTrue('stir 插進滷肉的免顧空檔內', stir.startOffsetMinutes < braise.endOffsetMinutes);
+  check('makespan = 40（沒被拉長到 50）', r.makespanMinutes, 40);
+}
+
+// ── (m) 反向：不設 attentionMinutes 時，燉煮全程綁住人力（串行） ──────────────
+{
+  console.log('(m) without attentionMinutes staff is held for full duration');
+  const input = baseInput({
+    availableStaff: [{ role: '廚師', count: 1 }],
+    availableEquipment: [{ type: 'stockPot', count: 1 }, { type: 'wok', count: 1 }],
+  });
+  const tasks = [
+    task({ id: 'braise', taskName: '滷肉', processType: 'cook', equipmentType: 'stockPot', staffRole: '廚師', estimatedMinutes: 40 }),
+    task({ id: 'stir', taskName: '炒青菜', processType: 'cook', equipmentType: 'wok', staffRole: '廚師', estimatedMinutes: 10 }),
+  ];
+  const r = calculateProductionSchedule(plan(tasks), input);
+  const stir = byId(r.scheduledTasks, 'stir')!;
+  check('stir 只能等滷肉整整 40 分後才開始', stir.startOffsetMinutes, 40);
+  check('makespan = 50（串行）', r.makespanMinutes, 50);
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) {
   throw new Error(`${failed} test(s) failed`);

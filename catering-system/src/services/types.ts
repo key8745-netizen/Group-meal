@@ -570,6 +570,12 @@ export interface ProductionWorkflowTask {
   sequence: number;
   dependsOnTaskIds: string[];
   canRunInParallel: boolean;
+  /**
+   * Feature 104: 要顧的時間（分鐘，hands-on）。省略 = 全程要顧（= estimatedMinutes）。
+   * 燉/煮/蒸等「免顧」工序設小值，排程器只在這段佔用人力，其餘 estimatedMinutes −
+   * attentionMinutes 視為免顧空檔（設備仍佔用、菜仍在煮），人力可去做別的任務。
+   */
+  attentionMinutes?: number;
   notes?: string;
 }
 
@@ -968,6 +974,8 @@ export interface ScheduledTaskAssignment {
   /** Minutes from schedule start (0 = work start). */
   startOffsetMinutes: number;
   endOffsetMinutes: number;
+  /** Feature 104: hands-on 分鐘數（從 startOffset 起算）；其餘至 endOffset 為免顧（燉煮中）。 */
+  attentionMinutes: number;
   /** e.g. ["廚師#1"] — role + 1-based slot index; length === task.staffCount. */
   assignedStaffSlots: string[];
   /** e.g. "wok#2", null when equipmentType === 'none'. */

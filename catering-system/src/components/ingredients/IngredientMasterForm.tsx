@@ -169,6 +169,16 @@ export function IngredientMasterForm({
           </select>
         </div>
 
+        {/* Feature 102: 前處理備註——食材固有（如去蒂頭/去皮），附加到備料製程第一步要領 */}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium">前處理備註</label>
+          <Input
+            value={form.prepNote ?? ''}
+            onChange={(e) => setForm((f) => ({ ...f, prepNote: e.target.value }))}
+            placeholder="如：去蒂頭、切頭去尾、削皮"
+          />
+        </div>
+
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium">基本單位 *</label>
           <select

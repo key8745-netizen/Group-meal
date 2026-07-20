@@ -372,6 +372,18 @@ function plan(prepItems: PrepPlanItem[], overrides: Partial<PrepPlan> = {}): Pre
   checkTrue('guidance marks 配方指定切法', (cut.notes ?? '').includes('依配方指定切法'));
 }
 
+// ── (s) Feature 102: 食材前處理備註附加到第一個前處理步驟 ────────────────────
+{
+  console.log('(s) ingredient prepNote appended to first step');
+  const carrot = ingredient({ id: 'car3', name: '紅蘿蔔', category: '根莖類', prepNote: '去蒂頭、切頭去尾' });
+  const item = prepItem({ ingredientId: 'car3', ingredientNameSnapshot: '紅蘿蔔', requiredBaseQuantity: 1000, recipeContributions: [] });
+  const result = generateTaskDraftsFromPrepPlan(plan([item]), [carrot], []);
+  const prepTasks = result.tasks.filter((t) => t.ingredientId);
+  checkTrue('first step guidance carries prepNote', (prepTasks[0].notes ?? '').includes('去蒂頭、切頭去尾'));
+  checkTrue('first step marked 前處理', (prepTasks[0].notes ?? '').includes('前處理：'));
+  checkTrue('later steps do NOT carry prepNote', prepTasks.slice(1).every((t) => !(t.notes ?? '').includes('去蒂頭')));
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) {
   throw new Error(`${failed} test(s) failed`);

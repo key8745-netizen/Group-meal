@@ -180,6 +180,13 @@ persisted form-authoritatively (choosing 「不指定」 clears it). Guidance te
 (依配方指定切法 vs 依食材預設切法). Ingredient fields **are** whitelisted, so `'defaultCutType'` was added
 to `ingredientAllowedFields()` in `firestore.rules` — **redeploy rules** after this change.
 
+Per-ingredient prep note (Feature 102): `IngredientMaster.prepNote?: string` (前處理，食材固有——如
+「去蒂頭、切頭去尾、削皮」) is edited via a 前處理備註 input in `IngredientMasterForm` and appended by
+`workflowTaskDraftService` to the **first** prep step's guidance (`…｜前處理：<note>`) for that ingredient.
+Persisted form-authoritatively (clearing removes it). `'prepNote'` was added to `ingredientAllowedFields()`
+in `firestore.rules` — **redeploy rules**. This is the 前處理 (食材固有) counterpart to the 刀工 (隨菜/食材
+預設) cut fields above.
+
 ## Unit Conversion
 
 Two converters exist for historical reasons:

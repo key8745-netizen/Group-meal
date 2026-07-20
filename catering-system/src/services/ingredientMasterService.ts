@@ -50,6 +50,8 @@ export interface IngredientMasterInput {
   processedYieldRatio?: number;
   /** Feature 101: 此食材的預設切法（選填；配方未指定時的製程刀工回落）。 */
   defaultCutType?: CutType;
+  /** Feature 102: 此食材的前處理備註（選填；如「去蒂頭、切頭去尾」）。 */
+  prepNote?: string;
 }
 
 /**
@@ -109,6 +111,7 @@ export async function createIngredient(
     minStockLevel: input.minStockLevel ?? 0,
     ...freshnessWriteFields(input),
     ...(input.defaultCutType && input.defaultCutType !== 'none' ? { defaultCutType: input.defaultCutType } : {}),
+    ...(input.prepNote && input.prepNote.trim() ? { prepNote: input.prepNote.trim() } : {}),
     isActive: true,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -173,6 +176,8 @@ export async function updateIngredient(
     ...freshnessWriteFields(input, existing),
     // Feature 101: 預設切法（表單即權威——選「預設」= 清除；故不從 existing 沿用）。
     ...(input.defaultCutType && input.defaultCutType !== 'none' ? { defaultCutType: input.defaultCutType } : {}),
+    // Feature 102: 前處理備註（表單即權威——清空即移除）。
+    ...(input.prepNote && input.prepNote.trim() ? { prepNote: input.prepNote.trim() } : {}),
     isActive: existing.isActive !== false,
     createdAt: existing.createdAt ?? serverTimestamp(),
     createdBy: existing.createdBy ?? uid,

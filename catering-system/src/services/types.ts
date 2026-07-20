@@ -168,6 +168,11 @@ export interface IngredientMaster {
    * 優先序：配方指定（RecipeIngredientItem.cutType）> 食材預設 > 類別範本。選填。
    */
   defaultCutType?: CutType;
+  /**
+   * Feature 102: 此食材的前處理備註（如「去蒂頭、切頭去尾、削皮」）。食材固有、
+   * 與菜色無關；製程任務產生時附加到該食材第一個前處理步驟的要領，提醒現場。選填。
+   */
+  prepNote?: string;
 }
 
 // ─── Recipes (Feature 011: 配方引用食材主檔) ──────────────────────────────────

@@ -319,8 +319,12 @@ export function generateTaskDraftsFromPrepPlan(
       );
     }
 
+    // Feature 102: 食材前處理備註（固有，如去蒂頭/去皮）附加到第一個前處理步驟的要領。
+    const prepNote = ingredient?.prepNote?.trim();
+
     let prevStepId: string | undefined;
     let lastStepId: string | undefined;
+    let isFirstStep = true;
 
     for (const rawStep of steps) {
       const step =
@@ -333,6 +337,8 @@ export function generateTaskDraftsFromPrepPlan(
             }
           : rawStep;
       const minutes = Math.max(1, Math.round(step.baseMinutes + step.minutesPerKg * quantityKg));
+      const baseNotes = step.guidance ?? '自動產生草稿，請人工確認';
+      const stepNotes = isFirstStep && prepNote ? `${baseNotes}｜前處理：${prepNote}` : baseNotes;
       seq += 1;
       const id = nextId();
       const task: ProductionWorkflowTask = {
@@ -351,11 +357,12 @@ export function generateTaskDraftsFromPrepPlan(
         sequence: seq,
         dependsOnTaskIds: prevStepId ? [prevStepId] : [],
         canRunInParallel: true,
-        notes: step.guidance ?? '自動產生草稿，請人工確認',
+        notes: stepNotes,
       };
       tasks.push(task);
       prevStepId = id;
       lastStepId = id;
+      isFirstStep = false;
     }
 
     for (const contribution of item.recipeContributions ?? []) {

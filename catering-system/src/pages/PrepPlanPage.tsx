@@ -7,13 +7,14 @@
 import { useEffect, useState } from 'react';
 import { Plus, ClipboardCheck, Eye, EyeOff } from 'lucide-react';
 import { db, auth } from '@/lib/firebase';
-import type { PrepPlan } from '@/services/types';
+import type { IngredientMaster, PrepPlan } from '@/services/types';
 import {
   listPrepPlans,
   createPrepPlanFromRecipeMenu,
   updatePrepPlan,
   setPrepPlanActive,
 } from '@/services/prepPlanService';
+import { listIngredients } from '@/services/ingredientMasterService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -44,6 +45,8 @@ export default function PrepPlanPage() {
   const [search, setSearch] = useState('');
   const [showInactive, setShowInactive] = useState(false);
   const [deducting, setDeducting] = useState<PrepPlan | null>(null);
+  // Feature 103: 食材主檔（供刀工彙總解析預設切法／前處理備註）。best-effort，載入失敗不擋主流程。
+  const [ingredientsById, setIngredientsById] = useState<Map<string, IngredientMaster>>(new Map());
 
   async function reload() {
     setLoading(true);
@@ -59,6 +62,9 @@ export default function PrepPlanPage() {
 
   useEffect(() => {
     reload();
+    listIngredients(db, { includeInactive: true })
+      .then((list) => setIngredientsById(new Map(list.map((i) => [i.id, i]))))
+      .catch(() => { /* 刀工彙總降級為只看配方指定切法 */ });
   }, []);
 
   async function handleSave(form: PrepPlanFormValues) {
@@ -154,6 +160,7 @@ export default function PrepPlanPage() {
               <PrepPlanForm
                 initial={toFormValues(editing.prepPlan)}
                 prepItems={editing.prepPlan.prepItems}
+                ingredientsById={ingredientsById}
                 onSave={handleSave}
                 onCancel={() => setEditing(null)}
               />

@@ -10,11 +10,66 @@
  * hidden and prepItems are shown read-only.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import type { PrepPlan } from '@/services/types';
+import { Badge } from '@/components/ui/badge';
+import type { IngredientMaster, PrepPlan } from '@/services/types';
+import { summarizePrepCuts } from '@/services/prepCutSummaryPlanner';
 import { RecipeMenuSelector } from './RecipeMenuSelector';
+
+/** Feature 103: 刀工彙總 / 前處理提醒（唯讀，跨菜依解析後切法歸類，供批切）。 */
+function PrepCutSummaryPanel({
+  prepItems,
+  ingredientsById,
+}: {
+  prepItems: PrepPlan['prepItems'];
+  ingredientsById: Map<string, IngredientMaster>;
+}) {
+  const summary = useMemo(
+    () => summarizePrepCuts({ prepItems }, ingredientsById),
+    [prepItems, ingredientsById],
+  );
+  if (summary.groups.length === 0 && summary.prepNotes.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-3 rounded-md border bg-muted/20 p-3">
+      <span className="text-xs font-medium text-foreground">刀工彙總 &amp; 前處理提醒（跨菜歸類，方便一次批切）</span>
+
+      {summary.groups.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          {summary.groups.map((g) => (
+            <div key={g.cutType ?? 'none'} className="flex flex-wrap items-baseline gap-1.5 text-xs">
+              <Badge
+                variant="outline"
+                className={g.cutType ? 'border-emerald-400/60 text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground'}
+              >
+                {g.label}
+              </Badge>
+              <span className="text-muted-foreground">
+                {g.items.map((i) => `${i.name}（${i.totalBaseQuantity}${i.baseUnit}）`).join('、')}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {summary.prepNotes.length > 0 && (
+        <div className="flex flex-col gap-1 border-t pt-2">
+          <span className="text-[11px] text-muted-foreground">前處理提醒（食材固有）</span>
+          <ul className="flex flex-col gap-0.5 text-xs">
+            {summary.prepNotes.map((p) => (
+              <li key={p.ingredientId}>
+                <span className="font-medium text-foreground">{p.name}</span>
+                <span className="text-muted-foreground">：{p.note}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export interface PrepPlanFormValues {
   name: string;
@@ -43,12 +98,15 @@ export function validatePrepPlanForm(form: PrepPlanFormValues, isCreate: boolean
 export function PrepPlanForm({
   initial,
   prepItems,
+  ingredientsById,
   onSave,
   onCancel,
 }: {
   initial?: Partial<PrepPlanFormValues>;
   /** Present (read-only) only in edit mode, after creation. */
   prepItems?: PrepPlan['prepItems'];
+  /** Feature 103: 供刀工彙總解析食材預設切法／前處理備註（缺省則只看配方指定）。 */
+  ingredientsById?: Map<string, IngredientMaster>;
   onSave: (form: PrepPlanFormValues) => Promise<void>;
   onCancel: () => void;
 }) {
@@ -127,6 +185,10 @@ export function PrepPlanForm({
           />
         </div>
       </div>
+
+      {!isCreate && prepItems && prepItems.length > 0 && (
+        <PrepCutSummaryPanel prepItems={prepItems} ingredientsById={ingredientsById ?? new Map()} />
+      )}
 
       {!isCreate && prepItems && (
         <div className="space-y-2">

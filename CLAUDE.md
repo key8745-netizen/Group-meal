@@ -187,6 +187,14 @@ Persisted form-authoritatively (clearing removes it). `'prepNote'` was added to 
 in `firestore.rules` — **redeploy rules**. This is the 前處理 (食材固有) counterpart to the 刀工 (隨菜/食材
 預設) cut fields above.
 
+Prep cut summary (Feature 103): `prepCutSummaryPlanner.summarizePrepCuts(prepPlan, ingredientsById)` is a
+pure, read-only readout shown in `PrepPlanForm` (edit mode) — it groups a prep plan's ingredients by the
+**resolved** cut so 備料 can batch identical knife work across dishes, and lists per-ingredient 前處理
+備註. `resolveItemCut()` mirrors `workflowTaskDraftService`'s precedence (配方指定單一 > 食材 `defaultCutType`
+> 未指定; cross-dish cut conflict → 未指定). `PrepPlanPage` loads the ingredient master (best-effort) for the
+`ingredientsById` map; without it the summary degrades to recipe-specified cuts only. **No schema/rules
+change** — pure display over existing fields.
+
 ## Unit Conversion
 
 Two converters exist for historical reasons:

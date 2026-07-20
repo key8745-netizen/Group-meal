@@ -292,8 +292,8 @@ export function generateTaskDraftsFromPrepPlan(
 
     const sourcePrepPlanItemId = `${item.ingredientId}__${item.baseUnit}`;
 
-    // Feature 100: 配方指定的切法覆蓋類別範本的 cut 步驟（同食材跨菜若切法不同，
-    // 無法一次分切，維持範本預設並提示人工分切）。
+    // Feature 100/101: cut 步驟刀工的覆蓋來源，優先序：配方指定 > 食材預設 > 類別範本。
+    // 同食材跨菜若指定不同切法，無法一次分切，維持範本預設並提示人工分切。
     const specifiedCuts = Array.from(
       new Set(
         (item.recipeContributions ?? [])
@@ -301,7 +301,16 @@ export function generateTaskDraftsFromPrepPlan(
           .filter((c): c is CutType => !!c && c !== 'none'),
       ),
     );
-    const cutOverride = specifiedCuts.length === 1 ? specifiedCuts[0] : undefined;
+    const ingredientDefaultCut =
+      ingredient?.defaultCutType && ingredient.defaultCutType !== 'none' ? ingredient.defaultCutType : undefined;
+    let cutOverride: CutType | undefined;
+    let cutFromRecipe = false;
+    if (specifiedCuts.length === 1) {
+      cutOverride = specifiedCuts[0];
+      cutFromRecipe = true;
+    } else if (specifiedCuts.length === 0) {
+      cutOverride = ingredientDefaultCut; // 配方沒指定 → 回落食材預設
+    }
     if (specifiedCuts.length > 1) {
       notes.push(
         `「${item.ingredientNameSnapshot}」跨菜有不同指定切法（${specifiedCuts
@@ -320,7 +329,7 @@ export function generateTaskDraftsFromPrepPlan(
               ...rawStep,
               cutType: cutOverride,
               label: undefined,
-              guidance: `依配方指定切法：${CUT_LABELS[cutOverride] ?? cutOverride}（覆蓋類別預設）`,
+              guidance: `${cutFromRecipe ? '依配方指定切法' : '依食材預設切法'}：${CUT_LABELS[cutOverride] ?? cutOverride}（覆蓋類別預設）`,
             }
           : rawStep;
       const minutes = Math.max(1, Math.round(step.baseMinutes + step.minutesPerKg * quantityKg));

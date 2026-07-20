@@ -342,6 +342,36 @@ function plan(prepItems: PrepPlanItem[], overrides: Partial<PrepPlan> = {}): Pre
   checkTrue('note flags 跨菜不同切法', result.generationNotes.some((n) => n.includes('跨菜有不同指定切法')));
 }
 
+// ── (q) Feature 101: 食材預設切法在配方未指定時生效 ─────────────────────────
+{
+  console.log('(q) ingredient defaultCutType fallback');
+  const potato = ingredient({ id: 'pot1', name: '馬鈴薯', category: '根莖類', defaultCutType: 'chunk' });
+  // 配方未指定切法（無 cutType）→ 應回落食材預設 chunk（切塊），覆蓋範本 rollCut。
+  const item = prepItem({
+    ingredientId: 'pot1', ingredientNameSnapshot: '馬鈴薯', requiredBaseQuantity: 1000,
+    recipeContributions: [{ recipeId: 'r1', recipeNameSnapshot: '咖哩', sourceServings: 10, contributedBaseQuantity: 1000 }],
+  });
+  const result = generateTaskDraftsFromPrepPlan(plan([item]), [potato], []);
+  const cut = result.tasks.filter((t) => t.ingredientId && t.processType === 'cut')[0];
+  check('cut uses ingredient default chunk', cut.cutType, 'chunk');
+  check('cut name reflects 切塊', cut.taskName, '馬鈴薯：切割（切塊）');
+  checkTrue('guidance marks 食材預設切法', (cut.notes ?? '').includes('依食材預設切法'));
+}
+
+// ── (r) Feature 101: 配方指定切法優先於食材預設 ─────────────────────────────
+{
+  console.log('(r) recipe cutType wins over ingredient default');
+  const potato = ingredient({ id: 'pot2', name: '馬鈴薯', category: '根莖類', defaultCutType: 'chunk' });
+  const item = prepItem({
+    ingredientId: 'pot2', ingredientNameSnapshot: '馬鈴薯', requiredBaseQuantity: 1000,
+    recipeContributions: [{ recipeId: 'r1', recipeNameSnapshot: '馬鈴薯絲', sourceServings: 10, contributedBaseQuantity: 1000, cutType: 'julienne' }],
+  });
+  const result = generateTaskDraftsFromPrepPlan(plan([item]), [potato], []);
+  const cut = result.tasks.filter((t) => t.ingredientId && t.processType === 'cut')[0];
+  check('recipe julienne wins over ingredient chunk', cut.cutType, 'julienne');
+  checkTrue('guidance marks 配方指定切法', (cut.notes ?? '').includes('依配方指定切法'));
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) {
   throw new Error(`${failed} test(s) failed`);

@@ -101,7 +101,7 @@ export async function createDraftFromPrepPlan(
       prepPlanId: input.sourcePrepPlanId,
       prepPlanNameSnapshot: prepPlan.name,
     },
-    notes: undefined,
+    // notes 省略——Firestore（未開 ignoreUndefinedProperties）拒收 undefined 欄位值。
   }));
 
   const ref = await addDoc(collection(db, COLLECTION), {
@@ -133,10 +133,13 @@ export async function updateDraft(
     const edited = input.items.find(
       (i) => i.ingredientId === existingItem.ingredientId && i.baseUnit === existingItem.baseUnit,
     );
+    // 丟掉既有的 notes，再依編輯結果決定是否帶回——避免寫入 undefined（Firestore 拒收）。
+    const { notes: _prevNotes, ...rest } = existingItem;
+    const noteVal = edited ? edited.notes : existingItem.notes;
     return {
-      ...existingItem,
+      ...rest,
       demandQuantity: edited ? edited.demandQuantity : existingItem.demandQuantity,
-      notes: edited ? edited.notes : existingItem.notes,
+      ...(typeof noteVal === 'string' && noteVal.length > 0 ? { notes: noteVal } : {}),
     };
   });
 

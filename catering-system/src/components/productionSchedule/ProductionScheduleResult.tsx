@@ -64,6 +64,69 @@ interface Props {
   taskNameById?: Record<string, string>;
 }
 
+/** Feature 105: 排程甘特圖——每個任務一條橫條，實心=要顧、淺色斜紋=免顧（燉煮中）；
+ *  時間上並排的橫條代表同時進行。一眼看出「炒青菜卡在滷肉的免顧空檔裡」。 */
+function GanttTimeline({ result }: { result: ScheduleResultData }) {
+  const { scheduledTasks, makespanMinutes, workStartSuggestion } = result;
+  if (scheduledTasks.length === 0 || makespanMinutes <= 0) return null;
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(f * makespanMinutes));
+  const stripes =
+    'repeating-linear-gradient(45deg, rgba(16,185,129,0.28), rgba(16,185,129,0.28) 3px, transparent 3px, transparent 6px)';
+  return (
+    <div>
+      <h4 className="mb-2 text-sm font-semibold">
+        排程甘特圖
+        <span className="ml-2 text-xs font-normal text-muted-foreground">
+          實心＝要顧、淺色斜紋＝免顧（燉煮中）；並排＝同時進行
+        </span>
+      </h4>
+      <div className="overflow-x-auto">
+        <div className="min-w-[520px]">
+          <div className="relative mb-1 ml-28 h-4 text-[10px] text-muted-foreground">
+            {ticks.map((m, i) => (
+              <div
+                key={i}
+                className={`absolute whitespace-nowrap ${i === 0 ? '' : i === ticks.length - 1 ? '-translate-x-full' : '-translate-x-1/2'}`}
+                style={{ left: `${(m / makespanMinutes) * 100}%` }}
+              >
+                {formatClock(workStartSuggestion, m)}
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-col gap-1">
+            {scheduledTasks.map((t) => {
+              const dur = t.endOffsetMinutes - t.startOffsetMinutes;
+              // 舊排程建議文件可能沒有 attentionMinutes → 視為全程要顧。
+              const attn = Number.isFinite(t.attentionMinutes) ? t.attentionMinutes : dur;
+              const leftPct = (t.startOffsetMinutes / makespanMinutes) * 100;
+              const widthPct = Math.max((dur / makespanMinutes) * 100, 0.6);
+              const attendPct = dur > 0 ? Math.min(100, (attn / dur) * 100) : 100;
+              const passive = dur - attn;
+              return (
+                <div key={t.taskId} className="flex items-center gap-2">
+                  <div className="w-28 shrink-0 truncate text-xs" title={t.taskName}>{t.taskName}</div>
+                  <div className="relative h-5 flex-1 rounded bg-muted/40">
+                    <div
+                      className="absolute top-0 flex h-5 overflow-hidden rounded"
+                      style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+                      title={`+${t.startOffsetMinutes}–+${t.endOffsetMinutes} 分｜要顧 ${t.attentionMinutes} 分${passive > 0 ? `、免顧 ${passive} 分` : ''}`}
+                    >
+                      <div className="h-full bg-emerald-500" style={{ width: `${attendPct}%` }} />
+                      {passive > 0 && (
+                        <div className="h-full flex-1 bg-emerald-500/10" style={{ backgroundImage: stripes }} />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ProductionScheduleResult({ result, planName, createdAt, taskNameById }: Props) {
   const effectiveWindow = result.capacityWindowMinutes - result.bufferMinutes;
 
@@ -108,10 +171,13 @@ export function ProductionScheduleResult({ result, planName, createdAt, taskName
         ))}
       </div>
 
+      {/* Feature 105: 視覺甘特圖 */}
+      <GanttTimeline result={result} />
+
       {/* Timeline table */}
       {result.scheduledTasks.length > 0 && (
         <div className="overflow-x-auto">
-          <h4 className="mb-2 text-sm font-semibold">排程時間軸</h4>
+          <h4 className="mb-2 text-sm font-semibold">排程時間軸（明細）</h4>
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-left text-xs text-muted-foreground">

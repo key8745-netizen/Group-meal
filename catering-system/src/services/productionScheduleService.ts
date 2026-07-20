@@ -198,6 +198,7 @@ export function calculateProductionSchedule(
   // ── Step 1: normalize + validate deps ──────────────────────────────────
   const effectiveMinutes = new Map<string, number>();
   const effectiveStaffCount = new Map<string, number>();
+  const effectiveAttention = new Map<string, number>(); // Feature 104: hands-on 分鐘
   const taskWarnings = new Map<string, string[]>();
   const validDeps = new Map<string, string[]>();
 
@@ -221,6 +222,14 @@ export function calculateProductionSchedule(
       staffCount = 1;
     }
     effectiveStaffCount.set(task.id, staffCount);
+
+    // Feature 104: hands-on 分鐘 clamp 到 [1, minutes]；未設 = 全程要顧（= minutes）。
+    const rawAttention = task.attentionMinutes;
+    const attention =
+      rawAttention != null && Number.isFinite(rawAttention)
+        ? Math.min(minutes, Math.max(1, rawAttention))
+        : minutes;
+    effectiveAttention.set(task.id, attention);
 
     const deps: string[] = [];
     for (const depId of task.dependsOnTaskIds) {
@@ -331,6 +340,7 @@ export function calculateProductionSchedule(
     } else {
       const earliestStart = deps.length > 0 ? Math.max(...deps.map((d) => resolvedEnd.get(d)!)) : 0;
       const duration = effectiveMinutes.get(pickedId)!;
+      const attention = effectiveAttention.get(pickedId)!; // Feature 104: 人力只佔用這段
       const requiredStaff = effectiveStaffCount.get(pickedId)!;
 
       // Resolve staff pool (with fallback for unknown/undefined role).
@@ -363,8 +373,9 @@ export function calculateProductionSchedule(
             ]
           : [];
 
+        // Feature 104: 人力只需在「要顧」窗 [t, t+attention) 有空；設備/配方佔用整個時長。
         const staffOk = (t: number) =>
-          staffPool.filter((s) => isFree(s.intervals, t, t + duration)).length >= requiredStaff;
+          staffPool.filter((s) => isFree(s.intervals, t, t + attention)).length >= requiredStaff;
         const equipOk = (t: number) =>
           !needsEquipment || equipmentSlots!.some((s) => isFree(s.intervals, t, t + duration));
         const recipeOk = (t: number) => !recipeId || isFree(blockedIntervals, t, t + duration);
@@ -393,15 +404,18 @@ export function calculateProductionSchedule(
           recipeConstraintAffectedTaskNames.push(task.taskName);
         }
 
+        // Feature 104: 人力只選在「要顧」窗有空的 slot，佔用 [tFinal, staffEnd)；
+        // 設備/配方佔用整個時長 [tFinal, end)。
+        const staffEnd = tFinal + attention;
         const chosenStaffSlots = staffPool
-          .filter((s) => isFree(s.intervals, tFinal, tFinal + duration))
+          .filter((s) => isFree(s.intervals, tFinal, staffEnd))
           .slice(0, requiredStaff);
         const chosenEquipmentSlot = needsEquipment
           ? equipmentSlots!.find((s) => isFree(s.intervals, tFinal, tFinal + duration)) ?? null
           : null;
 
         const end = tFinal + duration;
-        for (const slot of chosenStaffSlots) slot.intervals.push({ start: tFinal, end });
+        for (const slot of chosenStaffSlots) slot.intervals.push({ start: tFinal, end: staffEnd });
         if (chosenEquipmentSlot) chosenEquipmentSlot.intervals.push({ start: tFinal, end });
         if (recipeId) {
           const list = recipeAllIntervals.get(recipeId) ?? [];
@@ -422,6 +436,7 @@ export function calculateProductionSchedule(
           equipmentType: task.equipmentType,
           startOffsetMinutes: tFinal,
           endOffsetMinutes: end,
+          attentionMinutes: attention,
           assignedStaffSlots: chosenStaffSlots.map((s) => s.slotId),
           assignedEquipmentSlot: chosenEquipmentSlot ? chosenEquipmentSlot.slotId : null,
           dependsOnTaskIds: deps,
@@ -467,10 +482,11 @@ export function calculateProductionSchedule(
   // Utilization
   const busyMinutesByRole = new Map<string, number>();
   for (const t of scheduledTasks) {
-    const duration = t.endOffsetMinutes - t.startOffsetMinutes;
+    // Feature 104: 人力只在「要顧」時段忙碌；免顧（燉煮中）不算佔用。
+    const staffBusy = t.attentionMinutes;
     for (const slotId of t.assignedStaffSlots) {
       const role = slotId.slice(0, slotId.lastIndexOf('#'));
-      busyMinutesByRole.set(role, (busyMinutesByRole.get(role) ?? 0) + duration);
+      busyMinutesByRole.set(role, (busyMinutesByRole.get(role) ?? 0) + staffBusy);
     }
   }
   const staffCountByRole = new Map<string, number>();

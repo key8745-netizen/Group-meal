@@ -195,6 +195,18 @@ pure, read-only readout shown in `PrepPlanForm` (edit mode) — it groups a prep
 `ingredientsById` map; without it the summary degrades to recipe-specified cuts only. **No schema/rules
 change** — pure display over existing fields.
 
+Attended vs unattended time (Feature 104): `ProductionWorkflowTask.attentionMinutes?` (hands-on 分鐘;
+省略 = 全程要顧 = `estimatedMinutes`). `productionScheduleService` occupies **staff** only for
+`[start, start+attention)` but **equipment + completion** for the full `estimatedMinutes` — so a 40-min
+braise with `attentionMinutes: 5` frees the cook after 5 min and the scheduler places other dishes' active
+work in the passive window (this is the 「利用燉煮空檔做別的」 mechanic). Clamped to `[1, estimatedMinutes]`;
+staff utilization counts attention only. `workflowTaskDraftService` sets marinate steps to mostly-unattended
+(`attentionMinutes` on the template step, emitted only when `< minutes`); editable per task via the 要顧時間
+input in `ProductionWorkflowTaskList` and surfaced in the task table (「顧N」). `ScheduledTaskAssignment`
+gained a required `attentionMinutes` output (the scheduler always sets it). **No rules change** —
+`productionWorkflowPlans.tasks[]` / `productionScheduleSuggestions.scheduledTasks[]` item fields are not
+whitelisted. Visual Gantt of the result is a separate follow-up (Feature 105, not yet built).
+
 ## Unit Conversion
 
 Two converters exist for historical reasons:

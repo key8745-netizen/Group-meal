@@ -123,15 +123,30 @@ export const purchaseOrderService = {
     orderId: string,
     receivedOverridesKg?: Map<string, number>,
   ): Promise<void> {
-    const order = await getPurchaseOrder(orderId);
-
-    if (order.status !== 'PENDING') {
-      throw new Error(
-        `purchaseOrderService: order "${orderId}" is already ${order.status}`,
-      );
-    }
-
     const performedBy = currentUser();
+    const orderRef = doc(db, 'purchaseOrders', orderId);
+
+    // Atomically claim the order: PENDING → RECEIVED inside one transaction, so
+    // a concurrent / double-clicked completeOrder cannot both pass the guard and
+    // restock twice. The loser reads a non-PENDING status and aborts here,
+    // before any stock is added. Tradeoff vs the previous "status stays PENDING
+    // on failure" model: if a later per-ingredient restock fails, the order is
+    // already RECEIVED and the shortfall must be reconciled manually via 庫存盤點
+    // — strictly safer than silently double-restocking already-received items on
+    // a retry.
+    const order = await runTransaction(db as Firestore, async (t) => {
+      const snap = await t.get(orderRef);
+      if (!snap.exists()) {
+        throw new Error(`purchaseOrderService: order "${orderId}" not found`);
+      }
+      const data = { id: snap.id, ...snap.data() } as PurchaseOrder;
+      if (data.status !== 'PENDING') {
+        throw new Error(`purchaseOrderService: order "${orderId}" is already ${data.status}`);
+      }
+      t.update(orderRef, { status: 'RECEIVED', receivedAt: serverTimestamp() });
+      return data;
+    });
+
     const resolved = resolveReceivedQuantities(order.items, receivedOverridesKg);
 
     // Restock each ingredient sequentially so failures are easy to diagnose.
@@ -148,10 +163,7 @@ export const purchaseOrderService = {
       );
     }
 
-    await updateDoc(doc(db, 'purchaseOrders', orderId), {
-      status:     'RECEIVED',
-      receivedAt: serverTimestamp(),
-    });
+    // Status was already flipped to RECEIVED in the atomic claim above.
 
     // Feature 071 (Phase 2b, 並存): 收貨額外建立批次供保鮮追蹤。best-effort——
     // 批次建立失敗絕不可影響既有收貨/入庫（currentStock 仍由 restock 維護）。

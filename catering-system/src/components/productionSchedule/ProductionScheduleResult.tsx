@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type {
   ProcessType,
   ScheduledTaskAssignment,
@@ -5,6 +6,18 @@ import type {
   AvailableStaffInput,
   AvailableEquipmentInput,
 } from '@/services/types';
+
+/** Feature 106: 以「開工時鐘時間」為錨，把偏移分鐘換成當日 ISO。 */
+function withClock(baseISO: string, hhmm: string): string {
+  const d = new Date(baseISO);
+  const [h, m] = hhmm.split(':').map(Number);
+  if (Number.isFinite(h) && Number.isFinite(m)) d.setHours(h, m, 0, 0);
+  return d.toISOString();
+}
+function toClock(iso: string): string {
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
 
 const PROCESS_TYPE_LABELS: Record<ProcessType, string> = {
   wash: '清洗', peel: '去皮', cut: '切割', marinate: '醃製', blanch: '汆燙',
@@ -66,8 +79,8 @@ interface Props {
 
 /** Feature 105: 排程甘特圖——每個任務一條橫條，實心=要顧、淺色斜紋=免顧（燉煮中）；
  *  時間上並排的橫條代表同時進行。一眼看出「炒青菜卡在滷肉的免顧空檔裡」。 */
-function GanttTimeline({ result }: { result: ScheduleResultData }) {
-  const { scheduledTasks, makespanMinutes, workStartSuggestion } = result;
+function GanttTimeline({ result, anchorISO }: { result: ScheduleResultData; anchorISO: string }) {
+  const { scheduledTasks, makespanMinutes } = result;
   if (scheduledTasks.length === 0 || makespanMinutes <= 0) return null;
   const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(f * makespanMinutes));
   const stripes =
@@ -89,7 +102,7 @@ function GanttTimeline({ result }: { result: ScheduleResultData }) {
                 className={`absolute whitespace-nowrap ${i === 0 ? '' : i === ticks.length - 1 ? '-translate-x-full' : '-translate-x-1/2'}`}
                 style={{ left: `${(m / makespanMinutes) * 100}%` }}
               >
-                {formatClock(workStartSuggestion, m)}
+                {formatClock(anchorISO, m)}
               </div>
             ))}
           </div>
@@ -143,7 +156,20 @@ export function ProductionScheduleResult({ result, planName, createdAt, taskName
     for (let i = 1; i <= row.count; i++) allSlotIds.push(`${row.role}#${i}`);
   }
 
-  const workStartLabel = new Date(result.workStartSuggestion).toLocaleString('zh-TW');
+  const suggestedStartLabel = new Date(result.workStartSuggestion).toLocaleString('zh-TW');
+
+  // Feature 106: 以使用者設定的「開工時間」為錨，把時間軸攤在真實時鐘上並判定來不來得及。
+  // 幾何關係：workStartSuggestion = 出餐時間 − (makespan + buffer)（＝最晚開工）。
+  //   出餐緩衝底線 deadline = workStartSuggestion + makespan；出餐時間 = deadline + buffer。
+  //   餘裕 slack = workStartSuggestion − 開工錨（>0 提早、有空檔；<0 開太晚、來不及）。
+  const [startClock, setStartClock] = useState(() => toClock(result.workStartSuggestion));
+  const anchorISO = withClock(result.workStartSuggestion, startClock);
+  const finishISO = new Date(new Date(anchorISO).getTime() + result.makespanMinutes * 60000).toISOString();
+  const deadlineISO = new Date(new Date(result.workStartSuggestion).getTime() + result.makespanMinutes * 60000).toISOString();
+  const serviceISO = new Date(new Date(deadlineISO).getTime() + result.bufferMinutes * 60000).toISOString();
+  const slackMin = Math.round((new Date(result.workStartSuggestion).getTime() - new Date(anchorISO).getTime()) / 60000);
+  const onTime = slackMin >= 0;
+  const hasTasks = result.scheduledTasks.length > 0 && result.makespanMinutes > 0;
 
   return (
     <div className="flex flex-col gap-5 rounded-lg border bg-card p-5 shadow-sm">
@@ -159,7 +185,7 @@ export function ProductionScheduleResult({ result, planName, createdAt, taskName
       {/* Key stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: '建議開工時間', value: workStartLabel },
+          { label: '建議最晚開工', value: suggestedStartLabel },
           { label: '總工時 (makespan)', value: `${result.makespanMinutes} 分` },
           { label: '產能時窗', value: `${result.capacityWindowMinutes} 分` },
           { label: '有效時窗', value: `${effectiveWindow} 分` },
@@ -171,8 +197,35 @@ export function ProductionScheduleResult({ result, planName, createdAt, taskName
         ))}
       </div>
 
-      {/* Feature 105: 視覺甘特圖 */}
-      <GanttTimeline result={result} />
+      {/* Feature 106: 開工時間規劃——設定實際上班時間，看這段時間怎麼排、來不來得及 */}
+      {hasTasks && (
+        <div className={`rounded-md border p-4 ${onTime ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30' : 'border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/30'}`}>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <label className="flex items-center gap-2 text-sm font-medium">
+              我幾點開工
+              <input
+                type="time"
+                value={startClock}
+                onChange={(e) => setStartClock(e.target.value || startClock)}
+                className="rounded-md border bg-background px-2 py-1 text-sm tabular-nums"
+              />
+            </label>
+            <span className="text-sm text-muted-foreground">
+              → 預計 <b className="text-foreground tabular-nums">{formatClock(finishISO, 0)}</b> 完工
+              　·　出餐 <span className="tabular-nums">{formatClock(serviceISO, 0)}</span>
+              （前 {result.bufferMinutes} 分緩衝 → 需 <span className="tabular-nums">{formatClock(deadlineISO, 0)}</span> 前完成）
+            </span>
+          </div>
+          <p className={`mt-2 text-sm font-semibold ${onTime ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'}`}>
+            {onTime
+              ? `✅ 來得及——完工後距出餐緩衝底線還有 ${slackMin} 分空檔（最晚拖到 ${formatClock(result.workStartSuggestion, 0)} 開工也趕得上）`
+              : `⚠️ 來不及——這樣會做到 ${formatClock(finishISO, 0)}，超出底線 ${-slackMin} 分。請提早到 ${formatClock(result.workStartSuggestion, 0)} 前開工，或加人／減菜。`}
+          </p>
+        </div>
+      )}
+
+      {/* Feature 105: 視覺甘特圖（Feature 106: 錨定使用者開工時間） */}
+      <GanttTimeline result={result} anchorISO={anchorISO} />
 
       {/* Timeline table */}
       {result.scheduledTasks.length > 0 && (
@@ -197,13 +250,13 @@ export function ProductionScheduleResult({ result, planName, createdAt, taskName
                   <td className="py-1 pr-4 whitespace-nowrap">
                     +{t.startOffsetMinutes} 分
                     <div className="text-xs text-muted-foreground">
-                      {formatClock(result.workStartSuggestion, t.startOffsetMinutes)}
+                      {formatClock(anchorISO, t.startOffsetMinutes)}
                     </div>
                   </td>
                   <td className="py-1 pr-4 whitespace-nowrap">
                     +{t.endOffsetMinutes} 分
                     <div className="text-xs text-muted-foreground">
-                      {formatClock(result.workStartSuggestion, t.endOffsetMinutes)}
+                      {formatClock(anchorISO, t.endOffsetMinutes)}
                     </div>
                   </td>
                   <td className="py-1 pr-4">{t.taskName}</td>

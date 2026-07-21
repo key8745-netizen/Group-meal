@@ -6,6 +6,7 @@ import type {
   AvailableStaffInput,
   AvailableEquipmentInput,
 } from '@/services/types';
+import { ExecutionBoard } from './ExecutionBoard';
 
 /** Feature 106: 以「開工時鐘時間」為錨，把偏移分鐘換成當日 ISO。 */
 function withClock(baseISO: string, hhmm: string): string {
@@ -163,6 +164,10 @@ export function ProductionScheduleResult({ result, planName, createdAt, taskName
   //   出餐緩衝底線 deadline = workStartSuggestion + makespan；出餐時間 = deadline + buffer。
   //   餘裕 slack = workStartSuggestion − 開工錨（>0 提早、有空檔；<0 開太晚、來不及）。
   const [startClock, setStartClock] = useState(() => toClock(result.workStartSuggestion));
+  // Feature 107: 執行看板模式
+  const [execMode, setExecMode] = useState(false);
+  // storageKey 以排程起始時間＋總工時為鍵，換排程自動切換狀態
+  const storageKey = `exec-${result.workStartSuggestion}-${result.makespanMinutes}`;
   const anchorISO = withClock(result.workStartSuggestion, startClock);
   const finishISO = new Date(new Date(anchorISO).getTime() + result.makespanMinutes * 60000).toISOString();
   const deadlineISO = new Date(new Date(result.workStartSuggestion).getTime() + result.makespanMinutes * 60000).toISOString();
@@ -224,6 +229,32 @@ export function ProductionScheduleResult({ result, planName, createdAt, taskName
         </div>
       )}
 
+      {/* Feature 105/107: 檢視模式切換（甘特圖 ↔ 執行看板） */}
+      {hasTasks && (
+        <div className="flex gap-1 rounded-lg border bg-muted/30 p-1 w-fit">
+          <button
+            onClick={() => setExecMode(false)}
+            className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${!execMode ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            甘特圖
+          </button>
+          <button
+            onClick={() => setExecMode(true)}
+            className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${execMode ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            執行看板
+          </button>
+        </div>
+      )}
+
+      {execMode ? (
+        <ExecutionBoard
+          scheduledTasks={result.scheduledTasks}
+          anchorISO={anchorISO}
+          storageKey={storageKey}
+        />
+      ) : (
+        <>
       {/* Feature 105: 視覺甘特圖（Feature 106: 錨定使用者開工時間） */}
       <GanttTimeline result={result} anchorISO={anchorISO} />
 
@@ -326,6 +357,8 @@ export function ProductionScheduleResult({ result, planName, createdAt, taskName
             </tbody>
           </table>
         </div>
+      )}
+        </>
       )}
 
       {/* Unschedulable tasks */}

@@ -1,10 +1,13 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
+  deleteField,
   doc,
   getDoc,
   runTransaction,
   serverTimestamp,
+  setDoc,
   Timestamp,
   updateDoc,
   type Firestore,
@@ -52,12 +55,44 @@ export interface PurchaseOrder {
   createdAt:   Timestamp;
   receivedAt?: Timestamp;
   notes?:      string;
+  /**
+   * Feature 107: doc id of this order's `publicOrderShares` snapshot, i.e. the
+   * token in the supplier-facing `/share/<token>` URL. Absent = never shared.
+   * Kept on the order so re-sharing reuses one token and revoking can find it.
+   */
+  shareToken?: string;
+}
+
+/**
+ * Feature 107: the supplier-visible snapshot stored at
+ * `publicOrderShares/{shareToken}` — deliberately the *minimum* the share page
+ * renders, so a leaked link cannot expose anything else on the order.
+ */
+export interface PublicOrderShare {
+  orderId:         string;
+  status:          PurchaseOrderStatus;
+  items:           PurchaseOrderItem[];
+  orderCreatedAt?: Timestamp;
+  sharedAt:        Timestamp;
+  sharedBy:        string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function currentUser(): string {
   return auth.currentUser?.email ?? auth.currentUser?.uid ?? 'system';
+}
+
+/**
+ * 128-bit URL-safe random token, used as the `publicOrderShares` doc id.
+ * Unguessable by design — in this scheme knowing the token *is* the read grant
+ * (see the firestore.rules comment on publicOrderShares for why the token has
+ * to live in the path rather than in a document field).
+ */
+function generateShareToken(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 async function getPurchaseOrder(id: string): Promise<PurchaseOrder> {
@@ -98,6 +133,58 @@ export const purchaseOrderService = {
     });
 
     return ref.id;
+  },
+
+  /**
+   * Feature 107: creates (or refreshes) the public share snapshot for an order
+   * and returns its token — the `<token>` in the `/share/<token>` URL handed to
+   * suppliers.
+   *
+   * Why a snapshot collection instead of opening up `purchaseOrders`:
+   * Firestore rules cannot inspect query parameters on a `get`, so a
+   * `shareToken` *field* on the order could never gate an unauthenticated read.
+   * Putting the token in the document path is the only formulation that works,
+   * and copying just the render-visible fields means a leaked link exposes
+   * strictly less than the order itself.
+   *
+   * Re-sharing an already-shared order reuses the existing token (so previously
+   * sent links keep working) and rewrites the snapshot, which is also how a
+   * stale snapshot gets refreshed after the order is edited.
+   */
+  async createShareLink(orderId: string): Promise<string> {
+    const order = await getPurchaseOrder(orderId);
+    const token = order.shareToken ?? generateShareToken();
+
+    const snapshot: Record<string, unknown> = {
+      orderId,
+      status:   order.status,
+      items:    order.items,
+      sharedAt: serverTimestamp(),
+      sharedBy: currentUser(),
+    };
+    // Firestore rejects undefined; only include when the order actually has it.
+    if (order.createdAt) snapshot.orderCreatedAt = order.createdAt;
+
+    await setDoc(doc(db, 'publicOrderShares', token), snapshot);
+
+    if (order.shareToken !== token) {
+      await updateDoc(doc(db, 'purchaseOrders', orderId), { shareToken: token });
+    }
+
+    return token;
+  },
+
+  /**
+   * Feature 107: revokes an order's share link by deleting the public snapshot.
+   * Existing `/share/<token>` URLs stop resolving immediately. No-op when the
+   * order was never shared.
+   */
+  async revokeShareLink(orderId: string): Promise<void> {
+    const order = await getPurchaseOrder(orderId);
+    if (!order.shareToken) return;
+
+    await deleteDoc(doc(db, 'publicOrderShares', order.shareToken));
+    await updateDoc(doc(db, 'purchaseOrders', orderId), { shareToken: deleteField() });
   },
 
   /**

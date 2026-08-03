@@ -52,7 +52,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         {/* Public: purchase-order share links sent to suppliers */}
-        <Route path="share/:orderId" element={<ShareOrderPage />} />
+        <Route path="share/:shareToken" element={<ShareOrderPage />} />
 
         {/* Auth-protected */}
         <Route element={<AuthGuard><AppLayout /></AuthGuard>}>

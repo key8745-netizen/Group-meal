@@ -7,9 +7,12 @@ name: CI
 on:
   pull_request:
   push:
+    # 只保留 production 這個長命分支。開發分支名稱會換（過去寫死的
+    # claude/admiring-feynman-8LwF5 已落後 production 上百個 commit，
+    # 推到實際在用的分支反而不會觸發 CI），而 `on: pull_request` 本來就
+    # 不限分支、涵蓋所有功能分支，所以這裡不再列舉開發分支。
     branches:
       - claude/fervent-dirac-HJT01
-      - claude/admiring-feynman-8LwF5
 
 # 同分支的新推送取消仍在跑的舊流程，省資源。
 concurrency:

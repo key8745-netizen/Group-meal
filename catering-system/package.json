@@ -10,7 +10,6 @@
     "test:ci": "node scripts/ci-test.mjs"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
     "firebase": "^10.12.0",
     "lucide-react": "^0.408.0",
     "react": "^18.3.1",

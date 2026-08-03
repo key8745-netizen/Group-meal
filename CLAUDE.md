@@ -88,6 +88,33 @@ Tests are standalone `tsx` scripts (custom `check()` asserts, throw + non-zero e
 Firebase emulator and are excluded from CI. Run one suite directly with
 `npx tsx src/services/__tests__/<name>.test.ts`.
 
+## xlsx 相依（已知漏洞，尚未修）
+
+`xlsx@0.18.5` 帶著兩個 high CVE，`npm audit` 回報 **`fixAvailable: false`**：
+
+| 漏洞 | 修復版本 |
+|---|---|
+| [GHSA-4r6h-8v6p-xvw6](https://github.com/advisories/GHSA-4r6h-8v6p-xvw6) Prototype Pollution | ≥ 0.19.3 |
+| [GHSA-5pgg-2g8v-p4x9](https://github.com/advisories/GHSA-5pgg-2g8v-p4x9) ReDoS | ≥ 0.20.2 |
+
+**為什麼 `npm audit fix` 沒用**：SheetJS 在 0.18.5 之後就不再發佈到 npm registry，改發自家 CDN，
+所以 registry 上的「最新版」永遠是有漏洞的 0.18.5。官方升級指令（**需要在本機跑，
+Claude Code 的 egress 政策擋掉 `cdn.sheetjs.com`**）：
+
+```bash
+cd catering-system
+npm install https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
+npm run typecheck && npm run build     # 用法只有 XLSX.read + sheet_to_json，破壞性變更風險低
+```
+
+升級後記得實際跑一次 `/menu-import` 的 .xlsx 上傳驗證。npm 上有第三方鏡像 `@e965/xlsx@0.20.3`
+（非官方重新發佈），可免 CDN 但要自行評估供應鏈信任。
+
+**現況的實際暴露面**：解析全在瀏覽器端，沒有伺服器參與；能觸發的只有 email 白名單內的操作者、
+用自己挑的檔案。威脅情境是「操作者開啟別人寄來的惡意菜單檔」，影響範圍限於自己那個分頁。
+`CsvUploadStep` 已加上 10 MB 上限與 try/catch（原本 `XLSX.read` 拋錯會逸出 FileReader callback，
+UI 完全沒反應），但**那不是 CVE 的修復**，只是縮小打擊面。
+
 ## Environment Variables
 
 `.env` in `catering-system/` (all prefixed `VITE_` for Vite):
@@ -100,10 +127,9 @@ VITE_FIREBASE_MESSAGING_SENDER_ID
 VITE_FIREBASE_APP_ID
 ```
 
-Netlify function env var (set in Netlify dashboard only, never in code):
-```
-GEMINI_API_KEY    # Google AI Studio key for ocr-menu function
-```
+Netlify functions currently need **no** env vars — `market-price.ts` calls an open-data API
+with no key. (`GEMINI_API_KEY` was only for the deleted `ocr-menu` function; if it is still set
+in the Netlify dashboard it can be removed.)
 
 ## Firebase Architecture
 
@@ -299,27 +325,19 @@ plus a collapsed 進階功能 group holding the chain detail pages
 
 Located at `catering-system/netlify/functions/` (see Repository Layout note above on why this isn't a repo-root `netlify/` folder).
 
-`ocr-menu.ts` — proxies photo uploads to Gemini Vision (`gemini-2.0-flash`).
-- Input: `POST { imageBase64: string }` (raw base64, no `data:` prefix; browser pre-compresses to ≤ 1200px JPEG)
-- Output: `{ rows: [{ date, headCount, dishes[] }] }`
-- **Unauthenticated and billable.** Netlify Functions are public by default, so every
-  accepted request spends `GEMINI_API_KEY` quota. Guards: `MAX_BASE64_CHARS = 4_000_000`
-  (~3 MB decoded → 413), base64 format check (→ 400), and upstream errors are logged
-  server-side but returned as a bare `502` so Gemini/quota internals don't leak. There is
-  **no rate limit** — a stateless function has nowhere to keep per-caller state; if abuse
-  shows up in Gemini billing, Netlify Edge or an external store is the next lever.
-- ⚠️ **Currently has no caller** — nothing in `src/` fetches `/.netlify/functions/ocr-menu`
-  (only `market-price` is wired up). It is deployed and reachable regardless, which is why
-  it is hardened rather than left alone; decide whether to wire it into the menu-import flow
-  or delete it.
-
 `market-price.ts` — proxies Taiwan MOA AMIS wholesale produce price open data.
 - Input: `POST { date: "YYYY-MM-DD", cropNames: string[] }`
 - Output: `{ date, rocDate, prices: [...], warnings: [...] }`
+- Hardened: `MAX_CROPS = 30`, `CHUNK_SIZE = 5`, `TIMEOUT_MS = 10_000`. No API key needed.
+- Dependency: `@netlify/functions` (types only, devDependency); build via esbuild (`netlify.toml`)
 
-Both:
-- Dependencies in `catering-system/package.json` — `@google/generative-ai` (runtime, ocr-menu) + `@netlify/functions` (types only, devDependency)
-- Build: esbuild (configured in `netlify.toml`)
+**Deleted: `ocr-menu.ts`** (Gemini Vision menu-photo OCR). It had no caller anywhere in `src/` —
+the photo-import flow was never wired up — yet Netlify Functions are public by default, so it sat
+there as an unauthenticated, billable endpoint anyone could spend `GEMINI_API_KEY` quota against.
+Removed along with the `@google/generative-ai` dependency. **Any new function is public the moment
+it deploys** — assume anonymous callers and cap the work before calling a paid upstream. To bring
+OCR back, restore the function from git history *and* wire it into `MenuImportPage` in the same
+change, so a live endpoint always has a consumer.
 
 ## Git Branches
 

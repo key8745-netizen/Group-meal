@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -16,15 +16,27 @@ import ProductionWorkflowPage from '@/pages/ProductionWorkflowPage';
 import ProductionSchedulePage from '@/pages/ProductionSchedulePage';
 import MenuSuggestionsPage from '@/pages/MenuSuggestionsPage';
 import MenuDraftsPage from '@/pages/MenuDraftsPage';
-import MenuImportPage from '@/pages/MenuImportPage';
-import MarketPricePage from '@/pages/MarketPricePage';
 import DailyOpsPage from '@/pages/DailyOpsPage';
 import WeekPlanPage from '@/pages/WeekPlanPage';
 import KitchenSettingsPage from '@/pages/KitchenSettingsPage';
-import Analytics from '@/pages/Analytics';
 import ShareOrderPage from '@/pages/share/ShareOrderPage';
 import Login from '@/pages/Login';
 import { WeightUnitProvider } from '@/contexts/WeightUnitContext';
+
+// 這三頁把兩個最大的相依（recharts ~491kB、xlsx ~332kB）拖進 bundle，但都不是
+// 每天會開的頁面——廚房日常走的是「今日開工」那條鏈。改成延遲載入後，這些位元組
+// 只在真的點進去時才下載，首次載入少掉約 800kB（gzip 約 258kB）。
+const MenuImportPage  = lazy(() => import('@/pages/MenuImportPage'));   // xlsx
+const MarketPricePage = lazy(() => import('@/pages/MarketPricePage'));  // recharts
+const Analytics       = lazy(() => import('@/pages/Analytics'));        // recharts
+
+function RouteFallback() {
+  return (
+    <div className="flex min-h-[50vh] items-center justify-center text-sm text-muted-foreground">
+      載入中…
+    </div>
+  );
+}
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null | undefined>(undefined);
@@ -71,12 +83,12 @@ export default function App() {
           <Route path="menu-mix-recommendations" element={<Navigate to="/menu-suggestions" replace />} />
           <Route path="cost-menu-suggestions" element={<Navigate to="/menu-suggestions?tab=cost" replace />} />
           <Route path="menu-drafts" element={<MenuDraftsPage />} />
-          <Route path="menu-import" element={<MenuImportPage />} />
-          <Route path="market-prices" element={<MarketPricePage />} />
+          <Route path="menu-import" element={<Suspense fallback={<RouteFallback />}><MenuImportPage /></Suspense>} />
+          <Route path="market-prices" element={<Suspense fallback={<RouteFallback />}><MarketPricePage /></Suspense>} />
           <Route path="daily-ops" element={<DailyOpsPage />} />
           <Route path="week-plan" element={<WeekPlanPage />} />
           <Route path="kitchen-settings" element={<KitchenSettingsPage />} />
-          <Route path="analytics" element={<Analytics />} />
+          <Route path="analytics" element={<Suspense fallback={<RouteFallback />}><Analytics /></Suspense>} />
         </Route>
       </Routes>
     </BrowserRouter>

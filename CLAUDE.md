@@ -88,6 +88,33 @@ Tests are standalone `tsx` scripts (custom `check()` asserts, throw + non-zero e
 Firebase emulator and are excluded from CI. Run one suite directly with
 `npx tsx src/services/__tests__/<name>.test.ts`.
 
+## xlsx 相依（已知漏洞，尚未修）
+
+`xlsx@0.18.5` 帶著兩個 high CVE，`npm audit` 回報 **`fixAvailable: false`**：
+
+| 漏洞 | 修復版本 |
+|---|---|
+| [GHSA-4r6h-8v6p-xvw6](https://github.com/advisories/GHSA-4r6h-8v6p-xvw6) Prototype Pollution | ≥ 0.19.3 |
+| [GHSA-5pgg-2g8v-p4x9](https://github.com/advisories/GHSA-5pgg-2g8v-p4x9) ReDoS | ≥ 0.20.2 |
+
+**為什麼 `npm audit fix` 沒用**：SheetJS 在 0.18.5 之後就不再發佈到 npm registry，改發自家 CDN，
+所以 registry 上的「最新版」永遠是有漏洞的 0.18.5。官方升級指令（**需要在本機跑，
+Claude Code 的 egress 政策擋掉 `cdn.sheetjs.com`**）：
+
+```bash
+cd catering-system
+npm install https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
+npm run typecheck && npm run build     # 用法只有 XLSX.read + sheet_to_json，破壞性變更風險低
+```
+
+升級後記得實際跑一次 `/menu-import` 的 .xlsx 上傳驗證。npm 上有第三方鏡像 `@e965/xlsx@0.20.3`
+（非官方重新發佈），可免 CDN 但要自行評估供應鏈信任。
+
+**現況的實際暴露面**：解析全在瀏覽器端，沒有伺服器參與；能觸發的只有 email 白名單內的操作者、
+用自己挑的檔案。威脅情境是「操作者開啟別人寄來的惡意菜單檔」，影響範圍限於自己那個分頁。
+`CsvUploadStep` 已加上 10 MB 上限與 try/catch（原本 `XLSX.read` 拋錯會逸出 FileReader callback，
+UI 完全沒反應），但**那不是 CVE 的修復**，只是縮小打擊面。
+
 ## Environment Variables
 
 `.env` in `catering-system/` (all prefixed `VITE_` for Vite):

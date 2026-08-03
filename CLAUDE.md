@@ -121,7 +121,8 @@ GEMINI_API_KEY    # Google AI Studio key for ocr-menu function
 | `inventory/{id}/transactions` | auto | Audit trail (restock / deduct / adjustment) |
 | `orders` | auto | Customer orders |
 | `purchaseOrders` | auto | Purchase orders (DRAFT → PENDING → RECEIVED / CANCELLED) |
-| `mealPlans` | `YYYY-MM-DD` | Daily menu schedule (menuIds + headCount) |
+| `mealPlans` | `YYYY-MM-DD` | Daily menu schedule (menuIds + headCount) — ⚠️ **not actually reached**, see note below |
+| `publicOrderShares` | share token | Feature 107: supplier-visible snapshot behind `/share/:shareToken` |
 | `settings` | tenantId | System thresholds (configService) |
 
 ### Service Patterns
@@ -129,10 +130,32 @@ GEMINI_API_KEY    # Google AI Studio key for ocr-menu function
 Two patterns exist — do not mix them:
 
 1. **Module-level `db`** — services that import `db` from `@/lib/firebase` directly:
-   `purchaseOrderService`, `mealPlanService`, `dishService`, `configService`, `InventoryAudit`, `ManualPurchaseForm`
+   `purchaseOrderService`, `dishService`, `configService`, `InventoryAudit`, `ManualPurchaseForm`
+   (`mealPlanService` also follows this pattern but is unreferenced — see 死碼 below)
 
 2. **`db: Firestore` parameter** — services designed for both browser and scripts:
    `inventoryService`, `purchaseService`, `performanceService`, `recipeMatchingService`
+
+### 死碼：未接線的 service（2026-08 體檢）
+
+**47 個 service 檔（13,030 / 33,341 行，約 39%）在 production 完全沒有被 import，只有測試在跑**，
+而 121 個測試套件裡有 64 個（53%）是在測這些東西。找法：
+
+```bash
+# 列出零 production 引用的 service
+cd catering-system/src/services && for f in *.ts; do n="${f%.ts}"; \
+  c=$(grep -rl "services/$n\b\|from '\./$n'\|from '\.\./$n'" ../../src ../../scripts ../../netlify 2>/dev/null \
+      | grep -v __tests__ | grep -v "/$f$" | wc -l); [ "$c" -eq 0 ] && echo "$n"; done
+```
+
+主要成分是 `docs/FEATURE_003~006_*` 那批「AI 模型設定套用」子系統
+（`modelConfig*` / `realModelConfigApply*` / `canary*` / `prediction*`），四個 phase 全部建完、
+測試齊備，但一行都沒接進 App。另外還有 `mealPlanService`（連帶使 `mealPlans` collection 實際上
+沒有任何讀寫路徑——`'mealPlans'` 字串只出現在 `mealPlanService.ts:9`）、`capacityFeasibilityService`、
+`concurrencyManager`、`securityAudit`、`receivingTransactionPlanService`。
+
+**在動這些檔案前先確認它到底有沒有被接線**，不要假設「有測試 = 有在用」。要嘛接進 App，要嘛刪掉；
+現況是 CI 有一半時間在驗證從未出貨的程式碼。
 
 ### Inventory Write Rules
 
@@ -205,7 +228,24 @@ staff utilization counts attention only. `workflowTaskDraftService` sets marinat
 input in `ProductionWorkflowTaskList` and surfaced in the task table (「顧N」). `ScheduledTaskAssignment`
 gained a required `attentionMinutes` output (the scheduler always sets it). **No rules change** —
 `productionWorkflowPlans.tasks[]` / `productionScheduleSuggestions.scheduledTasks[]` item fields are not
-whitelisted. Visual Gantt of the result is a separate follow-up (Feature 105, not yet built).
+whitelisted.
+
+Schedule Gantt + start-time anchoring (Features 105–106): the visual Gantt that 104 flagged as a
+follow-up **is built** — `ProductionScheduleResult.tsx` renders the schedule as bars so 並行 and
+燉煮空檔 are readable at a glance, and Feature 106 adds an 開工時間 control on top of it: the user
+enters the real clock start (defaulting to the suggested latest start), and 餘裕分鐘 + 來得及/趕不上
+plus every Gantt/task time re-anchors live. Both are **pure UI over the existing schedule output** —
+no schema and no rules change.
+
+Public order share links (Feature 107): `/share/:shareToken` reads `publicOrderShares/{shareToken}`,
+a minimal snapshot (`orderId` / `status` / `items` / `orderCreatedAt` / `sharedAt` / `sharedBy`)
+written by `purchaseOrderService.createShareLink()`; `revokeShareLink()` deletes it. **The token is the
+doc id, not a field** — Firestore rules cannot inspect query parameters on a `get`, so a `shareToken`
+field on `purchaseOrders` could never gate an unauthenticated read; putting it in the path is the only
+formulation that works. `purchaseOrders` therefore stays fully behind the email allowlist, and a leaked
+link exposes strictly less than the order doc. Rules: `allow get: if true` but **`list: if false`**
+(no enumeration), writes allowlisted + field-validated. `PurchaseOrder.shareToken?` remembers the token
+so re-sharing reuses it (and refreshes a snapshot gone stale after an edit). **Redeploy `firestore.rules`.**
 
 ## Unit Conversion
 
@@ -260,8 +300,18 @@ plus a collapsed 進階功能 group holding the chain detail pages
 Located at `catering-system/netlify/functions/` (see Repository Layout note above on why this isn't a repo-root `netlify/` folder).
 
 `ocr-menu.ts` — proxies photo uploads to Gemini Vision (`gemini-2.0-flash`).
-- Input: `POST { imageBase64: string }` (browser pre-compresses to ≤ 1200px JPEG)
+- Input: `POST { imageBase64: string }` (raw base64, no `data:` prefix; browser pre-compresses to ≤ 1200px JPEG)
 - Output: `{ rows: [{ date, headCount, dishes[] }] }`
+- **Unauthenticated and billable.** Netlify Functions are public by default, so every
+  accepted request spends `GEMINI_API_KEY` quota. Guards: `MAX_BASE64_CHARS = 4_000_000`
+  (~3 MB decoded → 413), base64 format check (→ 400), and upstream errors are logged
+  server-side but returned as a bare `502` so Gemini/quota internals don't leak. There is
+  **no rate limit** — a stateless function has nowhere to keep per-caller state; if abuse
+  shows up in Gemini billing, Netlify Edge or an external store is the next lever.
+- ⚠️ **Currently has no caller** — nothing in `src/` fetches `/.netlify/functions/ocr-menu`
+  (only `market-price` is wired up). It is deployed and reachable regardless, which is why
+  it is hardened rather than left alone; decide whether to wire it into the menu-import flow
+  or delete it.
 
 `market-price.ts` — proxies Taiwan MOA AMIS wholesale produce price open data.
 - Input: `POST { date: "YYYY-MM-DD", cropNames: string[] }`
@@ -273,7 +323,13 @@ Both:
 
 ## Git Branches
 
-- Development: `claude/admiring-feynman-8LwF5`
-- Production (Netlify): `claude/fervent-dirac-HJT01`
+- Production (Netlify): `claude/fervent-dirac-HJT01` — the only long-lived branch.
+- Development: a per-task `claude/<name>` branch, currently
+  `claude/kitchen-mgmt-system-dev-kbo4ac`. The name churns, so **don't hard-code it**
+  anywhere. (`claude/admiring-feynman-8LwF5` was listed here for a long time after it
+  went stale — it is now 112 commits behind production; `.github/workflows/ci.yml` had
+  the same stale name in its push trigger, so pushes to the real dev branch never ran
+  push-CI. Both are fixed: the workflow's push trigger now lists production only, and
+  `on: pull_request` — which has no branch filter — covers every feature branch.)
 
-Push to the dev branch; open a PR targeting production to trigger Netlify deployment.
+Push to a dev branch; open a PR targeting production to trigger Netlify deployment.

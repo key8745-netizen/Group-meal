@@ -2,14 +2,20 @@
  * Public share page — no authentication required.
  * Designed for vendors: mobile-friendly, print-optimized.
  *
- * Route: /share/:orderId
+ * Route: /share/:shareToken
+ *
+ * Feature 107: reads `publicOrderShares/{shareToken}` — a minimal snapshot of
+ * the order — NOT `purchaseOrders`, which stays behind the email allowlist.
+ * The URL token is the doc id, which is what makes the unauthenticated read
+ * expressible in firestore.rules at all (rules cannot see query params on a
+ * `get`). Revoking the link = deleting that snapshot doc.
  */
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { doc, getDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { PurchaseOrder } from '@/services/purchaseOrderService';
+import type { PublicOrderShare, PurchaseOrderStatus } from '@/services/purchaseOrderService';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -24,25 +30,34 @@ const fmtDate = (ts: Timestamp | undefined) =>
 const fmtKg     = (n: number) => `${n % 1 === 0 ? n.toFixed(0) : n.toFixed(2)} kg`;
 const fmtTaijin = (n: number) => `${n % 1 === 0 ? n.toFixed(0) : n.toFixed(2)} 台斤`;
 
+const STATUS_LABEL: Record<PurchaseOrderStatus, string> = {
+  DRAFT:     '草稿',
+  PENDING:   '待採購',
+  RECEIVED:  '已完成',
+  CANCELLED: '已取消',
+};
+
 // ─── ShareOrderPage ────────────────────────────────────────────────────────────
 
 export default function ShareOrderPage() {
-  const { orderId } = useParams<{ orderId: string }>();
-  const [order,   setOrder]   = useState<PurchaseOrder | null>(null);
+  const { shareToken } = useParams<{ shareToken: string }>();
+  const [order,   setOrder]   = useState<PublicOrderShare | null>(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState('');
 
   useEffect(() => {
-    if (!orderId) { setError('無效的採購單連結'); setLoading(false); return; }
+    if (!shareToken) { setError('無效的採購單連結'); setLoading(false); return; }
 
-    getDoc(doc(db, 'purchaseOrders', orderId))
+    getDoc(doc(db, 'publicOrderShares', shareToken))
       .then((snap) => {
-        if (!snap.exists()) { setError('找不到此採購單'); return; }
-        setOrder({ id: snap.id, ...snap.data() } as PurchaseOrder);
+        // Missing doc covers both "never shared" and "link revoked" — the page
+        // must not distinguish them, or it would confirm token guesses.
+        if (!snap.exists()) { setError('此分享連結已失效或不存在'); return; }
+        setOrder(snap.data() as PublicOrderShare);
       })
-      .catch(() => setError('無法載入採購單，請檢查網路連線'))
+      .catch(() => setError('無法載入採購單，請稍後再試'))
       .finally(() => setLoading(false));
-  }, [orderId]);
+  }, [shareToken]);
 
   const totalKg = order?.items.reduce((s, i) => s + i.purchaseQtyKg, 0) ?? 0;
 
@@ -88,7 +103,7 @@ export default function ShareOrderPage() {
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-xl font-bold text-gray-900">採購單</h1>
-              <p className="mt-0.5 font-mono text-xs text-gray-400">#{order.id}</p>
+              <p className="mt-0.5 font-mono text-xs text-gray-400">#{order.orderId}</p>
             </div>
             <button
               onClick={() => window.print()}
@@ -101,12 +116,12 @@ export default function ShareOrderPage() {
           <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
             <div>
               <dt className="text-gray-400">建立時間</dt>
-              <dd className="font-medium text-gray-800">{fmtDate(order.createdAt)}</dd>
+              <dd className="font-medium text-gray-800">{fmtDate(order.orderCreatedAt)}</dd>
             </div>
             <div>
               <dt className="text-gray-400">狀態</dt>
               <dd className="font-medium text-gray-800">
-                {order.status === 'PENDING' ? '待採購' : order.status === 'RECEIVED' ? '已完成' : '已取消'}
+                {STATUS_LABEL[order.status] ?? order.status}
               </dd>
             </div>
             <div>

@@ -157,8 +157,8 @@ expect('unicode/CJK → deterministic', uniA.canonicalized !== null && uniB.cano
 expect('unicode/CJK → valid', uniA.valid === true);
 
 // special characters deterministic
-const specA = validateCanonicalModelConfigHashInput({ v: '\n\t\r\\" ' });
-const specB = validateCanonicalModelConfigHashInput({ v: '\n\t\r\\" ' });
+const specA = validateCanonicalModelConfigHashInput({ v: '\n\t\r\\"\u0000' });
+const specB = validateCanonicalModelConfigHashInput({ v: '\n\t\r\\"\u0000' });
 expect('special chars → deterministic', specA.canonicalized !== null && specB.canonicalized !== null && (specA.canonicalized.inputHash as string) === (specB.canonicalized.inputHash as string));
 
 // unsupported values still BLOCKED per Spec v1.2

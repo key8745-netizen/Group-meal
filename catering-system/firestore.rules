@@ -898,6 +898,35 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── 採購單公開分享（Feature 107）─────────────────────────────────────────
+    // 供應商拿到的 /share/<token> 連結。設計重點：
+    //  1. token 就是 doc id（128-bit 亂數），所以「知道連結」即等於「有權讀」——
+    //     Firestore rules 無法檢查 get 的查詢參數（request.query 只在 list 有
+    //     limit/offset/orderBy），因此不可能用 purchaseOrders 上的 shareToken
+    //     欄位來擋 get；把 token 放進路徑是唯一在 rules 層成立的作法。
+    //  2. 這裡存的是「畫面需要的最小快照」（品項/數量/狀態/建立時間），不是整張
+    //     採購單，所以即使連結外流也不會洩漏 purchaseOrders 上的其他欄位。
+    //  3. allow get 但 **禁止 list**——不能列舉，只能憑完整 token 直接命中。
+    //  4. delete 開放給名單帳號 = 可撤銷連結（這是與「直接把 purchaseOrders 設成
+    //     公開讀」最大的差別）。
+    match /publicOrderShares/{shareToken} {
+      allow get:    if true;
+      allow list:   if false;
+      allow create, update: if isAuthenticated() && validOrderShare();
+      // 撤銷連結。delete 沒有 request.resource，所以不能走 validOrderShare()。
+      allow delete: if isAuthenticated();
+    }
+
+    function validOrderShare() {
+      let data = request.resource.data;
+      return data.keys().hasOnly(['orderId', 'status', 'items', 'orderCreatedAt', 'sharedAt', 'sharedBy'])
+        && data.orderId is string && data.orderId.size() > 0
+        && data.status in ['DRAFT', 'PENDING', 'RECEIVED', 'CANCELLED']
+        && data.items is list
+        && data.sharedAt is timestamp
+        && data.sharedBy is string;
+    }
+
     // 系統設定（configService，doc id = tenantId）
     match /settings/{tenantId} {
       allow read, write: if isAuthenticated();

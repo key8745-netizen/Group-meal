@@ -52,26 +52,49 @@ const TABS: PurchaseOrderStatus[] = ['DRAFT', 'PENDING', 'RECEIVED'];
 
 function ShareButton({ orderId }: { orderId: string }) {
   const [copied, setCopied] = useState(false);
+  const [busy,   setBusy]   = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
 
-  function handleShare() {
-    const url = `${window.location.origin}/share/${orderId}`;
-    navigator.clipboard.writeText(url).then(() => {
-      setCopied(true);
-      clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => setCopied(false), 2000);
-    }).catch(() => {
-      // Fallback: show the URL in a toast so user can copy manually
-      toast({ title: '分享連結', description: url });
-    });
+  // Feature 107: the URL is no longer derivable from the order id — the link
+  // only works once a publicOrderShares snapshot exists, so mint it first.
+  async function handleShare() {
+    setBusy(true);
+    try {
+      const token = await purchaseOrderService.createShareLink(orderId);
+      const url   = `${window.location.origin}/share/${token}`;
+
+      try {
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => setCopied(false), 2000);
+      } catch {
+        // Clipboard blocked (non-HTTPS / permission) — show it to copy by hand
+        toast({ title: '分享連結', description: url });
+      }
+    } catch (err) {
+      toast({
+        title:       '無法建立分享連結',
+        description: err instanceof Error ? err.message : '請稍後再試',
+        variant:     'destructive',
+      });
+    } finally {
+      setBusy(false);
+    }
   }
 
   useEffect(() => () => clearTimeout(timerRef.current), []);
 
   return (
-    <Button variant="ghost" size="sm" onClick={handleShare} className="gap-1.5 text-xs">
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={handleShare}
+      disabled={busy}
+      className="gap-1.5 text-xs"
+    >
       {copied ? <ClipboardCopy size={13} /> : <Link2 size={13} />}
-      {copied ? '已複製' : '分享'}
+      {busy ? '產生中…' : copied ? '已複製' : '分享'}
     </Button>
   );
 }

@@ -35,6 +35,24 @@ const PROMPT = `你是一個專門解讀臺灣學校或機構「營養午餐菜�
 - 若無法辨識日期，該天跳過不回傳
 - 只回傳 JSON，不要有任何前言或解釋`;
 
+/**
+ * Upper bound on the base64 payload (~3 MB decoded).
+ *
+ * This endpoint is unauthenticated — Netlify Functions are public by default —
+ * so every accepted request spends GEMINI_API_KEY quota. The browser
+ * pre-compresses to a ≤ 1200px JPEG, which lands far under this, so the cap
+ * costs legitimate uploads nothing while stopping an anonymous caller from
+ * pushing huge images through the paid Vision model.
+ *
+ * NOTE: this is a size guard, not a rate limit. Per-caller rate limiting needs
+ * state a stateless function does not have (Netlify Edge / an external store);
+ * if abuse shows up in the Gemini billing dashboard, that is the next lever.
+ */
+const MAX_BASE64_CHARS = 4_000_000;
+
+/** Rejects anything that is not a plain base64 body before it reaches Gemini. */
+const BASE64_RE = /^[A-Za-z0-9+/]+={0,2}$/;
+
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
@@ -44,9 +62,19 @@ export const handler: Handler = async (event) => {
   try {
     const body = JSON.parse(event.body ?? '{}');
     imageBase64 = body.imageBase64;
-    if (!imageBase64) throw new Error('missing imageBase64');
+    if (typeof imageBase64 !== 'string' || imageBase64.length === 0) {
+      throw new Error('missing imageBase64');
+    }
   } catch {
     return { statusCode: 400, body: 'Invalid request body' };
+  }
+
+  if (imageBase64.length > MAX_BASE64_CHARS) {
+    return { statusCode: 413, body: 'Image too large' };
+  }
+
+  if (!BASE64_RE.test(imageBase64)) {
+    return { statusCode: 400, body: 'imageBase64 must be raw base64 (no data: prefix)' };
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
@@ -73,10 +101,9 @@ export const handler: Handler = async (event) => {
       body:       JSON.stringify(data),
     };
   } catch (err) {
+    // Log the detail server-side; don't echo upstream/Gemini error text to an
+    // unauthenticated caller (it can carry model/quota/key-state internals).
     console.error('ocr-menu error:', err);
-    return {
-      statusCode: 500,
-      body:       err instanceof Error ? err.message : 'Internal error',
-    };
+    return { statusCode: 502, body: 'OCR failed' };
   }
 };

@@ -127,10 +127,9 @@ VITE_FIREBASE_MESSAGING_SENDER_ID
 VITE_FIREBASE_APP_ID
 ```
 
-Netlify function env var (set in Netlify dashboard only, never in code):
-```
-GEMINI_API_KEY    # Google AI Studio key for ocr-menu function
-```
+Netlify functions currently need **no** env vars — `market-price.ts` calls an open-data API
+with no key. (`GEMINI_API_KEY` was only for the deleted `ocr-menu` function; if it is still set
+in the Netlify dashboard it can be removed.)
 
 ## Firebase Architecture
 
@@ -326,27 +325,19 @@ plus a collapsed 進階功能 group holding the chain detail pages
 
 Located at `catering-system/netlify/functions/` (see Repository Layout note above on why this isn't a repo-root `netlify/` folder).
 
-`ocr-menu.ts` — proxies photo uploads to Gemini Vision (`gemini-2.0-flash`).
-- Input: `POST { imageBase64: string }` (raw base64, no `data:` prefix; browser pre-compresses to ≤ 1200px JPEG)
-- Output: `{ rows: [{ date, headCount, dishes[] }] }`
-- **Unauthenticated and billable.** Netlify Functions are public by default, so every
-  accepted request spends `GEMINI_API_KEY` quota. Guards: `MAX_BASE64_CHARS = 4_000_000`
-  (~3 MB decoded → 413), base64 format check (→ 400), and upstream errors are logged
-  server-side but returned as a bare `502` so Gemini/quota internals don't leak. There is
-  **no rate limit** — a stateless function has nowhere to keep per-caller state; if abuse
-  shows up in Gemini billing, Netlify Edge or an external store is the next lever.
-- ⚠️ **Currently has no caller** — nothing in `src/` fetches `/.netlify/functions/ocr-menu`
-  (only `market-price` is wired up). It is deployed and reachable regardless, which is why
-  it is hardened rather than left alone; decide whether to wire it into the menu-import flow
-  or delete it.
-
 `market-price.ts` — proxies Taiwan MOA AMIS wholesale produce price open data.
 - Input: `POST { date: "YYYY-MM-DD", cropNames: string[] }`
 - Output: `{ date, rocDate, prices: [...], warnings: [...] }`
+- Hardened: `MAX_CROPS = 30`, `CHUNK_SIZE = 5`, `TIMEOUT_MS = 10_000`. No API key needed.
+- Dependency: `@netlify/functions` (types only, devDependency); build via esbuild (`netlify.toml`)
 
-Both:
-- Dependencies in `catering-system/package.json` — `@google/generative-ai` (runtime, ocr-menu) + `@netlify/functions` (types only, devDependency)
-- Build: esbuild (configured in `netlify.toml`)
+**Deleted: `ocr-menu.ts`** (Gemini Vision menu-photo OCR). It had no caller anywhere in `src/` —
+the photo-import flow was never wired up — yet Netlify Functions are public by default, so it sat
+there as an unauthenticated, billable endpoint anyone could spend `GEMINI_API_KEY` quota against.
+Removed along with the `@google/generative-ai` dependency. **Any new function is public the moment
+it deploys** — assume anonymous callers and cap the work before calling a paid upstream. To bring
+OCR back, restore the function from git history *and* wire it into `MenuImportPage` in the same
+change, so a live endpoint always has a consumer.
 
 ## Git Branches
 

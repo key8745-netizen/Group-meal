@@ -595,7 +595,7 @@ export default function DayStartPage() {
                 <div className="rounded-md bg-amber-50 p-3 text-xs text-amber-700">
                   月菜單中這 {monthlyUnmatched.length} 道找不到配方，未帶入：{monthlyUnmatched.join('、')}
                   <span className="block pt-1">
-                    可至「配方管理 → 從月菜單產生配方草稿」建立後再回來帶入。
+                    可至「配方管理 → 匯入工具 → 從月菜單產生配方草稿」建立後再回來帶入。
                   </span>
                 </div>
               )}

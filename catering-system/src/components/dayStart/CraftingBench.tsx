@@ -153,7 +153,7 @@ export function CraftingBench(props: CraftingBenchProps) {
                 {Array.from({ length: 6 }, (_, i) => <div key={i} className="craft-shimmer h-[92px] rounded-2xl" />)}
               </div>
             ) : recipes.length === 0 ? (
-              <p className="py-6 text-center text-sm craft-muted">還沒有配方。先到「配方管理」建立，或用「從月菜單產生配方草稿」匯入。</p>
+              <p className="py-6 text-center text-sm craft-muted">還沒有配方。先到「配方管理」建立，或在配方管理按「匯入工具 → 從月菜單產生配方草稿」。</p>
             ) : bag.length === 0 ? (
               <p className="py-6 text-center text-sm craft-muted">{picked.size > 0 && !search && filter === '全部' ? '背包裡的菜都上灶台了。' : '沒有符合的配方。'}</p>
             ) : (

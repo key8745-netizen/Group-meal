@@ -172,6 +172,10 @@ export function RecipeForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // 每行的切法、備註屬於微調；已有設定的配方預設展開，避免看起來像被清掉。
+  const [showRowDetails, setShowRowDetails] = useState(
+    () => (initial?.recipeIngredients ?? []).some((i) => i.cutType || (i.notes ?? '').trim()),
+  );
 
   function addRow() {
     setRows((r) => [...r, { ingredientId: '', quantity: 1, unit: '', notes: '' }]);
@@ -265,10 +269,23 @@ export function RecipeForm({
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <label className="text-xs font-medium">食材項目 *</label>
-          <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={addRow}>
-            <Plus size={13} /> 新增食材項目
-          </Button>
+          <label className="text-xs font-medium">
+            食材項目 *
+            <span className="ml-1.5 font-normal text-muted-foreground">份量填每人份的淨重（削皮、去頭尾後），耗損會自動加回</span>
+          </label>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              aria-pressed={showRowDetails}
+              onClick={() => setShowRowDetails((v) => !v)}
+              className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+            >
+              微調（切法、備註）{showRowDetails ? '▴' : '▾'}
+            </button>
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={addRow}>
+              <Plus size={13} /> 新增食材項目
+            </Button>
+          </div>
         </div>
         {errors.recipeIngredients && (
           <p className="text-xs text-destructive">{errors.recipeIngredients}</p>
@@ -331,7 +348,8 @@ export function RecipeForm({
                   )}
                 </div>
 
-                {/* Feature 100: 這道菜此食材的切法（跟著配方走，驅動製程任務刀工） */}
+                {/* Feature 100: 這道菜此食材的切法（跟著配方走，驅動製程任務刀工）——微調 */}
+                {showRowDetails && (
                 <div className="w-24">
                   <select
                     value={row.cutType ?? ''}
@@ -344,14 +362,19 @@ export function RecipeForm({
                     ))}
                   </select>
                 </div>
+                )}
 
-                <div className="flex-1">
-                  <Input
-                    value={row.notes ?? ''}
-                    onChange={(e) => updateRow(idx, { notes: e.target.value })}
-                    placeholder="備註（選填）"
-                  />
-                </div>
+                {showRowDetails ? (
+                  <div className="flex-1">
+                    <Input
+                      value={row.notes ?? ''}
+                      onChange={(e) => updateRow(idx, { notes: e.target.value })}
+                      placeholder="備註（選填）"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex-1" />
+                )}
 
                 <Button variant="ghost" size="sm" onClick={() => removeRow(idx)}>
                   <Trash2 size={14} />
@@ -367,10 +390,18 @@ export function RecipeForm({
       )}
 
       {recipeIngredientNames.length > 0 && (
-        <RecipeFlavorAdvisorPanel
-          ingredientNames={recipeIngredientNames}
-          crossRefContext={crossRefContext}
-        />
+        <details className="group rounded-md border">
+          <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2 text-xs font-medium text-muted-foreground [&::-webkit-details-marker]:hidden">
+            <span>風味搭配建議（參考）</span>
+            <span className="transition-transform group-open:rotate-180">▾</span>
+          </summary>
+          <div className="border-t p-3">
+            <RecipeFlavorAdvisorPanel
+              ingredientNames={recipeIngredientNames}
+              crossRefContext={crossRefContext}
+            />
+          </div>
+        </details>
       )}
 
       <div className="flex items-center gap-2">

@@ -1,19 +1,16 @@
 import { useState } from 'react';
-import { db } from '@/lib/firebase';
-import { PurchasePlanner } from '@/components/PurchasePlanner';
 import { PurchaseOrderList } from '@/components/PurchaseOrderList';
 import { ManualPurchaseForm } from '@/components/ManualPurchaseForm';
 
-type Tab = 'planner' | 'manual' | 'orders';
+type Tab = 'orders' | 'manual';
 
 const TABS: { key: Tab; label: string }[] = [
-  { key: 'planner', label: '採購建議' },
-  { key: 'manual',  label: '手動建單' },
   { key: 'orders',  label: '採購單管理' },
+  { key: 'manual',  label: '手動建單' },
 ];
 
 export default function PurchasePage() {
-  const [tab, setTab] = useState<Tab>('planner');
+  const [tab, setTab] = useState<Tab>('orders');
 
   return (
     <div className="flex flex-col">
@@ -35,7 +32,6 @@ export default function PurchasePage() {
         ))}
       </div>
 
-      {tab === 'planner' && <PurchasePlanner db={db} />}
       {tab === 'manual'  && <ManualPurchaseForm />}
       {tab === 'orders'  && <PurchaseOrderList />}
     </div>

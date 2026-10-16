@@ -50,6 +50,8 @@ export default function MarketPricePage() {
   const [loading, setLoading] = useState(true);
   const [autoRefreshing, setAutoRefreshing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  // 基本只看「食材、今日均價、比平常」；其餘欄位收在微調。
+  const [showDetailCols, setShowDetailCols] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [trendSnapshots, setTrendSnapshots] = useState<MarketPriceSnapshot[]>([]);
   const [trendLoading, setTrendLoading] = useState(true);
@@ -176,17 +178,26 @@ export default function MarketPricePage() {
           <p className="text-sm">請先在食材主檔為食材設定「市場作物名稱」。</p>
         </div>
       ) : (
+        <div className="flex flex-col gap-2">
+        <button
+          type="button"
+          aria-pressed={showDetailCols}
+          onClick={() => setShowDetailCols((v) => !v)}
+          className="self-end text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+        >
+          {showDetailCols ? '收起欄位 ▴' : '顯示更多欄位（作物名、價格區間、交易量、基準價）▾'}
+        </button>
         <div className="overflow-hidden rounded-lg border">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>食材</TableHead>
-                <TableHead>市場作物</TableHead>
+                {showDetailCols && <TableHead>市場作物</TableHead>}
                 <TableHead className="text-right">今日均價 (NT$/{unit})</TableHead>
-                <TableHead className="text-right">價格區間</TableHead>
-                <TableHead className="text-right">交易量</TableHead>
-                <TableHead className="text-right">基準價 (NT$/{unit})</TableHead>
-                <TableHead className="text-right">差異%</TableHead>
+                {showDetailCols && <TableHead className="text-right">價格區間</TableHead>}
+                {showDetailCols && <TableHead className="text-right">交易量</TableHead>}
+                {showDetailCols && <TableHead className="text-right">基準價 (NT$/{unit})</TableHead>}
+                <TableHead className="text-right" title="和食材主檔設定的基準價相比">比平常（基準價）</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -202,29 +213,38 @@ export default function MarketPricePage() {
                 return (
                   <TableRow key={ing.id} className={idx % 2 !== 0 ? 'bg-muted/30' : ''}>
                     <TableCell className="font-medium">{ing.name}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{cropName}</TableCell>
+                    {showDetailCols && <TableCell className="text-sm text-muted-foreground">{cropName}</TableCell>}
                     <TableCell className="text-right">
                       {hasMarketPrice ? `$${pricePerDisplayUnit(entry!.avgPrice as number, unit).toFixed(2)}` : '—'}
                     </TableCell>
-                    <TableCell className="text-right text-sm text-muted-foreground">
-                      {entry?.minPrice != null && entry?.maxPrice != null
-                        ? `$${pricePerDisplayUnit(entry.minPrice, unit).toFixed(2)} ~ $${pricePerDisplayUnit(entry.maxPrice, unit).toFixed(2)}`
-                        : '—'}
-                    </TableCell>
-                    <TableCell className="text-right text-sm text-muted-foreground">
-                      {entry && entry.marketCount > 0 ? `${entry.totalQuantity} (${entry.marketCount} 市場)` : '—'}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {basePrice != null ? `$${pricePerDisplayUnit(basePrice, unit).toFixed(2)}` : '—'}
-                    </TableCell>
+                    {showDetailCols && (
+                      <TableCell className="text-right text-sm text-muted-foreground">
+                        {entry?.minPrice != null && entry?.maxPrice != null
+                          ? `$${pricePerDisplayUnit(entry.minPrice, unit).toFixed(2)} ~ $${pricePerDisplayUnit(entry.maxPrice, unit).toFixed(2)}`
+                          : '—'}
+                      </TableCell>
+                    )}
+                    {showDetailCols && (
+                      <TableCell className="text-right text-sm text-muted-foreground">
+                        {entry && entry.marketCount > 0 ? `${entry.totalQuantity} (${entry.marketCount} 市場)` : '—'}
+                      </TableCell>
+                    )}
+                    {showDetailCols && (
+                      <TableCell className="text-right">
+                        {basePrice != null ? `$${pricePerDisplayUnit(basePrice, unit).toFixed(2)}` : '—'}
+                      </TableCell>
+                    )}
                     <TableCell className={`text-right ${diffColorClass(pct)}`}>
-                      {pct != null ? `${pct > 0 ? '+' : ''}${pct.toFixed(1)}%` : '—'}
+                      {pct != null
+                        ? `${pct > 0 ? '貴' : pct < 0 ? '便宜' : '持平'} ${pct !== 0 ? `${Math.abs(pct).toFixed(1)}%` : ''}`
+                        : '—'}
                     </TableCell>
                   </TableRow>
                 );
               })}
             </TableBody>
           </Table>
+        </div>
         </div>
       )}
 
@@ -233,8 +253,12 @@ export default function MarketPricePage() {
       )}
 
       {trackedIngredients.length > 0 && (
-        <div className="flex flex-col gap-3 pt-2">
-          <h2 className="text-lg font-semibold tracking-tight">市價趨勢（近 30 天）</h2>
+        <details className="group flex flex-col gap-3 pt-2">
+          <summary className="flex cursor-pointer list-none items-center gap-2 text-lg font-semibold tracking-tight [&::-webkit-details-marker]:hidden">
+            市價趨勢（近 30 天）
+            <span className="text-sm font-normal text-muted-foreground transition-transform group-open:rotate-180">▾</span>
+          </summary>
+          <div className="mt-3 flex flex-col gap-3">
 
           {trendError && (
             <p className="text-xs text-muted-foreground">載入趨勢失敗</p>
@@ -255,7 +279,8 @@ export default function MarketPricePage() {
               ))}
             </div>
           )}
-        </div>
+          </div>
+        </details>
       )}
 
       <Toaster />

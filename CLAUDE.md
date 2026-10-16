@@ -317,7 +317,12 @@ Sidebar (AppLayout) shows only the 8 basic pages the owner uses — 每天用這
 UI principle (owner, 2026-10): **basic actions visible, fine-tuning folded.** The owner uses only the basic
 functions; extra knobs go behind a collapsed 「微調」 control rather than being removed — e.g. DayStart's
 各類幾道／依市價＋庫存推薦, and `IngredientMasterForm` (basic = 名稱/類別/單位/價格/耗損率; 切法、前處理、
-安全庫存、保鮮、行情對應、備註 in a closed `<details>`). Follow this when touching other pages.
+安全庫存、保鮮、行情對應、備註 in a closed `<details>`). Applied to all 8 basic pages:
+採購 (card lists item names; share link inside the expanded card; 草稿 tab only while DRAFT orders exist),
+庫存 (4 basic columns, 顯示更多欄位), 配方 (per-line 切法/備註 under 微調; 匯入工具 folded; flavor tips
+collapsible), 週間規劃 (這週要買什麼; range follows the viewed week; head count / custom range / CSV under
+微調), 月菜單匯入 (step indicator; month required before upload; 機構/餐別 and whole-month conversion folded),
+市場行情 (食材/今日均價/比平常; trend chart collapsible). Follow this when touching other pages.
 
 ## Netlify Functions
 

@@ -94,7 +94,7 @@ function ShareButton({ orderId }: { orderId: string }) {
       className="gap-1.5 text-xs"
     >
       {copied ? <ClipboardCopy size={13} /> : <Link2 size={13} />}
-      {busy ? '產生中…' : copied ? '已複製' : '分享'}
+      {busy ? '產生中…' : copied ? '已複製連結' : '複製分享連結'}
     </Button>
   );
 }
@@ -114,21 +114,20 @@ function OrderCard({ order, onApprove, onComplete }: {
         className="flex cursor-pointer items-center justify-between bg-muted/30 px-4 py-3 hover:bg-muted/50"
         onClick={() => setExpanded((p) => !p)}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           <span className="font-mono text-xs text-muted-foreground">#{order.id?.slice(-8)}</span>
           <Badge variant={STATUS_VARIANT[order.status]}>
             {STATUS_LABEL[order.status]}
           </Badge>
           <span className="text-sm text-muted-foreground">{fmtDate(order.createdAt)}</span>
-          <span className="text-xs text-muted-foreground">
-            共 {order.items.length} 項
+          <span className="truncate text-xs text-muted-foreground" title={order.items.map((i) => i.name).join('、')}>
+            {order.items.slice(0, 4).map((i) => i.name).join('、')}
+            {order.items.length > 4 ? ` 等 ${order.items.length} 項` : `（${order.items.length} 項）`}
           </span>
         </div>
 
-        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-          <ShareButton orderId={order.id!} />
-
+        <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
           {/* DRAFT: must go through human approval before purchasing */}
           {order.status === 'DRAFT' && (
             <Button
@@ -160,6 +159,12 @@ function OrderCard({ order, onApprove, onComplete }: {
       {expanded && order.notes && (
         <div className="border-b bg-amber-50/60 px-4 py-2 text-xs text-amber-700 dark:bg-amber-950/20 dark:text-amber-400">
           {order.notes}
+        </div>
+      )}
+      {expanded && (
+        <div className="flex items-center justify-between gap-2 border-b px-4 py-2 text-xs text-muted-foreground">
+          <span>要給供應商看？產生一個不用登入就能看的連結</span>
+          <ShareButton orderId={order.id!} />
         </div>
       )}
       {expanded && (
@@ -278,7 +283,7 @@ export function PurchaseOrderList() {
 
       {/* Tabs */}
       <div className="flex gap-1 rounded-lg border bg-muted/30 p-1 w-fit">
-        {TABS.map((tab) => {
+        {TABS.filter((tab) => tab !== 'DRAFT' || orders.some((o) => o.status === 'DRAFT')).map((tab) => {
           const count = orders.filter((o) => o.status === tab).length;
           return (
             <button

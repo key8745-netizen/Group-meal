@@ -67,8 +67,6 @@ npm run preview    # Preview production build
 Scripts (require Firebase env vars — see `.env`):
 ```bash
 npx tsx scripts/seedIngredients.ts          # Seed 10 core ingredients (idempotent)
-npx tsx scripts/generateAutomatedOrder.ts   # Auto-detect shortages → DRAFT purchase order
-npx tsx scripts/generateAutomatedOrder.ts <recipeId> <headCount>
 npx tsx scripts/seedPreservationYields.ts             # Feature 082: 加工延壽良率種子（dry-run 預設）
 npx tsx scripts/seedPreservationYields.ts --execute   # 寫入（merge-only、不臆測、乾貨略過）
 npx tsx scripts/seedInitialBatches.ts                 # Feature 087: 從 currentStock 建初始批次（dry-run 預設）
@@ -141,47 +139,37 @@ in the Netlify dashboard it can be removed.)
 
 | Collection | Doc ID | Purpose |
 |---|---|---|
-| `menus` | auto | Dish recipes with BOM (`ingredients: BOMItem[]`) |
 | `ingredients` | slug | Master ingredient data (name, unit, cost, wasteFactor) |
 | `inventory` | same as ingredientId | Live stock in kg (`currentStock`) |
 | `inventory/{id}/transactions` | auto | Audit trail (restock / deduct / adjustment) |
-| `orders` | auto | Customer orders |
-| `purchaseOrders` | auto | Purchase orders (DRAFT → PENDING → RECEIVED / CANCELLED) |
-| `mealPlans` | `YYYY-MM-DD` | Daily menu schedule (menuIds + headCount) — ⚠️ **not actually reached**, see note below |
+| `recipes` | auto | Recipes; `recipeIngredients[]` is the BOM (`baseQuantity` per serving) |
+| `recipeMenus` | auto | A day's menu (recipes × servings) |
+| `prepPlans` / `purchaseDemandDrafts` / `productionWorkflowPlans` / `productionScheduleSuggestions` | auto | The 今日開工 chain outputs |
+| `purchaseOrders` | auto | Purchase orders (DRAFT → PENDING → RECEIVED / CANCELLED); new orders start PENDING, DRAFT only exists on old docs |
 | `publicOrderShares` | share token | Feature 107: supplier-visible snapshot behind `/share/:shareToken` |
+| `performanceLogs/{tenantId}/orderFulfillments` | auto | Written on receive by `logOrderFulfillment`; **nothing reads it** since the AI suggestion layer was removed |
 | `settings` | tenantId | System thresholds (configService) |
+
+Legacy collections still in `firestore.rules` but with **no code path** after the 2026-10 cleanup:
+`menus`, `orders`, `purchases`, `mealPlans`, `capacityFeasibilityChecks`, `modelConfigIdempotencyLocks`.
+Their data is untouched; don't build on them.
 
 ### Service Patterns
 
 Two patterns exist — do not mix them:
 
-1. **Module-level `db`** — services that import `db` from `@/lib/firebase` directly:
-   `purchaseOrderService`, `dishService`, `configService`, `InventoryAudit`, `ManualPurchaseForm`
-   (`mealPlanService` also follows this pattern but is unreferenced — see 死碼 below)
+1. **Module-level `db`** — import `db` from `@/lib/firebase` directly:
+   `purchaseOrderService`, `configService`, plus components `InventoryAudit`, `ManualPurchaseForm`
 
 2. **`db: Firestore` parameter** — services designed for both browser and scripts:
-   `inventoryService`, `purchaseService`, `performanceService`, `recipeMatchingService`
+   `inventoryService`, `performanceService`, and the feature services (`recipeService`, `prepPlanService`, …)
 
-### 死碼：未接線的 service（2026-08 體檢）
+### 死碼清理（2026-10）
 
-**47 個 service 檔（13,030 / 33,341 行，約 39%）在 production 完全沒有被 import，只有測試在跑**，
-而 121 個測試套件裡有 64 個（53%）是在測這些東西。找法：
-
-```bash
-# 列出零 production 引用的 service
-cd catering-system/src/services && for f in *.ts; do n="${f%.ts}"; \
-  c=$(grep -rl "services/$n\b\|from '\./$n'\|from '\.\./$n'" ../../src ../../scripts ../../netlify 2>/dev/null \
-      | grep -v __tests__ | grep -v "/$f$" | wc -l); [ "$c" -eq 0 ] && echo "$n"; done
-```
-
-主要成分是 `docs/FEATURE_003~006_*` 那批「AI 模型設定套用」子系統
-（`modelConfig*` / `realModelConfigApply*` / `canary*` / `prediction*`），四個 phase 全部建完、
-測試齊備，但一行都沒接進 App。另外還有 `mealPlanService`（連帶使 `mealPlans` collection 實際上
-沒有任何讀寫路徑——`'mealPlans'` 字串只出現在 `mealPlanService.ts:9`）、`capacityFeasibilityService`、
-`concurrencyManager`、`securityAudit`、`receivingTransactionPlanService`。
-
-**在動這些檔案前先確認它到底有沒有被接線**，不要假設「有測試 = 有在用」。要嘛接進 App，要嘛刪掉；
-現況是 CI 有一半時間在驗證從未出貨的程式碼。
+2026-08 體檢發現約 4 成程式碼從任何入口都走不到。2026-10 已刪除：model-config apply / canary /
+prediction 子系統、AI 建議與收貨審核鏈、舊 `orders`/`menus` 採購建議管線、對應測試與
+FEATURE_001–009 文件。找新死碼的方法：從 `src/main.tsx`、`scripts/*.ts`、`netlify/functions/*.ts`
+做 import 可達性分析，**不要用「有測試 = 有在用」判斷**。
 
 ### Inventory Write Rules
 
@@ -275,10 +263,7 @@ so re-sharing reuses it (and refreshes a snapshot gone stale after an edit). **R
 
 ## Unit Conversion
 
-Two converters exist for historical reasons:
-
-- `src/services/unitConverter.ts` → `UnitConverter` class — handles kg / g / 台斤 / L / piece; used by order/purchase/recipe services
-- `src/utils/unitConverter.ts` → `toTaijin(kg)` / `toKg(taijin)` — simple 2dp kg↔台斤; used by UI components and scripts
+`src/utils/unitConverter.ts` is the only converter (`toTaijin` / `toKg` / `formatWeight` / `inputToKg`).
 
 **1 台斤 = 0.6 kg**; **1 磅 = 0.453592 kg**. All internal storage is in **kg**.
 
@@ -287,21 +272,15 @@ the app; the top-bar `WeightUnitToggle` switches kg / 台斤 / 磅 (localStorage
 **displays** use `formatWeight(kg, unit)` from `src/utils/unitConverter.ts` — internal values stay kg,
 only display changes. `inputToKg(value, unit)` converts unit-aware inputs back to kg.
 
-## BOM / Recipe Matching
+## BOM expansion
 
-`recipeMatchingService.ts` expands a recipe for N servings:
-
-```
-requiredKg = (qtyPerServingKg × headCount) × (1 + wasteFactor)
-```
-
-- `wasteFactor` from `ingredients/{id}` takes precedence over the BOM-level value
-- `menus/{id}.ingredients[]` is the BOM — each item has `ingredientId`, `quantity`, `unit`, `wasteFactor`
-- `inventory/{id}.currentStock` is always in kg
+`prepPlanService` expands a recipe menu: `requiredBaseQuantity = Σ recipeIngredient.baseQuantity × servings`
+(g / ml / pcs). ⚠️ It does **not** apply `wasteFactor` — the old `menus`-based formula did, and was
+removed with that pipeline. `inventory/{id}.currentStock` is always in kg.
 
 ## Routing
 
-`App.tsx` — `BrowserRouter`. `/share/:orderId` is public (`ShareOrderPage`);
+`App.tsx` — `BrowserRouter`. `/share/:shareToken` is public (`ShareOrderPage`);
 everything else is auth-protected inside `AppLayout`.
 
 The home page `/` is `DayStartPage` (Feature 044「今日開工」) — a wizard that

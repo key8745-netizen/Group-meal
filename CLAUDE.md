@@ -283,9 +283,14 @@ removed with that pipeline. `inventory/{id}.currentStock` is always in kg.
 `App.tsx` — `BrowserRouter`. `/share/:shareToken` is public (`ShareOrderPage`);
 everything else is auth-protected inside `AppLayout`.
 
-The home page `/` is `DayStartPage` (Feature 044「今日開工」) — a wizard that
-picks dishes (manual or cost/inventory-ranked via
-`calculateCostAwareMenuSuggestion`) and runs `dayStartService.runDayStart()`,
+The home page `/` is `DayStartPage` (Feature 044「今日開工」) — dishes are picked on the
+「灶台合成」`CraftingBench` (`src/components/dayStart/`): a recipe 背包 plus 灶台 slots laid out
+by the menu quotas via the pure `craftingBenchPlanner.assignBenchSlots()` (over-quota / 未分類
+picks go to 加菜 and are still cooked). It is presentational only; picking, cost-ranked
+recommendations (`calculateCostAwareMenuSuggestion`) and 開火 stay in the page, which runs
+`dayStartService.runDayStart()`. Animations use `framer-motion` (pinned; spring + shared
+`layoutId`, `MotionConfig reducedMotion="user"`); styles are the `.craft*` classes in
+`src/index.css`. Dialogs only fade in/out (`confirm-dialog`). `runDayStart()`
 which sequences the whole chain through the existing create functions:
 菜單(`/recipe-menus`) → 備料快照(`/prep-plans`) → 採購需求草稿
 (`/purchase-demand-drafts`) → 製程規劃+任務草稿(`/production-workflows`) →

@@ -77,6 +77,8 @@ export default function RecipePage() {
   const [editing, setEditing] = useState<EditingState>(null);
   const [search, setSearch] = useState('');
   const [showInactive, setShowInactive] = useState(false);
+  // 匯入工具（從月菜單產生草稿、草稿份量重算）不是日常操作，收起來。
+  const [showImportTools, setShowImportTools] = useState(false);
   const [showDraftImport, setShowDraftImport] = useState(false);
   const [showDraftRecalc, setShowDraftRecalc] = useState(false);
   const [ingredients, setIngredients] = useState<IngredientMaster[]>([]);
@@ -223,8 +225,16 @@ export default function RecipePage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {recipes.some((r) => (r.notes ?? '').includes(DRAFT_NOTE_MARKER)) && (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            aria-pressed={showImportTools}
+            onClick={() => setShowImportTools((v) => !v)}
+            className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          >
+            匯入工具 {showImportTools ? '▴' : '▾'}
+          </button>
+          {showImportTools && recipes.some((r) => (r.notes ?? '').includes(DRAFT_NOTE_MARKER)) && (
             <Button
               variant="outline"
               onClick={() => setShowDraftRecalc(true)}
@@ -233,13 +243,15 @@ export default function RecipePage() {
               <RefreshCw size={14} /> 草稿份量重算
             </Button>
           )}
-          <Button
-            variant="outline"
-            onClick={() => setShowDraftImport(true)}
-            className="gap-1.5"
-          >
-            <Sparkles size={14} /> 從月菜單產生配方草稿
-          </Button>
+          {showImportTools && (
+            <Button
+              variant="outline"
+              onClick={() => setShowDraftImport(true)}
+              className="gap-1.5"
+            >
+              <Sparkles size={14} /> 從月菜單產生配方草稿
+            </Button>
+          )}
           <Button onClick={() => setEditing({ mode: 'create' })} className="gap-1.5">
             <Plus size={14} /> 新增配方
           </Button>

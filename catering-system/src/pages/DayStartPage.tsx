@@ -110,6 +110,8 @@ export default function DayStartPage() {
     try { return parseStoredQuotas(localStorage.getItem(QUOTA_KEY)); } catch { return parseStoredQuotas(null); }
   });
   const [showQuotaEditor, setShowQuotaEditor] = useState(false);
+  // 基本操作只露出「帶入月菜單」「一鍵均衡」；配額與推薦收在「微調」。
+  const [showTuning, setShowTuning] = useState(false);
   function updateQuotas(next: BalancedMenuQuota[]) {
     setMenuQuotas(next);
     try { localStorage.setItem(QUOTA_KEY, serializeQuotas(next)); } catch { /* ignore */ }
@@ -593,7 +595,7 @@ export default function DayStartPage() {
                 <div className="rounded-md bg-amber-50 p-3 text-xs text-amber-700">
                   月菜單中這 {monthlyUnmatched.length} 道找不到配方，未帶入：{monthlyUnmatched.join('、')}
                   <span className="block pt-1">
-                    可至「配方管理 → 從月菜單產生配方草稿」建立後再回來帶入。
+                    可至「配方管理 → 匯入工具 → 從月菜單產生配方草稿」建立後再回來帶入。
                   </span>
                 </div>
               )}
@@ -619,13 +621,25 @@ export default function DayStartPage() {
                   <Sparkles size={13} />
                   一鍵均衡菜單
                 </button>
-                <button type="button" className="craft-chip rounded-full px-3 py-1.5 text-xs" aria-pressed={showQuotaEditor} onClick={() => setShowQuotaEditor((v) => !v)} title="調整灶台格子與一鍵均衡的各類配額">
-                  配額
+                <button
+                  type="button"
+                  className="craft-chip rounded-full px-3 py-1.5 text-xs"
+                  aria-pressed={showTuning}
+                  onClick={() => { setShowTuning((v) => !v); if (showTuning) setShowQuotaEditor(false); }}
+                >
+                  微調 {showTuning ? '▴' : '▾'}
                 </button>
-                <button type="button" className="craft-chip inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs" onClick={handleRecommend} disabled={recommending || recipes.length === 0}>
-                  <Sparkles size={13} />
-                  {recommending ? '計算中…' : '推薦（依市價＋庫存）'}
-                </button>
+                {showTuning && (
+                  <>
+                    <button type="button" className="craft-chip rounded-full px-3 py-1.5 text-xs" aria-pressed={showQuotaEditor} onClick={() => setShowQuotaEditor((v) => !v)} title="調整灶台格子與一鍵均衡的各類配額">
+                      各類幾道
+                    </button>
+                    <button type="button" className="craft-chip inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs" onClick={handleRecommend} disabled={recommending || recipes.length === 0}>
+                      <Sparkles size={13} />
+                      {recommending ? '計算中…' : '依市價＋庫存推薦'}
+                    </button>
+                  </>
+                )}
               </>
             }
             costEstimateByRecipeId={costEstimateByRecipeId}

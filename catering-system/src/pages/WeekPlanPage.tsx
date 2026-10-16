@@ -84,6 +84,16 @@ export default function WeekPlanPage() {
   const [weekStartResults, setWeekStartResults] = useState<WeekStartDayResult[] | null>(null);
   const [fallbackHeadCount, setFallbackHeadCount] = useState(100);
   const [creatingOrder, setCreatingOrder] = useState(false);
+  // 基本只要按鈕；預設人數、自訂日期範圍、CSV、單價/來源欄位收在微調。
+  const [showTuning, setShowTuning] = useState(false);
+
+  // 彙總範圍跟著目前看的那一週走（自訂範圍在微調裡改）。
+  useEffect(() => {
+    setRangeStart(monday);
+    setRangeEnd(weekDates(monday)[6]);
+    setDemandSummary(null);
+    setDemandGenerated(false);
+  }, [monday]);
 
   function reloadData() {
     setLoading(true);
@@ -237,20 +247,31 @@ export default function WeekPlanPage() {
           <ChevronRight size={16} className="ml-1" />
         </Button>
         <span className="mx-1 h-5 border-l" />
-        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          預設人數
-          <Input
-            type="number"
-            min={1}
-            value={fallbackHeadCount}
-            onChange={(e) => setFallbackHeadCount(Math.max(1, Number(e.target.value) || 1))}
-            className="h-8 w-20 text-sm"
-          />
-        </label>
         <Button size="sm" className="gap-1.5" onClick={handleWeekStart} disabled={weekStarting || loading}>
           <Rocket size={13} />
           {weekStarting ? '整週開工中…' : '整週一鍵開工'}
         </Button>
+        <button
+          type="button"
+          aria-pressed={showTuning}
+          onClick={() => setShowTuning((v) => !v)}
+          className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+        >
+          微調 {showTuning ? '▴' : '▾'}
+        </button>
+        {showTuning && (
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            月菜單沒寫人數時用
+            <Input
+              type="number"
+              min={1}
+              value={fallbackHeadCount}
+              onChange={(e) => setFallbackHeadCount(Math.max(1, Number(e.target.value) || 1))}
+              className="h-8 w-20 text-sm"
+            />
+            人
+          </label>
+        )}
       </div>
 
       {weekStartResults && (
@@ -269,7 +290,7 @@ export default function WeekPlanPage() {
           </ul>
           {!weekStarting && (
             <p className="mt-3 text-xs text-muted-foreground">
-              人數優先取月菜單的用餐基準，未設定時用上方「預設人數」。完成的日子可到每日工作總覽檢視；
+              人數優先取月菜單的用餐基準，沒寫的話用「微調」裡設定的人數。完成的日子可到每日工作總覽檢視；
               下方可彙總整週需求、扣庫存後一鍵建採購單。
             </p>
           )}
@@ -324,30 +345,36 @@ export default function WeekPlanPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">多日採購彙總</CardTitle>
+          <CardTitle className="text-base">這週要買什麼</CardTitle>
           <p className="text-xs text-muted-foreground">
-            彙總所選日期範圍內的備料快照需求，估算合計採購金額。
+            把 {rangeStart} ～ {rangeEnd} 的備料需求加總，扣掉庫存後一次建採購單。
           </p>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-wrap items-end gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-muted-foreground">起始日期</label>
-              <Input type="date" value={rangeStart} onChange={(e) => setRangeStart(e.target.value)} className="max-w-[160px]" />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-muted-foreground">結束日期</label>
-              <Input type="date" value={rangeEnd} onChange={(e) => setRangeEnd(e.target.value)} className="max-w-[160px]" />
-            </div>
+            {showTuning && (
+              <>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-muted-foreground">起始日期</label>
+                  <Input type="date" value={rangeStart} onChange={(e) => setRangeStart(e.target.value)} className="max-w-[160px]" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-muted-foreground">結束日期</label>
+                  <Input type="date" value={rangeEnd} onChange={(e) => setRangeEnd(e.target.value)} className="max-w-[160px]" />
+                </div>
+              </>
+            )}
             <Button onClick={handleGenerateDemand} disabled={!data || rangeStart > rangeEnd}>
-              產生彙總
+              算出要買的量
             </Button>
             {demandSummary && demandSummary.lines.length > 0 && (
               <>
-                <Button variant="outline" onClick={handleExportCsv}>
-                  <Download size={14} className="mr-1.5" />
-                  匯出 CSV
-                </Button>
+                {showTuning && (
+                  <Button variant="outline" onClick={handleExportCsv}>
+                    <Download size={14} className="mr-1.5" />
+                    匯出 CSV
+                  </Button>
+                )}
                 <Button onClick={handleCreateOrderFromDemand} disabled={creatingOrder} className="gap-1.5">
                   <ShoppingCart size={14} />
                   {creatingOrder ? '建立中…' : '扣庫存建採購單'}
@@ -368,9 +395,9 @@ export default function WeekPlanPage() {
                     <TableRow>
                       <TableHead>食材</TableHead>
                       <TableHead>總需求量</TableHead>
-                      <TableHead>預估單價</TableHead>
+                      {showTuning && <TableHead>預估單價</TableHead>}
                       <TableHead>預估金額</TableHead>
-                      <TableHead>來源快照</TableHead>
+                      {showTuning && <TableHead>來源快照</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -380,6 +407,7 @@ export default function WeekPlanPage() {
                         <TableCell>
                           {line.totalBaseQuantity} {line.baseUnit}
                         </TableCell>
+                        {showTuning && (
                         <TableCell>
                           <div className="flex items-center gap-1.5">
                             {line.pricePerBaseUnit != null ? (
@@ -392,13 +420,16 @@ export default function WeekPlanPage() {
                             </Badge>
                           </div>
                         </TableCell>
+                        )}
                         <TableCell>
                           {line.estimatedCost != null ? `NT$ ${line.estimatedCost}` : <span className="text-muted-foreground">—</span>}
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {line.sourcePlanNames.join('、')}
-                          {line.sourcePlanCount > line.sourcePlanNames.length ? ` 等 ${line.sourcePlanCount} 筆` : ''}
-                        </TableCell>
+                        {showTuning && (
+                          <TableCell className="text-xs text-muted-foreground">
+                            {line.sourcePlanNames.join('、')}
+                            {line.sourcePlanCount > line.sourcePlanNames.length ? ` 等 ${line.sourcePlanCount} 筆` : ''}
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>

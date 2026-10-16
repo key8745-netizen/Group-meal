@@ -190,9 +190,34 @@ export default function MenuImportPage() {
         <ClipboardList size={22} className="text-primary" />
         <div>
           <h1 className="text-xl font-semibold">月菜單匯入</h1>
-          <p className="text-sm text-muted-foreground">CSV 暫存與欄位對應，僅供人工審核用，不會直接建立正式資料</p>
+          <p className="text-sm text-muted-foreground">上傳月菜單檔（CSV／Excel），對好欄位、檢查菜名；之後首頁「帶入月菜單」就會自動帶出當天的菜。</p>
         </div>
       </div>
+
+      {step !== 'list' && (
+        <ol className="flex flex-wrap items-center gap-2 text-xs" aria-label="匯入步驟">
+          {([['upload', '① 上傳檔案'], ['mapping', '② 對欄位'], ['review', '③ 檢查菜名']] as const).map(([key, label], i, all) => {
+            const order = ['upload', 'mapping', 'review'];
+            const state = order.indexOf(step) > i ? 'done' : step === key ? 'now' : 'todo';
+            return (
+              <li key={key} className="flex items-center gap-2">
+                <span
+                  className={[
+                    'rounded-full border px-3 py-1',
+                    state === 'now' ? 'border-primary bg-primary text-primary-foreground' : '',
+                    state === 'done' ? 'border-primary/40 text-foreground' : '',
+                    state === 'todo' ? 'text-muted-foreground' : '',
+                  ].join(' ')}
+                  aria-current={state === 'now' ? 'step' : undefined}
+                >
+                  {label}
+                </span>
+                {i < all.length - 1 && <span className="text-muted-foreground">→</span>}
+              </li>
+            );
+          })}
+        </ol>
+      )}
 
       {step === 'list' && (
         <>
@@ -210,18 +235,45 @@ export default function MenuImportPage() {
       {step === 'upload' && (
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <input className="rounded-md border px-3 py-2 text-sm" placeholder="機構名稱" value={organizationName} onChange={(e) => setOrganizationName(e.target.value)} />
-            <input className="rounded-md border px-3 py-2 text-sm" placeholder="年月（YYYY-MM）" value={yearMonth} onChange={(e) => setYearMonth(e.target.value)} />
-            <input className="rounded-md border px-3 py-2 text-sm" placeholder="餐別/餐程，例如：成人午餐" value={mealProgram} onChange={(e) => setMealProgram(e.target.value)} />
-            <input
-              type="number"
-              className="rounded-md border px-3 py-2 text-sm"
-              placeholder="預估人數"
-              value={servingBaseline}
-              onChange={(e) => setServingBaseline(Number(e.target.value))}
-            />
+            <label className="flex flex-col gap-1 text-xs font-medium">
+              哪個月的菜單 *
+              <input
+                id="menuImportYearMonth"
+                type="month"
+                className="rounded-md border px-3 py-2 text-sm font-normal"
+                value={yearMonth}
+                onChange={(e) => setYearMonth(e.target.value)}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-medium">
+              每天大約幾人吃
+              <input
+                id="menuImportServingBaseline"
+                type="number"
+                min={1}
+                className="rounded-md border px-3 py-2 text-sm font-normal"
+                value={servingBaseline}
+                onChange={(e) => setServingBaseline(Number(e.target.value))}
+              />
+            </label>
           </div>
-          <CsvUploadStep onParsed={handleCsvParsed} />
+          <details className="group rounded-md border">
+            <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2 text-xs font-medium text-muted-foreground [&::-webkit-details-marker]:hidden">
+              <span>微調（機構名稱、餐別）</span>
+              <span className="transition-transform group-open:rotate-180">▾</span>
+            </summary>
+            <div className="grid grid-cols-2 gap-3 border-t p-3">
+              <input id="menuImportOrg" className="rounded-md border px-3 py-2 text-sm" placeholder="機構名稱" value={organizationName} onChange={(e) => setOrganizationName(e.target.value)} />
+              <input id="menuImportMealProgram" className="rounded-md border px-3 py-2 text-sm" placeholder="餐別/餐程，例如：成人午餐" value={mealProgram} onChange={(e) => setMealProgram(e.target.value)} />
+            </div>
+          </details>
+          {/^\d{4}-\d{2}$/.test(yearMonth) ? (
+            <CsvUploadStep onParsed={handleCsvParsed} />
+          ) : (
+            <p className="rounded-md bg-muted/40 px-3 py-4 text-center text-sm text-muted-foreground">
+              先選「哪個月的菜單」，首頁才找得到這份菜單。
+            </p>
+          )}
           <div>
             <Button type="button" size="sm" variant="ghost" onClick={() => setStep('list')}>取消</Button>
           </div>
@@ -308,7 +360,12 @@ export default function MenuImportPage() {
           )}
 
           {activeBatch.importStatus === 'finalized' && !activeBatch.operationalFinalizedAt && (
-            <div className="rounded-md border p-4 space-y-3">
+            <details className="group rounded-md border">
+            <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm text-muted-foreground [&::-webkit-details-marker]:hidden">
+              <span>進階：一次把整個月轉成每日菜單（通常不需要——首頁「帶入月菜單」會自動帶當天的菜）</span>
+              <span className="transition-transform group-open:rotate-180">▾</span>
+            </summary>
+            <div className="border-t p-4 space-y-3">
               <p className="text-sm font-medium">轉為正式營運菜單</p>
               {(() => {
                 const eligibility = evaluateOperationalFinalizeEligibility(activeBatch, items);
@@ -341,6 +398,7 @@ export default function MenuImportPage() {
                 );
               })()}
             </div>
+            </details>
           )}
 
           {activeBatch.operationalFinalizedAt && (

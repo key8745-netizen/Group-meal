@@ -370,6 +370,8 @@ console.log('\n(estimate) 單配方成本速估');
   const r = recipe({ id: 'r_waste', recipeIngredients: [line({ ingredientId: 'w', ingredientNameSnapshot: '高麗菜', baseQuantity: 75 })] });
   check('waste: estimate uses gross weight', estimateRecipeCostPerServing(r, byId, null).costPerServing, 10);
   check('waste: breakdown cost uses gross weight', breakdownRecipeCost(r.recipeIngredients, byId, null).lines[0].costPerServing, 10);
+  check('waste: breakdown shows gross qty to buy', breakdownRecipeCost(r.recipeIngredients, byId, null).lines[0].grossBaseQuantity, 100);
+  check('waste: breakdown keeps net qty', breakdownRecipeCost(r.recipeIngredients, byId, null).lines[0].baseQuantity, 75);
   const sug = calculateCostAwareMenuSuggestion({ targetServingCount: 10 }, [r], [waste], { w: 1 }, null);
   check('waste: assessment cost uses gross weight', sug.items[0].estimatedCostPerServing, 10);
   check('waste: servings from stock use gross weight', sug.items[0].maxServingsFromStock, 10);

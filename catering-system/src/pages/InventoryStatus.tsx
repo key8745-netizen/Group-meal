@@ -99,9 +99,9 @@ const statusOrder: Record<StockStatus, number> = { critical: 0, low: 1, unknown:
 type FilterKey = StockStatus | 'all';
 
 const PAGE_TABS: { key: PageTab; label: string }[] = [
-  { key: 'overview', label: '庫存總覽' },
+  { key: 'overview', label: '庫存' },
+  { key: 'audit',    label: '盤點（改數量）' },
   { key: 'batches',  label: '批次明細' },
-  { key: 'audit',    label: '庫存盤點' },
 ];
 
 // ─── InventoryStatus ──────────────────────────────────────────────────────────
@@ -111,6 +111,8 @@ export default function InventoryStatus() {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<InventoryRow[]>([]);
   const [filter, setFilter] = useState<FilterKey>('all');
+  // 基本只看「食材、目前庫存、保鮮、狀態」；其餘欄位收在微調裡。
+  const [showDetailCols, setShowDetailCols] = useState(false);
   // Feature 081: 批次明細分頁——原始批次 + 食材主檔對照 + 加工延壽目標。
   const [allBatches, setAllBatches] = useState<InventoryBatch[]>([]);
   const [ingredientById, setIngredientById] = useState<Map<string, IngredientMaster>>(new Map());
@@ -305,7 +307,7 @@ export default function InventoryStatus() {
           </div>
 
           {/* Filter chips */}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {filterChips.map(({ key, label }) => (
               <button
                 key={key}
@@ -320,6 +322,14 @@ export default function InventoryStatus() {
                 {label}
               </button>
             ))}
+            <button
+              type="button"
+              aria-pressed={showDetailCols}
+              onClick={() => setShowDetailCols((v) => !v)}
+              className="ml-auto text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+            >
+              {showDetailCols ? '收起欄位 ▴' : '顯示更多欄位（類別、安全水位、單價、更新日期）▾'}
+            </button>
           </div>
 
           {/* Table */}
@@ -340,12 +350,12 @@ export default function InventoryStatus() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>食材名稱</TableHead>
-                    <TableHead>類別</TableHead>
+                    {showDetailCols && <TableHead>類別</TableHead>}
                     <TableHead className="text-right">目前庫存</TableHead>
-                    <TableHead className="text-right">安全水位</TableHead>
-                    <TableHead className="text-right">單價 / {unit}</TableHead>
+                    {showDetailCols && <TableHead className="text-right">安全水位</TableHead>}
+                    {showDetailCols && <TableHead className="text-right">單價 / {unit}</TableHead>}
                     <TableHead>批次 / 保鮮</TableHead>
-                    <TableHead>更新日期</TableHead>
+                    {showDetailCols && <TableHead>更新日期</TableHead>}
                     <TableHead>狀態</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -360,18 +370,22 @@ export default function InventoryStatus() {
                         className={idx % 2 !== 0 ? 'bg-muted/30' : ''}
                       >
                         <TableCell className="font-medium">{row.ingredientName}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{row.category}</TableCell>
+                        {showDetailCols && <TableCell className="text-sm text-muted-foreground">{row.category}</TableCell>}
                         <TableCell
                           className={`text-right tabular-nums ${isAlert ? 'font-medium text-destructive' : ''}`}
                         >
                           {fmtKg(row.currentStockKg)}
                         </TableCell>
-                        <TableCell className="text-right tabular-nums text-muted-foreground">
-                          {row.safetyLevelKg > 0 ? fmtKg(row.safetyLevelKg) : '—'}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums text-muted-foreground">
-                          {row.pricePerKg > 0 ? `NT$ ${pricePerDisplayUnit(row.pricePerKg, unit).toLocaleString()}` : '—'}
-                        </TableCell>
+                        {showDetailCols && (
+                          <TableCell className="text-right tabular-nums text-muted-foreground">
+                            {row.safetyLevelKg > 0 ? fmtKg(row.safetyLevelKg) : '—'}
+                          </TableCell>
+                        )}
+                        {showDetailCols && (
+                          <TableCell className="text-right tabular-nums text-muted-foreground">
+                            {row.pricePerKg > 0 ? `NT$ ${pricePerDisplayUnit(row.pricePerKg, unit).toLocaleString()}` : '—'}
+                          </TableCell>
+                        )}
                         <TableCell>
                           {row.batchCount === 0 ? (
                             <span className="text-xs text-muted-foreground">—</span>
@@ -386,9 +400,11 @@ export default function InventoryStatus() {
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {row.lastUpdated ?? '—'}
-                        </TableCell>
+                        {showDetailCols && (
+                          <TableCell className="text-xs text-muted-foreground">
+                            {row.lastUpdated ?? '—'}
+                          </TableCell>
+                        )}
                         <TableCell>
                           <Badge variant={variant} className={extra}>
                             {label}

@@ -15,7 +15,6 @@ import {
 import { db } from '@/lib/firebase';
 import { auth } from '@/lib/firebase';
 import { restockIngredient } from './inventoryService';
-import { logOrderFulfillment } from './performanceService';
 import { configService } from './configService';
 import { resolveReceivedQuantities } from './receivedQuantityPlanner';
 import { createReceiptBatch } from './inventoryBatchService';
@@ -259,20 +258,6 @@ export const purchaseOrderService = {
       }
     }
 
-    // Fire-and-forget: log fulfillment data for performance tracking.
-    // Never awaited — must not block the UI or fail the completeOrder call.
-    // Logs the ACTUAL received qty (incl. 0) so fulfillment data is honest.
-    logOrderFulfillment(
-      db as Firestore,
-      orderId,
-      resolved.map((line) => ({
-        ingredientId:             line.ingredientId,
-        ingredientName:           line.name,
-        purchasedQtyKg:           line.receivedKg,
-        originalRecommendedQtyKg:
-          order.items.find((i) => i.ingredientId === line.ingredientId)?.recommendedQtyKg ?? null,
-      })),
-    );
   },
 
   /**

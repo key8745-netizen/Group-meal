@@ -7,6 +7,7 @@
  */
 
 import { useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
 import type { Firestore } from 'firebase/firestore';
 import type { IngredientMaster, StorageType } from '@/services/types';
 import { planPreservation, resolvePreservationDefaults } from '@/services/preservationPlanner';
@@ -104,7 +105,16 @@ export function PreservationDialog({
   }
 
   return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    // 開關只淡入淡出；呼叫端以 <AnimatePresence> 包住才有淡出。
+    <motion.div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+    >
       <div className="flex w-full max-w-md flex-col gap-4 rounded-lg bg-background p-6 shadow-xl">
         <div>
           <h2 className="text-lg font-semibold text-foreground">加工延壽</h2>
@@ -196,6 +206,6 @@ export function PreservationDialog({
           </Button>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

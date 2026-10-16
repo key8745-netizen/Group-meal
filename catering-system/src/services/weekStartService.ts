@@ -13,14 +13,13 @@
  * 兩者都是排序器：只呼叫既有的 create 函式，不新增 collection 或規則。
  */
 
-import { collection, getDocs, type Firestore } from 'firebase/firestore';
-import { runDayStart, loadMonthlyMenuDay } from './dayStartService';
+import type { Firestore } from 'firebase/firestore';
+import { runDayStart, loadMonthlyMenuDay, loadStockKgByIngredientId } from './dayStartService';
 import { listRecipes } from './recipeService';
 import { listMenus } from './recipeMenuService';
 import { purchaseOrderService } from './purchaseOrderService';
 import { planRangeOrder, type RangeOrderPlan } from './draftToPurchaseOrderPlanner';
 import type { RangeDemandSummary } from './weekPlanService';
-import type { InventoryDoc } from './types';
 
 // ─── A. 整週一鍵開工 ────────────────────────────────────────────────────────
 
@@ -68,8 +67,15 @@ export async function runWeekStart(
   }));
   const emit = () => onProgress?.(results.map((r) => ({ ...r })));
 
-  const [recipes, menus] = await Promise.all([listRecipes(db), listMenus(db)]);
+  const [recipes, menus, initialStock] = await Promise.all([
+    listRecipes(db),
+    listMenus(db),
+    loadStockKgByIngredientId(db),
+  ]);
   const datesWithMenu = new Set(menus.filter((m) => m.isActive !== false).map((m) => m.date));
+  // 同一份庫存只能用一次：每天扣完的剩餘量傳給下一天，避免整週每天都扣
+  // 「全部現有庫存」而少買。已建過菜單（略過）的日子不在此計算內。
+  let stock = initialStock;
 
   for (const result of results) {
     result.status = 'running';
@@ -95,9 +101,10 @@ export async function runWeekStart(
       const headCount = day.headCountHint ?? fallbackHeadCount;
       const run = await runDayStart(
         db,
-        { date: result.date, headCount, recipeIds: day.matched.map((m) => m.recipeId) },
+        { date: result.date, headCount, recipeIds: day.matched.map((m) => m.recipeId), availableStockKg: stock },
         uid,
       );
+      if (run.remainingStockKg) stock = run.remainingStockKg;
       const failedStep = run.steps.find((s) => s.status === 'failed');
       if (run.completed) {
         result.status = 'done';
@@ -128,15 +135,7 @@ export interface RangeOrderResult {
 }
 
 /** 讀取現有庫存（kg），供 planRangeOrder 淨化需求。 */
-export async function loadStockKgByIngredientId(db: Firestore): Promise<Map<string, number>> {
-  const snap = await getDocs(collection(db, 'inventory'));
-  const stock = new Map<string, number>();
-  snap.docs.forEach((d) => {
-    const inv = d.data() as InventoryDoc;
-    if (typeof inv.currentStock === 'number') stock.set(d.id, inv.currentStock);
-  });
-  return stock;
-}
+export { loadStockKgByIngredientId };
 
 /**
  * 把彙總結果扣庫存後建立一張 PENDING 採購單。呼叫端應先用

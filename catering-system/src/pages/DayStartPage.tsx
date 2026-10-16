@@ -14,7 +14,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Rocket, Sparkles, CheckCircle2, XCircle, Circle, Loader2, MinusCircle, ListChecks, CalendarDays } from 'lucide-react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
@@ -705,20 +705,22 @@ export default function DayStartPage() {
       )}
 
       {/* Feature 085: 加工延壽對話框 */}
-      {preserveTarget && (
-        <PreservationDialog
-          db={db}
-          source={preserveTarget}
-          ingredient={costIngredients.find((i) => i.id === preserveTarget.ingredientId)}
-          performedBy={auth.currentUser?.email ?? auth.currentUser?.uid ?? 'unknown'}
-          onClose={() => setPreserveTarget(null)}
-          onDone={(newBatchId) => {
-            setPreserveTarget(null);
-            toast({ title: '加工延壽完成', description: `已建立加工批次 #${newBatchId}` });
-            listAllBatches(db).then(setBatches).catch(() => {});
-          }}
-        />
-      )}
+      <AnimatePresence>
+        {preserveTarget && (
+          <PreservationDialog
+            db={db}
+            source={preserveTarget}
+            ingredient={costIngredients.find((i) => i.id === preserveTarget.ingredientId)}
+            performedBy={auth.currentUser?.email ?? auth.currentUser?.uid ?? 'unknown'}
+            onClose={() => setPreserveTarget(null)}
+            onDone={(newBatchId) => {
+              setPreserveTarget(null);
+              toast({ title: '加工延壽完成', description: `已建立加工批次 #${newBatchId}` });
+              listAllBatches(db).then(setBatches).catch(() => {});
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       <Toaster />
       {confirmDialog}

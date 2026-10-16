@@ -276,7 +276,14 @@ only display changes. `inputToKg(value, unit)` converts unit-aware inputs back t
 
 `prepPlanService` expands a recipe menu: `requiredBaseQuantity = Σ recipeIngredient.baseQuantity × servings`
 (g / ml / pcs). ⚠️ It does **not** apply `wasteFactor` — the old `menus`-based formula did, and was
-removed with that pipeline. `inventory/{id}.currentStock` is always in kg.
+removed with that pipeline. `wasteFactor` is now only a legacy carry-over field on old ingredient docs
+(not editable in `IngredientMasterForm`), and whether `baseQuantity` means net (edible) or gross
+(purchased) weight is **undecided** — settle that with the owner before adding a loss factor.
+`inventory/{id}.currentStock` is always in kg.
+
+Purchase netting: `dayStartService.netItemsAgainstStock()` returns `remainingStockKg`; `runWeekStart`
+threads it day to day (`DayStartInput.availableStockKg`) so a week's daily drafts never subtract the
+same stock twice. Days skipped because they already had a menu are not part of that carry-over.
 
 ## Routing
 

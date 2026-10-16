@@ -42,7 +42,6 @@ const navGroups: { section: string; items: NavItem[] }[] = [
     section: '每天用這裡',
     items: [
       { to: '/', label: '今日開工', icon: Rocket, end: true },
-      { to: '/daily-ops', label: '每日工作總覽', icon: ListChecks },
       { to: '/week-plan', label: '週間規劃', icon: CalendarDays },
     ],
   },
@@ -62,16 +61,15 @@ const navGroups: { section: string; items: NavItem[] }[] = [
       { to: '/market-prices', label: '市場行情', icon: TrendingUp },
     ],
   },
-  {
-    section: '設定',
-    items: [
-      { to: '/kitchen-settings', label: '我的廚房設定', icon: Settings2 },
-    ],
-  },
 ];
 
-/** Detail pages behind the one-click flow — collapsed by default. */
+/**
+ * 「更多」：基本操作用不到的頁面（細部流程、總覽、設定），預設收合。
+ * 功能都還在，只是不擋在常用頁面中間。
+ */
 const advancedItems: NavItem[] = [
+  { to: '/daily-ops', label: '每日工作總覽', icon: ListChecks },
+  { to: '/kitchen-settings', label: '我的廚房設定', icon: Settings2 },
   { to: '/dashboard', label: '儀表板', icon: LayoutDashboard },
   { to: '/recipe-menus', label: '菜單配方', icon: CalendarRange },
   { to: '/menu-drafts', label: '草稿菜單', icon: ScrollText },
@@ -117,11 +115,11 @@ function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate
           </div>
         ))}
 
-        {/* 進階：一鍵流程背後的細部頁面，預設收合 */}
+        {/* 更多：細部頁面與設定，預設收合 */}
         <details open={advancedItems.some(({ to }) => pathname.startsWith(to))} className="group">
           <summary className="flex cursor-pointer list-none items-center gap-1 px-3 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground/60 [&::-webkit-details-marker]:hidden">
             <ChevronDown size={12} className="-rotate-90 transition-transform group-open:rotate-0" />
-            進階功能
+            更多
           </summary>
           {advancedItems.map(({ to, label, icon: Icon }) => (
             <NavLink key={to} to={to} className={navLinkClass} onClick={onNavigate}>

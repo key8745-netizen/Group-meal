@@ -154,8 +154,10 @@ export function estimateRecipeCostPerServing(
 export interface RecipeCostBreakdownLine {
   ingredientId: string;
   name: string;
-  /** 每份用量（以食材基本單位計；Feature 068 批量試算用）。 */
+  /** 每份用量（淨重，以食材基本單位計；Feature 068 批量試算用）。 */
   baseQuantity: number;
+  /** 每份要買的量（含耗損的毛重）；無耗損時等於 baseQuantity。 */
+  grossBaseQuantity: number;
   /** 食材基本單位（g / ml / pcs）；找不到食材時為空字串。 */
   baseUnit: string;
   /** 該食材每份成本（2 位小數）；無價為 null。 */
@@ -193,11 +195,12 @@ export function breakdownRecipeCost(
     const baseUnit = ing?.baseUnit ?? '';
     const resolution = ing ? resolveIngredientPrice(ing, snapshot) : { pricePerBaseUnit: null };
     if (resolution.pricePerBaseUnit != null) {
-      const cost = round2(grossBaseQuantity(line.baseQuantity, ing?.wasteFactor) * resolution.pricePerBaseUnit);
+      const gross = grossBaseQuantity(line.baseQuantity, ing?.wasteFactor);
+      const cost = round2(gross * resolution.pricePerBaseUnit);
       costTotal += cost;
-      priced.push({ ingredientId: line.ingredientId, name, baseQuantity: line.baseQuantity, baseUnit, costPerServing: cost, percent: null });
+      priced.push({ ingredientId: line.ingredientId, name, baseQuantity: line.baseQuantity, grossBaseQuantity: gross, baseUnit, costPerServing: cost, percent: null });
     } else {
-      unpriced.push({ ingredientId: line.ingredientId, name, baseQuantity: line.baseQuantity, baseUnit, costPerServing: null, percent: null });
+      unpriced.push({ ingredientId: line.ingredientId, name, baseQuantity: line.baseQuantity, grossBaseQuantity: grossBaseQuantity(line.baseQuantity, ing?.wasteFactor), baseUnit, costPerServing: null, percent: null });
     }
   }
 

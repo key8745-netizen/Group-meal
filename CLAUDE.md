@@ -308,14 +308,16 @@ which sequences the whole chain through the existing create functions:
 (`/purchase-demand-drafts`) → 製程規劃+任務草稿(`/production-workflows`) →
 排程建議(`/production-schedules`).
 
-Sidebar (AppLayout) shows three primary groups — 每天用這裡（`/`、
-`/daily-ops`、`/week-plan`）、菜與食材（`/recipes`、`/ingredients-master`、
-`/menu-import`）、買與存（`/purchase`、`/inventory`、`/market-prices`）—
-plus a collapsed 進階功能 group holding the chain detail pages
-(`/dashboard`, `/recipe-menus`, `/menu-drafts`, `/menu-suggestions`,
-`/prep-plans`, `/purchase-demand-drafts`, `/production-workflows`,
-`/production-schedules`, `/analytics`)，另有 `/kitchen-settings`
-（設定群組，Feature 049 排程參數）。
+Sidebar (AppLayout) shows only the 8 basic pages the owner uses — 每天用這裡（`/`、`/week-plan`）、
+菜與食材（`/recipes`、`/ingredients-master`、`/menu-import`）、買與存（`/purchase`、`/inventory`、
+`/market-prices`）— plus a collapsed 更多 group holding everything else (`/daily-ops`,
+`/kitchen-settings`, `/dashboard`, `/recipe-menus`, `/menu-drafts`, `/menu-suggestions`, `/prep-plans`,
+`/purchase-demand-drafts`, `/production-workflows`, `/production-schedules`, `/analytics`).
+
+UI principle (owner, 2026-10): **basic actions visible, fine-tuning folded.** The owner uses only the basic
+functions; extra knobs go behind a collapsed 「微調」 control rather than being removed — e.g. DayStart's
+各類幾道／依市價＋庫存推薦, and `IngredientMasterForm` (basic = 名稱/類別/單位/價格/耗損率; 切法、前處理、
+安全庫存、保鮮、行情對應、備註 in a closed `<details>`). Follow this when touching other pages.
 
 ## Netlify Functions
 

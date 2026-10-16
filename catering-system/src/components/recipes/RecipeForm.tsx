@@ -105,8 +105,14 @@ function CostBreakdownPanel({ breakdown }: { breakdown: RecipeCostBreakdown }) {
         {breakdown.lines.map((line) => (
           <li key={line.ingredientId} className="flex items-center gap-2 text-xs">
             <span className="w-20 shrink-0 truncate text-foreground" title={line.name}>{line.name}</span>
-            <span className="w-20 shrink-0 text-right tabular-nums text-muted-foreground">
-              {formatAmount(line.baseQuantity * mult, line.baseUnit)}
+            <span
+              className="w-20 shrink-0 text-right tabular-nums text-muted-foreground"
+              title={line.grossBaseQuantity !== line.baseQuantity
+                ? `淨重 ${formatAmount(line.baseQuantity * mult, line.baseUnit)}，含耗損要買 ${formatAmount(line.grossBaseQuantity * mult, line.baseUnit)}`
+                : undefined}
+            >
+              {formatAmount(line.grossBaseQuantity * mult, line.baseUnit)}
+              {line.grossBaseQuantity !== line.baseQuantity && <span className="text-amber-600">*</span>}
             </span>
             <span className="relative h-3 flex-1 overflow-hidden rounded-sm bg-muted">
               {line.percent != null && (
@@ -124,6 +130,11 @@ function CostBreakdownPanel({ breakdown }: { breakdown: RecipeCostBreakdown }) {
           </li>
         ))}
       </ul>
+      {breakdown.lines.some((l) => l.grossBaseQuantity !== l.baseQuantity) && (
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          <span className="text-amber-600">*</span> 數量已含耗損（實際要買的量；配方填的是淨重，滑鼠移上去看淨重）。
+        </p>
+      )}
       {!breakdown.complete && (
         <p className="mt-2 text-[11px] text-muted-foreground">
           ＊部分食材未設定價格（基準價或市場作物名），實際成本可能更高。

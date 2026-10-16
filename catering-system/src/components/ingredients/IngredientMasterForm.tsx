@@ -156,29 +156,6 @@ export function IngredientMasterForm({
           />
         </div>
 
-        {/* Feature 101: 預設切法——配方未指定時，製程任務刀工的回落 */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium">預設切法</label>
-          <select
-            value={form.defaultCutType ?? ''}
-            onChange={(e) => setForm((f) => ({ ...f, defaultCutType: (e.target.value || undefined) as CutType | undefined }))}
-            className="h-9 rounded-md border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-            title="配方未指定切法時，備料製程套用此預設；配方可覆寫"
-          >
-            {CUT_CHOICES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-          </select>
-        </div>
-
-        {/* Feature 102: 前處理備註——食材固有（如去蒂頭/去皮），附加到備料製程第一步要領 */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium">前處理備註</label>
-          <Input
-            value={form.prepNote ?? ''}
-            onChange={(e) => setForm((f) => ({ ...f, prepNote: e.target.value }))}
-            placeholder="如：去蒂頭、切頭去尾、削皮"
-          />
-        </div>
-
         {/* 耗損率：配方填淨重，備料／採購自動換算成毛重 */}
         <div className="flex flex-col gap-1">
           <label htmlFor="ingredientWastePct" className="text-xs font-medium">耗損率（%）</label>
@@ -251,131 +228,163 @@ export function IngredientMasterForm({
           {errors.defaultPriceUnit && <p className="text-xs text-destructive">{errors.defaultPriceUnit}</p>}
         </div>
 
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium">安全庫存（0 = 不追蹤）</label>
-          <WeightInput
-            valueKg={form.minStockLevel ?? 0}
-            onChangeKg={(kg) => setForm((f) => ({ ...f, minStockLevel: kg }))}
-          />
-          <p className="text-[11px] text-muted-foreground">
-            庫存低於此值時首頁會提醒補貨
-            {typeof currentStockKg === 'number' && (
-              <span className="ml-1">（目前庫存 {formatWeight(currentStockKg, displayUnit)}）</span>
-            )}
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium">供應商 ID</label>
-          <Input
-            value={form.supplierId ?? ''}
-            onChange={(e) => setForm((f) => ({ ...f, supplierId: e.target.value || null }))}
-            placeholder="選填"
-          />
-        </div>
-
-        <div className="col-span-2 flex flex-col gap-1">
-          <label className="text-xs font-medium">市場作物名稱（AMIS 行情對應，選填）</label>
-          <Input
-            value={form.marketCropName ?? ''}
-            onChange={(e) => setForm((f) => ({ ...f, marketCropName: e.target.value || null }))}
-            placeholder="例：甘藍"
-          />
-          {priceHistory && priceHistory.points.length > 0 && (
-            <PriceHistoryHint history={priceHistory} />
-          )}
-        </div>
-
-        {/* Feature 071: 保鮮設定 */}
-        <div className="col-span-2 flex flex-col gap-2 rounded-md border bg-muted/20 p-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs font-medium">保鮮設定</span>
-            <label className="flex items-center gap-1.5 text-xs">
-              <input
-                type="checkbox"
-                className="h-3.5 w-3.5"
-                checked={form.isPerishable !== false}
-                onChange={(e) => setForm((f) => ({ ...f, isPerishable: e.target.checked }))}
-              />
-              易腐食材（需追蹤保鮮）
-            </label>
-          </div>
-          {form.isPerishable !== false && (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px] text-muted-foreground">預設儲存</label>
-                <select
-                  className="rounded-md border bg-background px-2 py-1.5 text-sm"
-                  value={form.defaultStorageType ?? 'chilled'}
-                  onChange={(e) => setForm((f) => ({ ...f, defaultStorageType: e.target.value as StorageType }))}
-                >
-                  {(['ambient', 'chilled', 'frozen'] as StorageType[]).map((s) => (
-                    <option key={s} value={s}>{STORAGE_LABELS[s]}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px] text-muted-foreground">
-                  保存天數（{STORAGE_LABELS[form.defaultStorageType ?? 'chilled']}）
-                </label>
-                <Input
-                  type="number" min={0} step={1}
-                  value={form[SHELF_LIFE_KEY[form.defaultStorageType ?? 'chilled']] ?? ''}
-                  onChange={(e) => {
-                    const st = form.defaultStorageType ?? 'chilled';
-                    const v = Math.max(0, parseInt(e.target.value, 10) || 0);
-                    setForm((f) => ({ ...f, [SHELF_LIFE_KEY[st]]: v }));
-                  }}
-                  placeholder="如 3"
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px] text-muted-foreground">優先使用門檻（天）</label>
-                <Input
-                  type="number" min={0} step={1}
-                  value={form.warnThresholdDays ?? 2}
-                  onChange={(e) => setForm((f) => ({ ...f, warnThresholdDays: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px] text-muted-foreground">臨界門檻（天）</label>
-                <Input
-                  type="number" min={0} step={1}
-                  value={form.criticalThresholdDays ?? 1}
-                  onChange={(e) => setForm((f) => ({ ...f, criticalThresholdDays: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px] text-muted-foreground">加工延壽良率</label>
-                <Input
-                  type="number" min={0} max={2} step="any"
-                  value={form.processedYieldRatio ?? ''}
-                  onChange={(e) => {
-                    const v = parseFloat(e.target.value);
-                    setForm((f) => ({ ...f, processedYieldRatio: Number.isFinite(v) && v > 0 ? v : undefined }));
-                  }}
-                  placeholder="如 0.75"
-                />
-              </div>
+        {/* 微調：平常用不到的設定，預設收起來；需要時再展開 */}
+        <details className="group col-span-2 rounded-md border">
+          <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2 text-xs font-medium text-muted-foreground [&::-webkit-details-marker]:hidden">
+            <span>微調（切法、前處理、安全庫存、保鮮、行情對應、備註）</span>
+            <span className="transition-transform group-open:rotate-180">▾</span>
+          </summary>
+          <div className="grid grid-cols-2 gap-3 border-t p-3">
+            {/* Feature 101: 預設切法——配方未指定時，製程任務刀工的回落 */}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium">預設切法</label>
+              <select
+                value={form.defaultCutType ?? ''}
+                onChange={(e) => setForm((f) => ({ ...f, defaultCutType: (e.target.value || undefined) as CutType | undefined }))}
+                className="h-9 rounded-md border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                title="配方未指定切法時，備料製程套用此預設；配方可覆寫"
+              >
+                {CUT_CHOICES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
             </div>
-          )}
-          <p className="text-[11px] text-muted-foreground">
-            保存天數用於收貨時自動推算批次效期；乾貨/罐頭可取消勾選「易腐」以跳過保鮮追蹤。
-            加工延壽良率＝煮熟後產出／原料（如 0.75 代表煮過剩 75%），加工時可逐次覆蓋。
-          </p>
-        </div>
 
-        {/* Feature 074: 依食材名顯示風味搭配與料理技法建議（純唯讀參考） */}
-        <FlavorKnowledgePanel ingredientName={form.name} />
+            {/* Feature 102: 前處理備註——食材固有（如去蒂頭/去皮），附加到備料製程第一步要領 */}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium">前處理備註</label>
+              <Input
+                value={form.prepNote ?? ''}
+                onChange={(e) => setForm((f) => ({ ...f, prepNote: e.target.value }))}
+                placeholder="如：去蒂頭、切頭去尾、削皮"
+              />
+            </div>
 
-        <div className="col-span-2 flex flex-col gap-1">
-          <label className="text-xs font-medium">備註</label>
-          <Input
-            value={form.notes ?? ''}
-            onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-            placeholder="選填"
-          />
-        </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium">安全庫存（0 = 不追蹤）</label>
+              <WeightInput
+                valueKg={form.minStockLevel ?? 0}
+                onChangeKg={(kg) => setForm((f) => ({ ...f, minStockLevel: kg }))}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                庫存低於此值時首頁會提醒補貨
+                {typeof currentStockKg === 'number' && (
+                  <span className="ml-1">（目前庫存 {formatWeight(currentStockKg, displayUnit)}）</span>
+                )}
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium">供應商 ID</label>
+              <Input
+                value={form.supplierId ?? ''}
+                onChange={(e) => setForm((f) => ({ ...f, supplierId: e.target.value || null }))}
+                placeholder="選填"
+              />
+            </div>
+
+            <div className="col-span-2 flex flex-col gap-1">
+              <label className="text-xs font-medium">市場作物名稱（AMIS 行情對應，選填）</label>
+              <Input
+                value={form.marketCropName ?? ''}
+                onChange={(e) => setForm((f) => ({ ...f, marketCropName: e.target.value || null }))}
+                placeholder="例：甘藍"
+              />
+              {priceHistory && priceHistory.points.length > 0 && (
+                <PriceHistoryHint history={priceHistory} />
+              )}
+            </div>
+
+            {/* Feature 071: 保鮮設定 */}
+            <div className="col-span-2 flex flex-col gap-2 rounded-md border bg-muted/20 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs font-medium">保鮮設定</span>
+                <label className="flex items-center gap-1.5 text-xs">
+                  <input
+                    type="checkbox"
+                    className="h-3.5 w-3.5"
+                    checked={form.isPerishable !== false}
+                    onChange={(e) => setForm((f) => ({ ...f, isPerishable: e.target.checked }))}
+                  />
+                  易腐食材（需追蹤保鮮）
+                </label>
+              </div>
+              {form.isPerishable !== false && (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[11px] text-muted-foreground">預設儲存</label>
+                    <select
+                      className="rounded-md border bg-background px-2 py-1.5 text-sm"
+                      value={form.defaultStorageType ?? 'chilled'}
+                      onChange={(e) => setForm((f) => ({ ...f, defaultStorageType: e.target.value as StorageType }))}
+                    >
+                      {(['ambient', 'chilled', 'frozen'] as StorageType[]).map((s) => (
+                        <option key={s} value={s}>{STORAGE_LABELS[s]}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[11px] text-muted-foreground">
+                      保存天數（{STORAGE_LABELS[form.defaultStorageType ?? 'chilled']}）
+                    </label>
+                    <Input
+                      type="number" min={0} step={1}
+                      value={form[SHELF_LIFE_KEY[form.defaultStorageType ?? 'chilled']] ?? ''}
+                      onChange={(e) => {
+                        const st = form.defaultStorageType ?? 'chilled';
+                        const v = Math.max(0, parseInt(e.target.value, 10) || 0);
+                        setForm((f) => ({ ...f, [SHELF_LIFE_KEY[st]]: v }));
+                      }}
+                      placeholder="如 3"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[11px] text-muted-foreground">優先使用門檻（天）</label>
+                    <Input
+                      type="number" min={0} step={1}
+                      value={form.warnThresholdDays ?? 2}
+                      onChange={(e) => setForm((f) => ({ ...f, warnThresholdDays: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[11px] text-muted-foreground">臨界門檻（天）</label>
+                    <Input
+                      type="number" min={0} step={1}
+                      value={form.criticalThresholdDays ?? 1}
+                      onChange={(e) => setForm((f) => ({ ...f, criticalThresholdDays: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[11px] text-muted-foreground">加工延壽良率</label>
+                    <Input
+                      type="number" min={0} max={2} step="any"
+                      value={form.processedYieldRatio ?? ''}
+                      onChange={(e) => {
+                        const v = parseFloat(e.target.value);
+                        setForm((f) => ({ ...f, processedYieldRatio: Number.isFinite(v) && v > 0 ? v : undefined }));
+                      }}
+                      placeholder="如 0.75"
+                    />
+                  </div>
+                </div>
+              )}
+              <p className="text-[11px] text-muted-foreground">
+                保存天數用於收貨時自動推算批次效期；乾貨/罐頭可取消勾選「易腐」以跳過保鮮追蹤。
+                加工延壽良率＝煮熟後產出／原料（如 0.75 代表煮過剩 75%），加工時可逐次覆蓋。
+              </p>
+            </div>
+
+            {/* Feature 074: 依食材名顯示風味搭配與料理技法建議（純唯讀參考） */}
+            <FlavorKnowledgePanel ingredientName={form.name} />
+
+            <div className="col-span-2 flex flex-col gap-1">
+              <label className="text-xs font-medium">備註</label>
+              <Input
+                value={form.notes ?? ''}
+                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                placeholder="選填"
+              />
+            </div>
+          </div>
+        </details>
       </div>
 
       <div className="flex justify-end gap-2 border-t pt-3">

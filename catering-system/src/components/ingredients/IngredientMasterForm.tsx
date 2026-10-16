@@ -179,6 +179,24 @@ export function IngredientMasterForm({
           />
         </div>
 
+        {/* 耗損率：配方填淨重，備料／採購自動換算成毛重 */}
+        <div className="flex flex-col gap-1">
+          <label htmlFor="ingredientWastePct" className="text-xs font-medium">耗損率（%）</label>
+          <Input
+            id="ingredientWastePct"
+            type="number" min={0} max={90} step="any"
+            value={form.wasteFactor != null ? Math.round(form.wasteFactor * 1000) / 10 : ''}
+            onChange={(e) => {
+              const pct = parseFloat(e.target.value);
+              setForm((f) => ({ ...f, wasteFactor: Number.isFinite(pct) && pct > 0 ? Math.min(pct, 90) / 100 : undefined }));
+            }}
+            placeholder="如：高麗菜 25"
+          />
+          <p className="text-[11px] text-muted-foreground">
+            削皮、去頭尾、挑掉的重量佔買進重量的比例。配方份量填淨重，備料與採購會自動加回耗損（淨重 ÷ (1 − 耗損率)）。
+          </p>
+        </div>
+
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium">基本單位 *</label>
           <select

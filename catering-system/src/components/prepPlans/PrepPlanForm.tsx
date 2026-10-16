@@ -205,6 +205,11 @@ export function PrepPlanForm({
                       {item.requiredBaseQuantity} {item.baseUnit}
                     </span>
                   </div>
+                  {item.wasteFactorApplied != null && item.netBaseQuantity != null && (
+                    <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
+                      淨重 {item.netBaseQuantity} {item.baseUnit} ÷ (1 − 耗損 {Math.round(item.wasteFactorApplied * 1000) / 10}%) = 要備 {item.requiredBaseQuantity} {item.baseUnit}
+                    </p>
+                  )}
                   <ul className="mt-1 space-y-0.5 pl-4 text-xs text-muted-foreground">
                     {item.recipeContributions.map((c, i) => (
                       <li key={i}>

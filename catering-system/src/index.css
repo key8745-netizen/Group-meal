@@ -49,3 +49,157 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ── 今日開工「灶台合成」（CraftingBench）：深色莫蘭迪玻璃面板，與 App 淺色主題刻意區隔 ── */
+@layer components {
+  .craft {
+    --craft-ink: #17151a;
+    --craft-glass: rgba(38, 34, 40, 0.72);
+    --craft-line: rgba(220, 205, 190, 0.14);
+    --craft-text: #efe8df;
+    --craft-muted: #a69d93;
+    --craft-ember: #d39a7c;
+    --craft-gold: #d8c08e;
+    --craft-ok: #a8c6a0;
+    --craft-warn: #e3a48c;
+    color: var(--craft-text);
+    color-scheme: dark;
+  }
+  .craft-surface {
+    background:
+      radial-gradient(60% 50% at 80% 100%, rgba(211, 154, 124, 0.22), transparent 70%),
+      radial-gradient(50% 45% at 0% 0%, rgba(159, 179, 161, 0.14), transparent 70%),
+      var(--craft-ink);
+    box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.45);
+  }
+  .craft-muted { color: var(--craft-muted); }
+  .craft-ok { color: var(--craft-ok); }
+  .craft-warn { color: var(--craft-warn); }
+
+  .craft-panel {
+    position: relative;
+    background: var(--craft-glass);
+    border: 1px solid var(--craft-line);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 12px 32px -12px rgba(0, 0, 0, 0.5);
+  }
+  /* 游標追隨的邊框光暈 */
+  .craft-panel::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    pointer-events: none;
+    background: radial-gradient(220px circle at var(--mx, -999px) var(--my, -999px), rgba(211, 154, 124, 0.7), rgba(216, 192, 142, 0.25) 45%, transparent 70%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity 0.35s ease;
+  }
+  .craft-panel:hover::before { opacity: 1; }
+
+  .craft-input {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--craft-line);
+    color: var(--craft-text);
+  }
+  .craft-input::placeholder { color: var(--craft-muted); }
+
+  .craft-chip {
+    border: 1px solid var(--craft-line);
+    color: var(--craft-muted);
+    transition: color 0.2s, background-color 0.2s, border-color 0.2s;
+  }
+  .craft-chip:hover { color: var(--craft-text); }
+  .craft-chip[aria-pressed="true"] {
+    color: var(--craft-text);
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(220, 205, 190, 0.3);
+  }
+
+  .craft-tile {
+    background: linear-gradient(160deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.015));
+    border: 1px solid var(--craft-line);
+    color: var(--craft-text);
+    transition: border-color 0.25s, box-shadow 0.25s;
+  }
+  .craft-tile:hover {
+    border-color: color-mix(in srgb, var(--c) 60%, transparent);
+    box-shadow: 0 10px 24px -10px color-mix(in srgb, var(--c) 60%, transparent);
+  }
+  .craft-tile-placed { border-color: color-mix(in srgb, var(--c) 45%, transparent); }
+
+  .craft-glyph {
+    display: inline-grid;
+    flex-shrink: 0;
+    place-items: center;
+    border-radius: 12px;
+    font-weight: 700;
+    color: var(--c);
+    background: color-mix(in srgb, var(--c) 14%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 30%, transparent) inset;
+    text-shadow: 0 0 14px color-mix(in srgb, var(--c) 45%, transparent);
+  }
+
+  .craft-slot {
+    border: 1px dashed color-mix(in srgb, var(--c) 35%, transparent);
+    background: rgba(0, 0, 0, 0.22);
+  }
+
+  .craft-badge {
+    border-radius: 999px;
+    padding: 1px 7px;
+    font-size: 10px;
+    color: var(--craft-muted);
+    border: 1px solid var(--craft-line);
+  }
+  .craft-badge-gold { color: var(--craft-gold); border-color: rgba(216, 192, 142, 0.4); }
+  .craft-badge-ember { color: var(--craft-ember); border-color: rgba(211, 154, 124, 0.45); }
+
+  .craft-result {
+    background: rgba(0, 0, 0, 0.22);
+    border: 1px solid var(--craft-line);
+    transition: border-color 0.4s, box-shadow 0.4s;
+  }
+  .craft-result[data-ready="true"] {
+    border-color: rgba(216, 192, 142, 0.45);
+    animation: craft-breathe 2.4s ease-in-out infinite;
+  }
+
+  .craft-bar { height: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+  .craft-bar > i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--craft-ok), var(--craft-gold));
+  }
+  .craft-bar > i.craft-bar-over { background: linear-gradient(90deg, var(--craft-gold), var(--craft-warn)); }
+
+  .craft-fire {
+    color: #1a1513;
+    background: linear-gradient(180deg, #f0d9c4, var(--craft-ember));
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25) inset, 0 10px 26px -8px rgba(211, 154, 124, 0.7);
+  }
+  .craft-fire:disabled { opacity: 0.4; filter: grayscale(0.7); box-shadow: none; cursor: not-allowed; }
+
+  .craft-shimmer {
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.04));
+    background-size: 200% 100%;
+    animation: craft-shimmer 1.4s linear infinite;
+  }
+
+  .craft :focus-visible { outline: 2px solid var(--craft-gold); outline-offset: 2px; }
+
+  @keyframes craft-breathe {
+    50% { box-shadow: 0 0 36px -8px rgba(216, 192, 142, 0.45); }
+  }
+  @keyframes craft-shimmer {
+    to { background-position: -200% 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .craft-result[data-ready="true"], .craft-shimmer { animation: none; }
+  }
+}

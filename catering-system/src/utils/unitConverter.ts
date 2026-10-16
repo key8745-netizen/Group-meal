@@ -4,10 +4,6 @@
  * Conversion basis: 1 台斤 = 0.6 kg  →  1 kg = 1.66667 台斤
  *
  * All outputs are rounded to 2 decimal places.
- *
- * Note: src/services/unitConverter.ts is the full-featured multi-unit converter
- * used internally by the purchase / performance services.  This module provides
- * a simple, import-friendly API for UI components and scripts.
  */
 
 const KG_PER_TAIJIN   = 0.6;

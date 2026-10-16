@@ -69,6 +69,12 @@ export interface DayStartInput {
   headCount: number;
   /** Picked dishes (active recipe ids). */
   recipeIds: string[];
+  /**
+   * Stock (kg) to net the purchase draft against instead of re-reading
+   * inventory. Multi-day runs pass the previous day's `remainingStockKg`
+   * so each day only counts stock earlier days have not already used.
+   */
+  availableStockKg?: Map<string, number>;
 }
 
 export interface DayStartResult {
@@ -82,6 +88,8 @@ export interface DayStartResult {
   warnings: string[];
   /** True when every step finished `done`. */
   completed: boolean;
+  /** Stock left after this day's purchase netting; null if that step did not run. */
+  remainingStockKg: Map<string, number> | null;
 }
 
 // ─── Schedule parameters ────────────────────────────────────────────────────
@@ -186,6 +194,12 @@ export interface NetAgainstStockResult {
   nettedCount: number;
   /** Netted items whose demand dropped to 0 (stock fully covers需求). */
   coveredCount: number;
+  /**
+   * Stock left after this netting (kg, same keys as the input map). Lets a
+   * multi-day run hand the remainder to the next day so the same stock is
+   * not subtracted twice.
+   */
+  remainingStockKg: Map<string, number>;
 }
 
 /**
@@ -200,12 +214,15 @@ export function netItemsAgainstStock(
 ): NetAgainstStockResult {
   let nettedCount = 0;
   let coveredCount = 0;
+  const remainingStockKg = new Map(stockKgByIngredientId);
   const out = items.map((item) => {
     if (item.baseUnit === 'pcs') return { ...item };
-    const stockKg = stockKgByIngredientId.get(item.ingredientId) ?? 0;
+    const stockKg = remainingStockKg.get(item.ingredientId) ?? 0;
     const stockBase = Math.max(0, stockKg * 1000);
     if (!(stockBase > 0)) return { ...item };
     const net = Math.max(0, Math.round(item.demandQuantity - stockBase));
+    const usedBase = Math.min(stockBase, Math.max(0, item.demandQuantity));
+    remainingStockKg.set(item.ingredientId, (stockBase - usedBase) / 1000);
     nettedCount++;
     if (net === 0) coveredCount++;
     return {
@@ -215,38 +232,45 @@ export function netItemsAgainstStock(
       notes: `需求 ${Math.round(item.demandQuantity)}${item.baseUnit} − 庫存 ${Math.round(stockBase)}${item.baseUnit} → 淨採購 ${net}${item.baseUnit}`,
     };
   });
-  return { items: out, nettedCount, coveredCount };
+  return { items: out, nettedCount, coveredCount, remainingStockKg };
+}
+
+/** Current `inventory` stock in kg by ingredient id. */
+export async function loadStockKgByIngredientId(db: Firestore): Promise<Map<string, number>> {
+  const snap = await getDocs(collection(db, 'inventory'));
+  const stock = new Map<string, number>();
+  snap.docs.forEach((d) => {
+    const inv = d.data() as InventoryDoc;
+    if (typeof inv.currentStock === 'number') stock.set(d.id, inv.currentStock);
+  });
+  return stock;
 }
 
 /**
- * Nets a freshly created purchase-demand draft against current inventory
- * via `netItemsAgainstStock`, persisting through the existing `updateDraft`
- * path (same validation as a manual edit). Returns a short zh-TW summary
- * line for the step detail.
+ * Nets a freshly created purchase-demand draft against `stockKgById` (or
+ * current inventory when omitted) via `netItemsAgainstStock`, persisting
+ * through the existing `updateDraft` path (same validation as a manual
+ * edit). Returns the step detail line and the stock left over.
  */
 async function netDraftAgainstInventory(
   db: Firestore,
   draftId: string,
   uid: string,
-): Promise<string> {
-  const [draft, inventorySnap] = await Promise.all([
+  stockKgById?: Map<string, number>,
+): Promise<{ detail: string; remainingStockKg: Map<string, number> }> {
+  const [draft, stock] = await Promise.all([
     getPurchaseDemandDraft(db, draftId),
-    getDocs(collection(db, 'inventory')),
+    stockKgById ?? loadStockKgByIngredientId(db),
   ]);
-  const stockKgById = new Map<string, number>();
-  inventorySnap.docs.forEach((d) => {
-    const inv = d.data() as InventoryDoc;
-    if (typeof inv.currentStock === 'number') stockKgById.set(d.id, inv.currentStock);
-  });
 
-  const { items, nettedCount, coveredCount } = netItemsAgainstStock(
+  const { items, nettedCount, coveredCount, remainingStockKg } = netItemsAgainstStock(
     draft.items.map((i) => ({
       ingredientId: i.ingredientId,
       baseUnit: i.baseUnit,
       demandQuantity: i.demandQuantity,
       notes: i.notes,
     })),
-    stockKgById,
+    stock,
   );
 
   if (nettedCount > 0) {
@@ -261,7 +285,7 @@ async function netDraftAgainstInventory(
   const parts = [`${draft.items.length} 項食材`];
   if (nettedCount > 0) parts.push(`${nettedCount} 項已扣庫存`);
   if (coveredCount > 0) parts.push(`${coveredCount} 項庫存足夠免採購`);
-  return `${parts.join('，')}（可於採購需求草稿頁調整後送出）`;
+  return { detail: `${parts.join('，')}（可於採購需求草稿頁調整後送出）`, remainingStockKg };
 }
 
 // ─── Orchestrator ───────────────────────────────────────────────────────────
@@ -298,6 +322,7 @@ export async function runDayStart(
     scheduleId: null,
     warnings,
     completed: false,
+    remainingStockKg: null,
   };
 
   const emit = () => onProgress?.(steps.map((s) => ({ ...s })));
@@ -365,11 +390,15 @@ export async function runDayStart(
       {
         draftName: `${input.date} 採購需求`,
         sourcePrepPlanId: result.prepPlanId!,
-        notes: '由一日開工精靈建立（數量已扣除現有庫存）',
+        notes: input.availableStockKg
+          ? '由一日開工精靈建立（數量已扣除庫存；同批多天開工時，前幾天已用掉的庫存不重複計算）'
+          : '由一日開工精靈建立（數量已扣除現有庫存）',
       },
       uid,
     );
-    return await netDraftAgainstInventory(db, result.purchaseDraftId, uid);
+    const netted = await netDraftAgainstInventory(db, result.purchaseDraftId, uid, input.availableStockKg);
+    result.remainingStockKg = netted.remainingStockKg;
+    return netted.detail;
   });
   if (!okDraft) return result;
 

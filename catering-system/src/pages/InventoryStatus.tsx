@@ -6,6 +6,7 @@ import type { IngredientMaster, InventoryDoc, InventoryBatch, FreshnessState, St
 import { pricePerKgFromDefault, todayLocalIsoDate } from '@/services/marketPriceService';
 import { listAllBatches } from '@/services/inventoryBatchService';
 import { batchState } from '@/services/freshnessService';
+import { AnimatePresence } from 'framer-motion';
 import { PreservationDialog, type PreservationSource } from '@/components/inventory/PreservationDialog';
 import { createSeededBatch } from '@/services/inventoryBatchService';
 import { planInitialBatchSeedBatch } from '@/services/initialBatchSeedPlanner';
@@ -510,20 +511,22 @@ export default function InventoryStatus() {
       )}
 
       {/* Feature 081: 加工延壽對話框 */}
-      {preserveTarget && (
-        <PreservationDialog
-          db={db}
-          source={preserveTarget}
-          ingredient={ingredientById.get(preserveTarget.ingredientId)}
-          performedBy={auth.currentUser?.email ?? auth.currentUser?.uid ?? 'unknown'}
-          onClose={() => setPreserveTarget(null)}
-          onDone={(newBatchId) => {
-            setPreserveTarget(null);
-            toast({ title: '加工延壽完成', description: `已建立加工批次 #${newBatchId}` });
-            load();
-          }}
-        />
-      )}
+      <AnimatePresence>
+        {preserveTarget && (
+          <PreservationDialog
+            db={db}
+            source={preserveTarget}
+            ingredient={ingredientById.get(preserveTarget.ingredientId)}
+            performedBy={auth.currentUser?.email ?? auth.currentUser?.uid ?? 'unknown'}
+            onClose={() => setPreserveTarget(null)}
+            onDone={(newBatchId) => {
+              setPreserveTarget(null);
+              toast({ title: '加工延壽完成', description: `已建立加工批次 #${newBatchId}` });
+              load();
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       <Toaster />
       {confirmDialog}

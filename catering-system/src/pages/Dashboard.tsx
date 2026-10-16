@@ -13,6 +13,7 @@ import { listAllBatches } from '@/services/inventoryBatchService';
 import { weekendDecayAlerts, nextServiceDay, type WeekendDecayAlert } from '@/services/freshnessService';
 import { listRecipes } from '@/services/recipeService';
 import { suggestUseItUpRecipes, type UseItUpSuggestion } from '@/services/useItUpPlanner';
+import { AnimatePresence } from 'framer-motion';
 import { PreservationDialog, type PreservationSource } from '@/components/inventory/PreservationDialog';
 import { formatWeight } from '@/utils/unitConverter';
 import { useWeightUnit } from '@/contexts/WeightUnitContext';
@@ -389,20 +390,22 @@ export default function Dashboard() {
       </div>
 
       {/* Feature 079: 加工延壽對話框 */}
-      {preserveTarget && (
-        <PreservationDialog
-          db={db}
-          source={preserveTarget}
-          ingredient={ingredientMasters.find((i) => i.id === preserveTarget.ingredientId)}
-          performedBy={auth.currentUser?.email ?? auth.currentUser?.uid ?? 'unknown'}
-          onClose={() => setPreserveTarget(null)}
-          onDone={(newBatchId) => {
-            setPreserveTarget(null);
-            toast({ title: '加工延壽完成', description: `已建立加工批次 #${newBatchId}` });
-            setRefreshKey((k) => k + 1);
-          }}
-        />
-      )}
+      <AnimatePresence>
+        {preserveTarget && (
+          <PreservationDialog
+            db={db}
+            source={preserveTarget}
+            ingredient={ingredientMasters.find((i) => i.id === preserveTarget.ingredientId)}
+            performedBy={auth.currentUser?.email ?? auth.currentUser?.uid ?? 'unknown'}
+            onClose={() => setPreserveTarget(null)}
+            onDone={(newBatchId) => {
+              setPreserveTarget(null);
+              toast({ title: '加工延壽完成', description: `已建立加工批次 #${newBatchId}` });
+              setRefreshKey((k) => k + 1);
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       <Toaster />
     </div>

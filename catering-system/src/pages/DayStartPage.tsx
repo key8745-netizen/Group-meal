@@ -14,6 +14,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Rocket, Sparkles, CheckCircle2, XCircle, Circle, Loader2, MinusCircle, ListChecks, CalendarDays } from 'lucide-react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
@@ -27,7 +28,7 @@ import { listAllBatches } from '@/services/inventoryBatchService';
 import { weekendDecayAlerts } from '@/services/freshnessService';
 import { suggestUseItUpRecipes } from '@/services/useItUpPlanner';
 import { PreservationDialog, type PreservationSource } from '@/components/inventory/PreservationDialog';
-import { MenuBalanceBar } from '@/components/menus/MenuBalanceBar';
+import { CraftingBench } from '@/components/dayStart/CraftingBench';
 import { planBalancedMenu, type BalancedMenuQuota } from '@/services/balancedMenuPlanner';
 import { parseStoredQuotas, serializeQuotas } from '@/services/menuQuotaPreference';
 import { MenuQuotaEditor } from '@/components/menus/MenuQuotaEditor';
@@ -58,15 +59,15 @@ type Phase = 'pick' | 'running' | 'done';
 function StepIcon({ status }: { status: DayStartStep['status'] }) {
   switch (status) {
     case 'done':
-      return <CheckCircle2 size={16} className="text-green-600" />;
+      return <CheckCircle2 size={16} className="craft-ok" />;
     case 'failed':
-      return <XCircle size={16} className="text-red-600" />;
+      return <XCircle size={16} className="craft-warn" />;
     case 'running':
-      return <Loader2 size={16} className="animate-spin text-primary" />;
+      return <Loader2 size={16} className="animate-spin" style={{ color: 'var(--craft-ember)' }} />;
     case 'skipped':
-      return <MinusCircle size={16} className="text-muted-foreground/50" />;
+      return <MinusCircle size={16} className="craft-muted opacity-50" />;
     default:
-      return <Circle size={16} className="text-muted-foreground/40" />;
+      return <Circle size={16} className="craft-muted opacity-40" />;
   }
 }
 
@@ -163,18 +164,6 @@ export default function DayStartPage() {
     [costIngredients, stockKgById],
   );
 
-  // Feature 089: 已選菜色的類別，供菜單平衡檢查。
-  const pickedCategories = useMemo(
-    () => recipes.filter((r) => picked.has(r.id)).map((r) => r.category),
-    [recipes, picked],
-  );
-
-  // Feature 092: 已選中「近期才出過」的菜（跨天重複提醒）。
-  const pickedRepeats = useMemo(
-    () => recipes.filter((r) => picked.has(r.id) && recentlyUsedSet.has(r.id)).map((r) => r.name),
-    [recipes, picked, recentlyUsedSet],
-  );
-
   // Feature 085: 快到期批次（熬不過下一個開膳日）——供「加工延壽」提示。
   const nearExpiryBatches = useMemo(() => {
     if (batches.length === 0 || costIngredients.length === 0) return [];
@@ -196,6 +185,8 @@ export default function DayStartPage() {
         .map((r) => ({ id: r.id, name: r.name, ingredientIds: (r.recipeIngredients ?? []).map((ri) => ri.ingredientId) })),
     );
   }, [batches, costIngredients, recipes]);
+
+  const clearingIds = useMemo(() => new Set(clearStockSuggestions.map((s) => s.recipeId)), [clearStockSuggestions]);
 
   async function handleSafetyRestock() {
     const lines = planSafetyRestock(lowStock);
@@ -301,7 +292,6 @@ export default function DayStartPage() {
   // Feature 090: 一鍵均衡菜單——依配額（1主菜+1主食+2蔬菜+1湯）自動挑，
   // 每類內以「惜食>庫存可出>划算」排序。整合分類/清庫存/成本/庫存訊號。
   function handleBalancedMenu() {
-    const clearing = new Set(clearStockSuggestions.map((s) => s.recipeId));
     const candidates = recipes
       .filter((r) => r.isActive !== false)
       .map((r) => {
@@ -311,7 +301,7 @@ export default function DayStartPage() {
           recipeId: r.id,
           name: r.name,
           category: r.category,
-          clearsExpiring: clearing.has(r.id),
+          clearsExpiring: clearingIds.has(r.id),
           stockFeasible:
             assess?.maxServingsFromStock != null ? assess.maxServingsFromStock >= headCount : undefined,
           costPerServing: est?.costPerServing ?? null,
@@ -416,7 +406,7 @@ export default function DayStartPage() {
   }, [recipes, rankedIds, search]);
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6 p-4 sm:p-6">
+    <div className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
       <div className="flex items-center gap-2">
         <Rocket size={22} className="text-primary" />
         <div>
@@ -592,192 +582,81 @@ export default function DayStartPage() {
             </div>
           </section>
 
-          {/* ── 2. 挑菜 ── */}
-          <section className="rounded-lg border p-4">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-muted-foreground">
-                2️⃣ 今天出什麼菜（已選 {picked.size} 道）
-              </h2>
-              <div className="flex items-center gap-2">
-                <Input
-                  placeholder="搜尋配方…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="h-8 w-40 text-sm"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleLoadMonthlyMenu}
-                  disabled={loadingMonthly || recipes.length === 0}
-                  className="gap-1.5"
-                >
+          {/* ── 2. 挑菜＋開工：灶台合成 ── */}
+          {(showQuotaEditor || autoLoadedNote || monthlyUnmatched.length > 0) && (
+            <div className="flex flex-col gap-3">
+              {showQuotaEditor && <MenuQuotaEditor quotas={menuQuotas} onChange={updateQuotas} />}
+              {autoLoadedNote && (
+                <div className="rounded-md bg-green-50 p-3 text-xs text-green-800">📋 {autoLoadedNote}</div>
+              )}
+              {monthlyUnmatched.length > 0 && (
+                <div className="rounded-md bg-amber-50 p-3 text-xs text-amber-700">
+                  月菜單中這 {monthlyUnmatched.length} 道找不到配方，未帶入：{monthlyUnmatched.join('、')}
+                  <span className="block pt-1">
+                    可至「配方管理 → 從月菜單產生配方草稿」建立後再回來帶入。
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          <CraftingBench
+            recipes={recipes}
+            bagRecipes={displayedRecipes}
+            loading={loadingRecipes}
+            picked={picked}
+            onToggle={togglePick}
+            quotas={menuQuotas}
+            search={search}
+            onSearchChange={setSearch}
+            toolbar={
+              <>
+                <button type="button" className="craft-chip inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs" onClick={handleLoadMonthlyMenu} disabled={loadingMonthly || recipes.length === 0}>
                   <CalendarDays size={13} />
                   {loadingMonthly ? '載入中…' : '帶入月菜單'}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleBalancedMenu}
-                  disabled={recipes.length === 0}
-                  className="gap-1.5 border-emerald-400 text-emerald-700 dark:text-emerald-400"
-                >
+                </button>
+                <button type="button" className="craft-chip inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs" onClick={handleBalancedMenu} disabled={recipes.length === 0}>
                   <Sparkles size={13} />
                   一鍵均衡菜單
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowQuotaEditor((v) => !v)}
-                  className="px-2 text-xs text-muted-foreground"
-                  title="調整一鍵均衡菜單的各類配額"
-                >
+                </button>
+                <button type="button" className="craft-chip rounded-full px-3 py-1.5 text-xs" aria-pressed={showQuotaEditor} onClick={() => setShowQuotaEditor((v) => !v)} title="調整灶台格子與一鍵均衡的各類配額">
                   配額
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleRecommend}
-                  disabled={recommending || recipes.length === 0}
-                  className="gap-1.5"
-                >
+                </button>
+                <button type="button" className="craft-chip inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs" onClick={handleRecommend} disabled={recommending || recipes.length === 0}>
                   <Sparkles size={13} />
                   {recommending ? '計算中…' : '推薦（依市價＋庫存）'}
-                </Button>
-              </div>
-            </div>
-
-            {showQuotaEditor && (
-              <div className="mb-3">
-                <MenuQuotaEditor quotas={menuQuotas} onChange={updateQuotas} />
-              </div>
-            )}
-
-            {picked.size > 0 && (
-              <div className="mb-3 space-y-2">
-                <MenuBalanceBar categories={pickedCategories} />
-                {pickedRepeats.length > 0 && (
-                  <p className="text-xs text-amber-700 dark:text-amber-400">
-                    🔁 近 3 天出過：{pickedRepeats.join('、')}（想換點花樣可考慮替換）
-                  </p>
-                )}
-              </div>
-            )}
-
-            {autoLoadedNote && (
-              <div className="mb-3 rounded-md bg-green-50 p-3 text-xs text-green-800">
-                📋 {autoLoadedNote}
-              </div>
-            )}
-
-            {monthlyUnmatched.length > 0 && (
-              <div className="mb-3 rounded-md bg-amber-50 p-3 text-xs text-amber-700">
-                月菜單中這 {monthlyUnmatched.length} 道找不到配方，未帶入：{monthlyUnmatched.join('、')}
-                <span className="block pt-1">
-                  可至「配方管理 → 從月菜單產生配方草稿」建立後再回來帶入。
-                </span>
-              </div>
-            )}
-
-            {loadingRecipes ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">載入配方中…</p>
-            ) : recipes.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">
-                還沒有配方。先到「配方管理」建立，或用「從月菜單產生配方草稿」一鍵匯入。
-              </p>
-            ) : (
-              <ul className="max-h-96 divide-y overflow-y-auto rounded-md border">
-                {displayedRecipes.map((recipe) => {
-                  const assessment = assessmentByRecipeId?.get(recipe.id);
-                  const estimate = costEstimateByRecipeId.get(recipe.id);
-                  const rank = rankedIds ? rankedIds.indexOf(recipe.id) : -1;
-                  return (
-                    <li key={recipe.id}>
-                      <label className="flex cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-muted/20">
-                        <input
-                          type="checkbox"
-                          checked={picked.has(recipe.id)}
-                          onChange={() => togglePick(recipe.id)}
-                        />
-                        <span className="flex-1 font-medium text-foreground">{recipe.name}</span>
-                        {rank >= 0 && rank < RECOMMEND_PRECHECK_COUNT && (
-                          <Badge variant="default">推薦 #{rank + 1}</Badge>
-                        )}
-                        {assessment ? (
-                          <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
-                            {assessment.estimatedCostPerServing != null
-                              ? `$${assessment.estimatedCostPerServing.toFixed(1)}/份`
-                              : '成本未知'}
-                            {assessment.maxServingsFromStock != null &&
-                              `・庫存可做 ${assessment.maxServingsFromStock} 份`}
-                          </span>
-                        ) : estimate && estimate.costPerServing != null ? (
-                          <span
-                            className="whitespace-nowrap text-xs tabular-nums text-muted-foreground"
-                            title={estimate.complete ? '所有食材皆有價' : '部分食材無價，成本偏低'}
-                          >
-                            ${estimate.costPerServing.toFixed(1)}/份
-                            {!estimate.complete && <span className="text-amber-600">*</span>}
-                          </span>
-                        ) : null}
-                      </label>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </section>
-
-          {/* ── 3. 開工 ── */}
-          <section className="rounded-lg border p-4">
-            <h2 className="mb-3 text-sm font-semibold text-muted-foreground">3️⃣ 一鍵開工</h2>
-            {picked.size > 0 && pickedCost.pricedDishCount > 0 && (
-              <p className="mb-3 rounded-md bg-muted/30 p-3 text-sm tabular-nums">
-                💰 預估食材成本：每人約 <span className="font-semibold">${pickedCost.perPerson.toFixed(1)}</span>
-                ・{headCount} 人共約 <span className="font-semibold">NT$ {Math.round(pickedCost.perPerson * headCount).toLocaleString('zh-TW')}</span>
-                {pickedCost.incompleteCount > 0 && (
-                  <span className="text-xs text-amber-700">（{pickedCost.incompleteCount} 道成本不完整，實際會略高）</span>
-                )}
-                {targetCostPerServing > 0 && (
-                  pickedCost.perPerson <= targetCostPerServing ? (
-                    <span className="block pt-1 text-xs font-medium text-green-700">
-                      ✅ 低於目標 ${targetCostPerServing}/人（還有 ${(targetCostPerServing - pickedCost.perPerson).toFixed(1)} 空間）
-                    </span>
-                  ) : (
-                    <span className="block pt-1 text-xs font-medium text-red-600">
-                      ⚠️ 超出目標 ${targetCostPerServing}/人（+${(pickedCost.perPerson - targetCostPerServing).toFixed(1)}/人，
-                      {headCount} 人多 NT$ {Math.round((pickedCost.perPerson - targetCostPerServing) * headCount).toLocaleString('zh-TW')}）
-                    </span>
-                  )
-                )}
-                <span className="block pt-1 text-xs text-muted-foreground">
-                  {costSnapshot ? '以今日市價優先、無市價項用基準價估算' : '今日無市價快取，以基準價估算（可先到市場行情更新）'}
-                </span>
-              </p>
-            )}
-            <p className="mb-3 text-xs text-muted-foreground">
-              系統會依序建立：當日菜單 → 備料需求 → 採購需求草稿（自動扣除現有庫存，
-              只列實際要買的量）→ 製程任務 → 人力排程建議。
-              全部都是草稿，之後可在各頁面調整；採購不會自動送出。
-            </p>
-            <Button
-              size="lg"
-              className="gap-2"
-              disabled={picked.size === 0}
-              onClick={handleStart}
-            >
-              <Rocket size={16} />
-              開工（{picked.size} 道菜 × {headCount} 人份）
-            </Button>
-          </section>
+                </button>
+              </>
+            }
+            costEstimateByRecipeId={costEstimateByRecipeId}
+            assessmentByRecipeId={assessmentByRecipeId}
+            rankedIds={rankedIds}
+            rankBadgeCount={RECOMMEND_PRECHECK_COUNT}
+            clearingIds={clearingIds}
+            recentIds={recentlyUsedSet}
+            headCount={headCount}
+            pickedCost={pickedCost}
+            targetCostPerServing={targetCostPerServing}
+            hasMarketSnapshot={costSnapshot != null}
+            onStart={handleStart}
+          />
         </>
       )}
 
       {(phase === 'running' || phase === 'done') && (
-        <section className="rounded-lg border p-4">
-          <h2 className="mb-4 text-sm font-semibold text-muted-foreground">
-            {phase === 'running' ? '處理中…' : runResult?.completed ? '✅ 今天的準備工作都排好了' : '⚠️ 部分步驟未完成'}
-          </h2>
+        <section className="craft craft-surface flex flex-col gap-4 rounded-[24px] p-5" aria-busy={phase === 'running'}>
+          <div className="flex flex-col gap-2">
+            <h2 className="text-sm font-medium">
+              {phase === 'running' ? '烹煮中…' : runResult?.completed ? '起鍋！今天的準備工作都排好了' : '部分步驟未完成'}
+            </h2>
+            <div className="craft-bar" aria-hidden="true">
+              <motion.i
+                initial={false}
+                animate={{ width: `${steps.length > 0 ? (steps.filter((st) => st.status === 'done').length / steps.length) * 100 : 0}%` }}
+                transition={{ type: 'spring', stiffness: 90, damping: 18 }}
+              />
+            </div>
+          </div>
           <ul className="space-y-3">
             {steps.map((step) => (
               <li key={step.key} className="flex items-start gap-3 text-sm">
@@ -786,11 +665,11 @@ export default function DayStartPage() {
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{step.label}</span>
                     {phase === 'done' && step.status === 'done' && (
-                      <Link to={step.linkTo} className="text-xs text-primary underline">查看</Link>
+                      <Link to={step.linkTo} className="text-xs underline" style={{ color: 'var(--craft-gold)' }}>查看</Link>
                     )}
                   </div>
                   {step.detail && (
-                    <p className={`text-xs ${step.status === 'failed' ? 'text-red-600' : 'text-muted-foreground'}`}>
+                    <p className={`text-xs ${step.status === 'failed' ? 'craft-warn' : 'craft-muted'}`}>
                       {step.detail}
                     </p>
                   )}
@@ -802,9 +681,9 @@ export default function DayStartPage() {
           {phase === 'done' && (
             <>
               {runResult && runResult.warnings.length > 0 && (
-                <div className="mt-4 rounded-md bg-amber-50 p-3">
-                  <p className="mb-1 text-xs font-medium text-amber-800">請人工確認：</p>
-                  <ul className="list-disc space-y-0.5 pl-4 text-xs text-amber-700">
+                <div className="craft-result rounded-2xl p-3">
+                  <p className="mb-1 text-xs font-medium craft-warn">請人工確認：</p>
+                  <ul className="list-disc space-y-0.5 pl-4 text-xs craft-muted">
                     {runResult.warnings.slice(0, 6).map((w) => (
                       <li key={w}>{w}</li>
                     ))}
@@ -814,11 +693,11 @@ export default function DayStartPage() {
                   </ul>
                 </div>
               )}
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Button className="gap-1.5" onClick={() => navigate('/daily-ops')}>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className="craft-fire inline-flex min-h-[40px] items-center gap-1.5 rounded-full px-5 text-sm font-medium" onClick={() => navigate('/daily-ops')}>
                   <ListChecks size={14} /> 查看每日工作總覽
-                </Button>
-                <Button variant="outline" onClick={handleReset}>再排一天</Button>
+                </button>
+                <button type="button" className="craft-chip min-h-[40px] rounded-full px-5 text-sm" onClick={handleReset}>再排一天</button>
               </div>
             </>
           )}
@@ -826,20 +705,22 @@ export default function DayStartPage() {
       )}
 
       {/* Feature 085: 加工延壽對話框 */}
-      {preserveTarget && (
-        <PreservationDialog
-          db={db}
-          source={preserveTarget}
-          ingredient={costIngredients.find((i) => i.id === preserveTarget.ingredientId)}
-          performedBy={auth.currentUser?.email ?? auth.currentUser?.uid ?? 'unknown'}
-          onClose={() => setPreserveTarget(null)}
-          onDone={(newBatchId) => {
-            setPreserveTarget(null);
-            toast({ title: '加工延壽完成', description: `已建立加工批次 #${newBatchId}` });
-            listAllBatches(db).then(setBatches).catch(() => {});
-          }}
-        />
-      )}
+      <AnimatePresence>
+        {preserveTarget && (
+          <PreservationDialog
+            db={db}
+            source={preserveTarget}
+            ingredient={costIngredients.find((i) => i.id === preserveTarget.ingredientId)}
+            performedBy={auth.currentUser?.email ?? auth.currentUser?.uid ?? 'unknown'}
+            onClose={() => setPreserveTarget(null)}
+            onDone={(newBatchId) => {
+              setPreserveTarget(null);
+              toast({ title: '加工延壽完成', description: `已建立加工批次 #${newBatchId}` });
+              listAllBatches(db).then(setBatches).catch(() => {});
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       <Toaster />
       {confirmDialog}

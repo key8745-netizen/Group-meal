@@ -101,6 +101,43 @@ console.log('\n── dayStartService: defaultScheduleInput ──────�
     ['sink', 'cuttingStation', 'prepTable', 'wok'].every((t) => input.availableEquipment.some((e) => e.type === t)));
 }
 
+console.log('\n── dayStartService: multi-day stock carry-over (week start) ───────────');
+
+// ── regression: 5 days × 8kg cabbage vs 10kg stock → buy 30kg total, not 0 ──
+{
+  let stock = new Map([['高麗菜', 10]]);
+  let totalNet = 0;
+  for (let day = 0; day < 5; day++) {
+    const res = netItemsAgainstStock([item('高麗菜', 8000)], stock);
+    totalNet += res.items[0].demandQuantity;
+    stock = res.remainingStockKg;
+  }
+  check('5 days carry-over: total net purchase 30000g', totalNet, 30000);
+  check('5 days carry-over: stock exhausted', stock.get('高麗菜'), 0);
+}
+
+// ── remaining stock after partial use ─────────────────────────────────────
+{
+  const res = netItemsAgainstStock([item('高麗菜', 4000)], new Map([['高麗菜', 10]]));
+  check('remaining after 4kg of 10kg', res.remainingStockKg.get('高麗菜'), 6);
+}
+
+// ── same ingredient twice in one call shares stock ────────────────────────
+{
+  const res = netItemsAgainstStock([item('蛋', 3000), item('蛋', 3000)], new Map([['蛋', 4]]));
+  check('duplicate lines: first net', res.items[0].demandQuantity, 0);
+  check('duplicate lines: second net', res.items[1].demandQuantity, 2000);
+}
+
+// ── pcs and untouched ingredients keep their stock; input map not mutated ──
+{
+  const input = new Map([['蛋', 5], ['米', 20]]);
+  const res = netItemsAgainstStock([item('蛋', 30, 'pcs')], input);
+  check('pcs: stock unchanged', res.remainingStockKg.get('蛋'), 5);
+  check('untouched ingredient kept', res.remainingStockKg.get('米'), 20);
+  check('input map not mutated', input.get('蛋'), 5);
+}
+
 console.log(`\n${'─'.repeat(60)}`);
 console.log(`Result: ${passed} passed, ${failed} failed`);
 if (failed > 0) throw new Error(`${failed} validation(s) failed`);

@@ -104,6 +104,11 @@ export interface IngredientMaster {
    * 與菜色無關；製程任務產生時附加到該食材第一個前處理步驟的要領，提醒現場。選填。
    */
   prepNote?: string;
+  /**
+   * 耗損率：買進重量裡削皮、去頭尾、挑掉的比例（0.25 = 25%）。配方份量是淨重，
+   * 備料／採購量 = 淨重 ÷ (1 − 耗損率)，見 `wasteFactor.ts`。未設 = 0。
+   */
+  wasteFactor?: number;
 }
 
 // ─── Recipes (Feature 011: 配方引用食材主檔) ──────────────────────────────────
@@ -227,8 +232,15 @@ export interface PrepPlanItem {
   ingredientId: string;
   /** Snapshot of the ingredient's name (from the source recipe's RecipeIngredientItem). */
   ingredientNameSnapshot: string;
-  /** Sum of contributedBaseQuantity across recipeContributions. */
+  /**
+   * 要備／要買的量（毛重）＝ 淨重合計 ÷ (1 − wasteFactorApplied)。無耗損時等於
+   * contributedBaseQuantity 的合計（舊快照一律如此）。
+   */
   requiredBaseQuantity: number;
+  /** 淨重合計（contributedBaseQuantity 加總）；只在有套用耗損時寫入。 */
+  netBaseQuantity?: number;
+  /** 建立快照當下套用的耗損率；只在 > 0 時寫入。 */
+  wasteFactorApplied?: number;
   baseUnit: IngredientBaseUnit;
   recipeContributions: PrepPlanRecipeContribution[];
   notes?: string;

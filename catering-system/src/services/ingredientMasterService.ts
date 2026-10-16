@@ -20,6 +20,7 @@ import {
 } from 'firebase/firestore';
 import type { CutType, IngredientBaseUnit, IngredientMaster, StorageType } from './types';
 import { normalizeIngredientName } from '@/utils/normalizeIngredientName';
+import { normalizeWasteFactor } from './wasteFactor';
 
 const COLLECTION = 'ingredients';
 
@@ -52,6 +53,8 @@ export interface IngredientMasterInput {
   defaultCutType?: CutType;
   /** Feature 102: 此食材的前處理備註（選填；如「去蒂頭、切頭去尾」）。 */
   prepNote?: string;
+  /** 耗損率（0–0.9；0 或未填 = 不計耗損）。 */
+  wasteFactor?: number;
 }
 
 /**
@@ -112,6 +115,7 @@ export async function createIngredient(
     ...freshnessWriteFields(input),
     ...(input.defaultCutType && input.defaultCutType !== 'none' ? { defaultCutType: input.defaultCutType } : {}),
     ...(input.prepNote && input.prepNote.trim() ? { prepNote: input.prepNote.trim() } : {}),
+    ...(normalizeWasteFactor(input.wasteFactor) > 0 ? { wasteFactor: normalizeWasteFactor(input.wasteFactor) } : {}),
     isActive: true,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -130,7 +134,7 @@ export async function createIngredient(
  */
 const LEGACY_CARRYOVER_FIELDS = [
   'id', 'unit', 'unitCost', 'minStockLevel', 'supplierIds',
-  'wasteFactor', 'isOcr', 'verified',
+  'isOcr', 'verified',
 ] as const;
 
 export async function updateIngredient(
@@ -178,6 +182,8 @@ export async function updateIngredient(
     ...(input.defaultCutType && input.defaultCutType !== 'none' ? { defaultCutType: input.defaultCutType } : {}),
     // Feature 102: 前處理備註（表單即權威——清空即移除）。
     ...(input.prepNote && input.prepNote.trim() ? { prepNote: input.prepNote.trim() } : {}),
+    // 耗損率（表單即權威——清空 = 0 = 移除；表單會先帶入既有值）。
+    ...(normalizeWasteFactor(input.wasteFactor) > 0 ? { wasteFactor: normalizeWasteFactor(input.wasteFactor) } : {}),
     isActive: existing.isActive !== false,
     createdAt: existing.createdAt ?? serverTimestamp(),
     createdBy: existing.createdBy ?? uid,

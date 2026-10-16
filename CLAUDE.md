@@ -139,7 +139,7 @@ in the Netlify dashboard it can be removed.)
 
 | Collection | Doc ID | Purpose |
 |---|---|---|
-| `ingredients` | slug | Master ingredient data (name, unit, cost, wasteFactor) |
+| `ingredients` | slug | Master ingredient data (name, unit, cost, `wasteFactor` 耗損率) |
 | `inventory` | same as ingredientId | Live stock in kg (`currentStock`) |
 | `inventory/{id}/transactions` | auto | Audit trail (restock / deduct / adjustment) |
 | `recipes` | auto | Recipes; `recipeIngredients[]` is the BOM (`baseQuantity` per serving) |
@@ -147,11 +147,11 @@ in the Netlify dashboard it can be removed.)
 | `prepPlans` / `purchaseDemandDrafts` / `productionWorkflowPlans` / `productionScheduleSuggestions` | auto | The 今日開工 chain outputs |
 | `purchaseOrders` | auto | Purchase orders (DRAFT → PENDING → RECEIVED / CANCELLED); new orders start PENDING, DRAFT only exists on old docs |
 | `publicOrderShares` | share token | Feature 107: supplier-visible snapshot behind `/share/:shareToken` |
-| `performanceLogs/{tenantId}/orderFulfillments` | auto | Written on receive by `logOrderFulfillment`; **nothing reads it** since the AI suggestion layer was removed |
 | `settings` | tenantId | System thresholds (configService) |
 
 Legacy collections still in `firestore.rules` but with **no code path** after the 2026-10 cleanup:
-`menus`, `orders`, `purchases`, `mealPlans`, `capacityFeasibilityChecks`, `modelConfigIdempotencyLocks`.
+`menus`, `orders`, `purchases`, `mealPlans`, `capacityFeasibilityChecks`, `modelConfigIdempotencyLocks`,
+`performanceLogs` (receiving stopped writing it in 2026-10; nothing reads it).
 Their data is untouched; don't build on them.
 
 ### Service Patterns
@@ -162,7 +162,7 @@ Two patterns exist — do not mix them:
    `purchaseOrderService`, `configService`, plus components `InventoryAudit`, `ManualPurchaseForm`
 
 2. **`db: Firestore` parameter** — services designed for both browser and scripts:
-   `inventoryService`, `performanceService`, and the feature services (`recipeService`, `prepPlanService`, …)
+   `inventoryService` and the feature services (`recipeService`, `prepPlanService`, …)
 
 ### 死碼清理（2026-10）
 
@@ -275,11 +275,16 @@ only display changes. `inputToKg(value, unit)` converts unit-aware inputs back t
 ## BOM expansion
 
 `prepPlanService` expands a recipe menu: `requiredBaseQuantity = Σ recipeIngredient.baseQuantity × servings`
-(g / ml / pcs). ⚠️ It does **not** apply `wasteFactor` — the old `menus`-based formula did, and was
-removed with that pipeline. `wasteFactor` is now only a legacy carry-over field on old ingredient docs
-(not editable in `IngredientMasterForm`), and whether `baseQuantity` means net (edible) or gross
-(purchased) weight is **undecided** — settle that with the owner before adding a loss factor.
-`inventory/{id}.currentStock` is always in kg.
+(g / ml / pcs), then **grosses each aggregated item up by the ingredient's waste factor**
+(`applyWasteFactors`). Owner decision (2026-10): recipe `baseQuantity` is **net (edible) weight**;
+`IngredientMaster.wasteFactor` is the fraction of purchased weight lost to trimming (0.25 = 25%), so
+**gross = net ÷ (1 − wasteFactor)** — `wasteFactor.ts` (`grossBaseQuantity`, clamped to `[0, 0.9]`).
+`requiredBaseQuantity` is the gross amount (drives purchase drafts, stock deduction, workflow tasks);
+`PrepPlanItem.netBaseQuantity` / `wasteFactorApplied` are written only when a factor applied. Cost
+estimates and 庫存可做份數 in `costAwareMenuSuggestionService` use gross too. `wasteFactor` is edited
+as 耗損率（%） in `IngredientMasterForm` (form-authoritative; already in `ingredientAllowedFields()`, so
+**no rules redeploy**). Old prep plans keep their snapshot quantities. `inventory/{id}.currentStock`
+is always in kg.
 
 Purchase netting: `dayStartService.netItemsAgainstStock()` returns `remainingStockKg`; `runWeekStart`
 threads it day to day (`DayStartInput.availableStockKg`) so a week's daily drafts never subtract the

@@ -11,6 +11,7 @@ import {
   resolveIngredientPrice,
   calculateCostAwareMenuSuggestion,
   estimateRecipeCostPerServing,
+  breakdownRecipeCost,
 } from '../costAwareMenuSuggestionService';
 import type {
   IngredientMaster,
@@ -361,6 +362,17 @@ console.log('\n(estimate) 單配方成本速估');
   check('estimate complete: cost 15', est.costPerServing, 15);
   check('estimate complete: complete=true', est.complete, true);
   check('estimate complete: priced 2/2', [est.pricedLineCount, est.totalLineCount], [2, 2]);
+}
+{
+  // 耗損率：配方 75g 淨重、耗損 25% → 毛重 100g × 0.1/g = $10；庫存 1kg 只夠 10 份
+  const waste = ingredient({ id: 'w', name: '高麗菜', wasteFactor: 0.25 });
+  const byId = new Map([[waste.id, waste]]);
+  const r = recipe({ id: 'r_waste', recipeIngredients: [line({ ingredientId: 'w', ingredientNameSnapshot: '高麗菜', baseQuantity: 75 })] });
+  check('waste: estimate uses gross weight', estimateRecipeCostPerServing(r, byId, null).costPerServing, 10);
+  check('waste: breakdown cost uses gross weight', breakdownRecipeCost(r.recipeIngredients, byId, null).lines[0].costPerServing, 10);
+  const sug = calculateCostAwareMenuSuggestion({ targetServingCount: 10 }, [r], [waste], { w: 1 }, null);
+  check('waste: assessment cost uses gross weight', sug.items[0].estimatedCostPerServing, 10);
+  check('waste: servings from stock use gross weight', sug.items[0].maxServingsFromStock, 10);
 }
 {
   // 部分無價 → 只加總有價行，complete=false

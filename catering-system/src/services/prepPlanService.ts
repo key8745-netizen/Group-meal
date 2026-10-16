@@ -5,7 +5,10 @@
  * A prep plan is derived from a `/recipeMenus/{sourceRecipeMenuId}` document
  * at creation time: for each recipe referenced by the menu, its
  * `recipeIngredients[]` (baseQuantity) are scaled by the menu's `servings`
- * and aggregated across recipes by `ingredientId + baseUnit`.
+ * and aggregated across recipes by `ingredientId + baseUnit`. Recipe
+ * quantities are net (edible) weight; each aggregated item is then grossed up
+ * by the ingredient's `wasteFactor` (`applyWasteFactors`) so 備料／採購／扣料
+ * all use the weight actually bought.
  *
  * `prepItems` and `sourceRecipeMenuId` are immutable after creation — only
  * `name`, `date`, and `notes` may be edited.
@@ -31,6 +34,7 @@ import type {
   Recipe,
   RecipeMenu,
 } from './types';
+import { grossBaseQuantity, normalizeWasteFactor } from './wasteFactor';
 
 const COLLECTION = 'prepPlans';
 
@@ -63,6 +67,27 @@ export async function getPrepPlan(db: Firestore, id: string): Promise<PrepPlan |
   const snap = await getDoc(doc(db, COLLECTION, id));
   if (!snap.exists()) return null;
   return { id: snap.id, ...snap.data() } as PrepPlan;
+}
+
+/**
+ * Pure: grosses up aggregated net quantities by each ingredient's waste
+ * factor. Items with no (or zero) waste factor are returned unchanged, so
+ * snapshots stay identical to before for ingredients without one.
+ */
+export function applyWasteFactors(
+  items: PrepPlanItem[],
+  wasteFactorById: Map<string, unknown>,
+): PrepPlanItem[] {
+  return items.map((item) => {
+    const w = normalizeWasteFactor(wasteFactorById.get(item.ingredientId));
+    if (w === 0) return item;
+    return {
+      ...item,
+      netBaseQuantity: item.requiredBaseQuantity,
+      requiredBaseQuantity: grossBaseQuantity(item.requiredBaseQuantity, w),
+      wasteFactorApplied: w,
+    };
+  });
 }
 
 /**
@@ -126,7 +151,13 @@ async function buildPrepItems(
     }
   }
 
-  return Array.from(itemsByKey.values());
+  const items = Array.from(itemsByKey.values());
+  const ingredientIds = [...new Set(items.map((i) => i.ingredientId))];
+  const snaps = await Promise.all(ingredientIds.map((id) => getDoc(doc(db, 'ingredients', id))));
+  const wasteFactorById = new Map<string, unknown>(
+    snaps.filter((snap) => snap.exists()).map((snap) => [snap.id, snap.data()?.wasteFactor]),
+  );
+  return applyWasteFactors(items, wasteFactorById);
 }
 
 export async function createPrepPlanFromRecipeMenu(

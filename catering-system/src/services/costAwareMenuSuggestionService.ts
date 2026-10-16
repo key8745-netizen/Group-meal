@@ -30,6 +30,7 @@ import type {
   CostAwareRecipeAssessmentItem,
 } from './types';
 import { pricePerKgFromDefault } from './marketPriceService';
+import { grossBaseQuantity } from './wasteFactor';
 
 const COLLECTION = 'costAwareMenuSuggestions';
 
@@ -135,7 +136,8 @@ export function estimateRecipeCostPerServing(
       ? resolveIngredientPrice(ing, snapshot)
       : { pricePerBaseUnit: null };
     if (resolution.pricePerBaseUnit != null) {
-      costTotal += line.baseQuantity * resolution.pricePerBaseUnit;
+      // 配方份量是淨重；成本以含耗損的毛重計（見 wasteFactor.ts）。
+      costTotal += grossBaseQuantity(line.baseQuantity, ing?.wasteFactor) * resolution.pricePerBaseUnit;
       pricedLineCount++;
     }
   }
@@ -191,7 +193,7 @@ export function breakdownRecipeCost(
     const baseUnit = ing?.baseUnit ?? '';
     const resolution = ing ? resolveIngredientPrice(ing, snapshot) : { pricePerBaseUnit: null };
     if (resolution.pricePerBaseUnit != null) {
-      const cost = round2(line.baseQuantity * resolution.pricePerBaseUnit);
+      const cost = round2(grossBaseQuantity(line.baseQuantity, ing?.wasteFactor) * resolution.pricePerBaseUnit);
       costTotal += cost;
       priced.push({ ingredientId: line.ingredientId, name, baseQuantity: line.baseQuantity, baseUnit, costPerServing: cost, percent: null });
     } else {
@@ -337,7 +339,7 @@ export function calculateCostAwareMenuSuggestion(
       else unpricedCount++;
 
       if (resolution.pricePerBaseUnit != null) {
-        costTotal += line.baseQuantity * resolution.pricePerBaseUnit;
+        costTotal += grossBaseQuantity(line.baseQuantity, ing?.wasteFactor) * resolution.pricePerBaseUnit;
       } else {
         anyUnpriced = true;
         if (unpricedNames.length < 5) unpricedNames.push(line.ingredientNameSnapshot);
@@ -358,7 +360,7 @@ export function calculateCostAwareMenuSuggestion(
 
       if (availableBaseQty != null && line.baseQuantity > 0) {
         stockLineCount++;
-        const servings = Math.floor(availableBaseQty / line.baseQuantity);
+        const servings = Math.floor(availableBaseQty / grossBaseQuantity(line.baseQuantity, ing?.wasteFactor));
         if (minServings === null || servings < minServings) {
           minServings = servings;
           limitingName = line.ingredientNameSnapshot;

@@ -67,6 +67,10 @@ function toFormValues(ingredient: IngredientMaster): IngredientMasterInput {
     criticalThresholdDays: typeof ingredient.criticalThresholdDays === 'number' ? ingredient.criticalThresholdDays : 1,
     // Feature 079: 加工延壽預設良率（未設定則留空）。
     processedYieldRatio: typeof ingredient.processedYieldRatio === 'number' ? ingredient.processedYieldRatio : undefined,
+    // 這三個欄位存檔時「表單即權威」，所以編輯時必須帶入既有值，否則一存就被清掉。
+    defaultCutType: ingredient.defaultCutType,
+    prepNote: ingredient.prepNote ?? '',
+    wasteFactor: typeof ingredient.wasteFactor === 'number' ? ingredient.wasteFactor : undefined,
   };
 }
 
